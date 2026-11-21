@@ -1,153 +1,127 @@
-# DeutschKarte — Teknik Proje Bağlamı ve Geliştirme Protokolü
+# DeutschKarte — Technical Context & Agent Memory
 
-> **Bağlam Ayrımı ve Otomatik Güncelleme Kuralı (Zorunlu):**
-> - **Uygulama / Site Geliştirme:** Kullanıcı **DeutschKarte** web uygulamasında yeni ders eklemek, arayüzü değiştirmek veya yeni özellik geliştirmek istediğinde bu dosyayı (`PROJECT_CONTEXT.md`) okuyun ve buradaki kuralları izleyin.
-> - **Almanya Üniversite / Dil Danışmanlığı:** Kullanıcı üniversite başvurusu, vize, anabin, çalışma takvimi veya Almanca öğrenme planı hakkında soru sorduğunda uygulama kodlarını değil, yalnızca yerel **`ALMANYA_HEDEF_PLANI.md`** dosyasını okuyun ve onu güncelleyin.
-> - **Zorunlu Kendini Güncelleme Kuralı:** Uygulamada **her yeni özellik, tasarım değişikliği, mimari güncelleme, hata düzeltmesi veya yeni ders eklemesinden sonra** (kullanıcı hatırlatmasa bile) bu `PROJECT_CONTEXT.md` dosyasını ve en alttaki **Değişiklik Günlüğü** bölümünü güncelleyin; ardından `git add`, `git commit`, `git push` ile canlı siteyi güncelleyin.
-
-**DeutschKarte**, Türkçe konuşan kullanıcıların A1'den C1'e kadar Almanca kelimeleri, artikelleri (`der`, `die`, `das`, `nur Pl.`, `nur Sg.`) ve çoğul biçimlerini aralıklı tekrar (Leitner SRS) ile kalıcı biçimde öğrenmesi için geliştirilmiş, modüler ES Module veri katmanlı ve çevrimdışı çalışabilen bir Progressive Web App (PWA) uygulamasıdır. Tüm kullanıcı arayüzü, düğmeler, ipuçları ve geri bildirimler doğal Türkçe ile yazılmıştır.
-
-- **GitHub Deposu:** `https://github.com/SohoTakuan/deutschkarte`
-- **Canlı Adres (GitHub Pages):** `https://sohotakuan.github.io/deutschkarte/`
+> [!IMPORTANT]
+> **Agent Rules (Read First):**
+> 1. **Context Separation:** Read this file (`PROJECT_CONTEXT.md`) **only** for DeutschKarte app features, UI/design updates, bug fixes, or adding vocabulary lessons. For Germany university admissions, language study strategy, `anabin`, or `36F` visa advising, read **only** local `ALMANYA_HEDEF_PLANI.md` (do not scan app source files).
+> 2. **Output & Content Language:** Write **all** user-facing UI labels, feedback, study tips, and direct responses to the user in **natural Turkish**. Verify all German vocabulary, articles, plurals, and example sentences against **Duden** standards.
+> 3. **Mandatory Self-Update & Deploy:** After **any** feature addition, UI/design edit, bug fix, security change, or new vocabulary lesson (even if unprompted), update this file (file list, schema/architecture, and **Changelog**), verify syntax/checks, and push tracked changes (`git add`, `git commit`, `git push`) to deploy live.
+> 4. **Public Repo Privacy:** Never write local OS user paths (`C:\Users\...`), real email addresses, personal access tokens/secrets, or `ALMANYA_HEDEF_PLANI.md` into tracked files or commits.
 
 ---
 
-## Dosya Yapısı
+## 1. Repository & Live Deployment
 
-- `index.html`: Uygulama iskeleti (`Çalış`, `Kelime Sözlüğü`, tema değiştirici, `İlerleme` penceresi), sıkı Content-Security-Policy (`script-src 'self'`), `referrer="no-referrer"` ve PWA meta etiketleri.
-- `theme-init.js`: İlk açılışta beyaz parlamayı önleyen harici tema başlatıcı.
-- `boot-guard.js`: `file://` protokolü uyarısı ve 3 saniyelik başlatma kurtarma denetleyicisi.
-- `styles.css`: Leitner kartı estetiğine dayalı aydınlık ve Prusya gecesi karanlık mod tasarım token'ları (`--desk`, `--card`, `--ink`, `--accent-der/die/das/pl/sg`, `--on-accent`), tipografi (`Bricolage Grotesque` + `Source Sans 3`), duyarlı düzen ve erişilebilirlik stilleri.
-- `app.js`: Çalışma modları (`Karma Mod`, `Sadece Şıklı`, `Sadece Yazmalı`, `Artikel Pratiği`, `Zorlandıklarım`), çift yönlü pratik (`TR / DE` ve `DE / TR`), 5 kutulu Leitner aralıklı tekrar motoru (`cards`), günlük hedef/seri (`daily`), `de-DE` Web Speech API telaffuz desteği, ders filtresi, aydınlık/karanlık tema yönetimi (`deutschkarte_theme`), bağımsız doğrulama, umlaut çubuğu, klavye kısayolları (`1`–`4`, `Enter`, `Alt+S`), sözlük araması ve `localStorage` JSON yedekleme + GitHub Gist senkronizasyon mantığı.
-- `sync.js`: Çevrimdışı öncelikli GitHub Gist otomatik bulut senkronizasyonu (`deutschkarte_gist_sync_v1`, Gist ID doğrulaması, `gist.githubusercontent.com` kaynak kontrolü, akıllı birleştirme `mergeStates`, silme izleri `mistakeClearedAt` ve sıfırlama baskınlığı `resetAt`).
-- `manifest.json`: Ana ekrana eklenebilir PWA yapılandırması.
-- `sw.js`: Çevrimdışı önbellek yönetimi (`CACHE_VERSION` şu an `"deutschkarte-v6"` ve `PRECACHE_URLS`; yerel dosyalar için ağ-öncelikli, çevrimdışı durumda önbellek yedeği).
-- `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png`.
-- `baslat.bat`: Windows için tek tıkla Python yerel HTTP sunucusunu (`http://localhost:8000`) başlatıp tarayıcıda açan betik (ES Module CORS sorunlarını önler ve Windows Store Python takma adını atlar).
-- `data/lesson_01.js`: Ders 1 (`level: "A1"`) veri modülü (Duden doğrulamalı 71 kayıt ve her kayıt için A1 örnek cümlesi: 49 isim, 18 kalıp, 4 fiil).
-- `data/index.js`: Tüm ders modüllerini toplayan, `id` bazında tekilleştiren (`ALL_WORDS`), `level` / `lesson` / `lessonId` alanlarını normalize eden ve seviye özeti (`getLevelSummary`) üreten veri giriş noktası.
-- `PROJECT_CONTEXT.md`: Gelecek uygulama geliştirme ve ders ekleme oturumları için kalıcı teknik bellek.
-- `ALMANYA_HEDEF_PLANI.md`: Kullanıcının kişisel Almanya üniversite, dil ve vize planı (`.gitignore` içinde — yerel/özel).
+- **GitHub Repository:** `https://github.com/SohoTakuan/deutschkarte` (branch: `main`)
+- **Live PWA (GitHub Pages):** `https://sohotakuan.github.io/deutschkarte/`
+- **Design System Reference:** `~/.gemini/config/skills/frontend-design/SKILL.md`
+  - **Tokens:** Tactile Leitner index card aesthetic; Light Mode (`--desk`, `--card`, `--ink`) + Prussian-night Dark Mode; `--accent-der`, `--accent-die`, `--accent-das`, `--accent-pl`, `--accent-sg`, `--on-accent: #FFFFFF`.
+  - **Typography:** `Bricolage Grotesque` (headings) + `Source Sans 3` (body). Avoid ALL-CAPS interface labels, monospace chrome, template SaaS shadows, or AI-style arrow/bullet chrome.
 
 ---
 
-## Veri Şeması ve ID Standardı
+## 2. File Architecture
 
-### ID Biçimi ve Ders Modülü Yapısı
-- Her ders modülü bir CEFR `level` (`"A1" | "A2" | "B1" | "B2" | "C1"`) içerir:
-  ```js
-  export const lesson02 = {
-    id: "lesson_02",
-    level: "A1",
-    title: "Ders 2",
-    subtitle: "...",
-    items: [...]
-  };
-  ```
-- Kayıt ID biçimi: `l{dersNumarasi}_{ikiHaneliSira}` (`l1_01`–`l1_71`, `l2_01`, ..., `l10_01`).
+### Tracked Application Files (Public Repo)
+- `index.html`: App shell (`Çalış`, `Kelime Sözlüğü`, theme toggle, `İlerleme` modal), strict Content-Security-Policy (`script-src 'self'`, zero `'unsafe-inline'`, `connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://fonts.googleapis.com https://fonts.gstatic.com`), `referrer="no-referrer"`, PWA metadata.
+- `theme-init.js`: External anti-flash theme initializer (`localStorage` key `deutschkarte_theme`).
+- `boot-guard.js`: `file://` protocol warning banner and 3-second boot-recovery watchdog (`Önbelleği temizle ve yenile`).
+- `styles.css`: Light + Prussian-night dark mode tokens, Leitner card layout, umlaut bar, responsive breakpoints (`640px`, `400px`), accessible focus states, `prefers-reduced-motion` support.
+- `app.js`: Study engine (`Karma Mod`, `Sadece Şıklı`, `Sadece Yazmalı`, `Artikel Pratiği`, `Zorlandıklarım`), bidirectional `TR / DE` & `DE / TR`, 5-box Leitner SRS (`cards`), daily goal/streak (`daily` anchored to local calendar date), `de-DE` Web Speech API (`Alt+S` + optional `autoSpeak`), lesson/CEFR level filters, theme controller, independent noun/article/plural validation, umlaut bar (`ä`, `ö`, `ü`, `ß`, `Aa`), keyboard shortcuts (`1`–`4`, `Enter`), dictionary search/filters, `localStorage` (`deutschkarte_state_v1`), JSON export/import backup, and Gist sync integration.
+- `sync.js`: Offline-first GitHub Gist cloud sync (`deutschkarte_gist_sync_v1`, remote filename `deutschkarte-sync.json`, `isValidGistId` `/^[a-fA-F0-9]{8,64}$/`, `https://gist.githubusercontent.com` origin verification, `parsed.app === "DeutschKarte"` payload validation, timestamped `mergeStates`, `mistakeClearedAt` tombstones, `resetAt` dominance).
+- `manifest.json`: PWA web app manifest (`icons/icon-192.png`, `icons/icon-512.png`).
+- `sw.js`: Network-first same-origin + cache fallback (`ignoreSearch: true`), Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v6"` and `PRECACHE_URLS` (`./`, `./index.html`, `./styles.css`, `./theme-init.js`, `./boot-guard.js`, `./app.js`, `./sync.js`, `./manifest.json`, `./data/index.js`, `./data/lesson_01.js`, `./icons/icon.svg`, `./icons/icon-192.png`, `./icons/icon-512.png`).
+- `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png` (maskable safe-zone compliant).
+- `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`) guarding against the Windows Store `python` alias stub.
+- `data/lesson_01.js`: Lesson 1 (`level: "A1"`, 71 Duden-verified items with A1 `example: { de, tr }`: 49 nouns, 18 phrases, 4 verbs).
+- `data/index.js`: Aggregates `LESSONS`, deduplicates `ALL_WORDS` by `id`, normalizes `level`, `lessonId`, and `lesson`, exports `LEVEL_ORDER`, `getLessonList`, `getWordsForLesson`, `getLevelSummary`.
+- `.nojekyll` & `.gitignore`: Static serving flag and ignore rules (blocks `ALMANYA_HEDEF_PLANI.md`, `.env`, `*token*`, `*secret*`, `*.key`, `*.pem`, `deutschkarte-yedek-*.json`, `*.pdf`, `*.docx`, `*.txt`, OS noise).
+- `PROJECT_CONTEXT.md`: This technical memory file.
 
-### İsim (`category: "noun"`) Şeması
+### Local-Only Ignored File
+- `ALMANYA_HEDEF_PLANI.md`: Personal Germany study, `anabin`, and `36F` visa plan (listed in `.gitignore` — **never** commit or push).
+
+---
+
+## 3. Data Schema & Duden Rules
+
+### Lesson Export (`data/lesson_XX.js`)
+```js
+export default {
+  id: "lesson_XX",
+  level: "A1" | "A2" | "B1" | "B2" | "C1",
+  title: "Ders X",
+  subtitle: "...",
+  items: [...]
+};
+```
+- **Item ID format:** `l{lessonNumber}_{twoDigitIndex}` (e.g., `l1_01`–`l1_71`, `l2_01`, ..., `l10_01`).
+
+### Noun Schema (`category: "noun"`)
 ```js
 {
-  id: "l1_06",
+  id: "l1_01",
   category: "noun",
   lesson: "Ders 1",
-  tr: "Kahve",
-  article: "der",          // "der" | "die" | "das" | "nur Pl." (onlySingular isimlerde ASLA "nur Sg." yazmayın, gerçek Duden artikelini yazın)
-  singular: "Kaffee",      // string | string[] | null (onlyPlural ise null)
-  plural: "Kaffees",       // string | string[] | null (onlySingular ise null)
-  onlySingular: false,     // Sadece tekil isimler için true (Çoğul alanını kilitler; hem der/die/das hem "nur Sg." kabul edilir)
-  onlyPlural: false,       // Sadece çoğul isimler için true (Tekil alanını kilitler; article "nur Pl." olur)
-  hint: "",                // Opsiyonel: Cevabı ele vermeden soru kartında gösterilir
-  note: "Sayılarla çoğul eki almaz: zwei Kaffee", // Opsiyonel: Cevaptan sonra ve sözlükte gösterilir
-  example: {               // Opsiyonel ama önerilen: Cevap sonrası ve sözlükte gösterilen örnek cümle
-    de: "Ich trinke am Morgen gern einen Kaffee.",
-    tr: "Sabahları bir kahve içmeyi severim."
-  }
+  tr: "spor",
+  article: "der",          // MUST be "der" | "die" | "das" (Duden)
+  singular: "Sport",
+  plural: "",              // empty string if onlySingular: true
+  onlySingular: true,      // optional boolean
+  onlyPlural: false,       // optional boolean
+  hint: "...",             // optional pre-answer Turkish/grammar hint (NO German words!)
+  note: "...",             // optional post-answer + dictionary note (German allowed)
+  example: { de: "...", tr: "..." }
 }
 ```
+> [!CAUTION]
+> **Critical Noun Rules:**
+> 1. For `onlySingular: true` nouns (e.g., `der Sport`, `die Musik`), `article` **MUST** remain the real Duden article (`"der" | "die" | "das"`), **never** `"nur Sg."`. The app automatically accepts both the real article and `"nur Sg."` in checks.
+> 2. Put German-containing grammar explanations in `note` (shown after answering & in dictionary), **never** in `hint` (shown before answering).
 
-> **Kritik Kural:** `onlySingular: true` olan isimlerde (`der Sport`, `die Musik` gibi) `article` alanı mutlaka `"der"`, `"die"` veya `"das"` olmalıdır — `"nur Sg."` yazılmamalıdır. Uygulama hem gerçek artikeli hem de `"nur Sg."` seçimini otomatik olarak doğru kabul eder.
-
-### Kalıp ve Fiil (`category: "phrase" | "verb"`) Şeması
+### Phrase / Verb Schema (`category: "phrase" | "verb"`)
 ```js
 {
-  id: "l1_51",
-  category: "phrase",      // "phrase" | "verb"
+  id: "l1_50",
+  category: "phrase" | "verb",
   lesson: "Ders 1",
-  tr: "Nasılsın?",
-  de: "Wie geht es dir?",
-  alt: ["Wie geht's?"],    // Opsiyonel: Diğer geçerli Almanca karşılıklar
-  hint: "Samimi hitap",    // Opsiyonel: Soru kartında gösterilen bağlam ipucu
-  note: "Kısa biçimi: Wie geht's?", // Opsiyonel: Cevap sonrası ve sözlük notu
-  example: {
-    de: "Hallo Anna, wie geht es dir heute?",
-    tr: "Merhaba Anna, bugün nasılsın?"
-  }
+  tr: "Merhaba",
+  de: "Hallo",
+  alt: ["..."],            // optional accepted German variants
+  hint: "...",
+  note: "...",
+  example: { de: "...", tr: "..." }
 }
 ```
 
-> **Önemli Not:** Almanca kelime veya çekim ipucu içeren açıklamaları **her zaman `note` alanına** koyun; `hint` alanı yalnızca cevabı belli etmeyen bağlam bilgisi (`Samimi hitap`, `Resmi hitap` vb.) içermelidir.
+---
+
+## 4. Standard Protocols
+
+### Protocol 1: Adding New Lessons from Notes / PDFs
+1. Create `data/lesson_XX.js` with CEFR `level` and register it in `data/index.js` (do **not** touch `app.js`, `styles.css`, or `index.html` when only adding vocabulary).
+2. Verify every word against **Duden** (spelling, `ä/ö/ü/ß`, `article`, `plural`, `onlySingular`/`onlyPlural`), write natural Turkish meanings, and add a level-appropriate `example: { de, tr }`.
+3. Deduplicate against `ALL_WORDS` in `data/index.js`.
+4. Add `./data/lesson_XX.js` to `PRECACHE_URLS` and bump `CACHE_VERSION` (`deutschkarte-v7`, `deutschkarte-v8`, ...) in `sw.js`.
+5. Update `PROJECT_CONTEXT.md` (+ **Changelog**), verify `node --check`, then `git add`, `git commit`, and `git push origin main`.
+
+### Protocol 2: UI Changes & Feature Development
+1. Follow `~/.gemini/config/skills/frontend-design/SKILL.md`: keep Prussian light/dark tokens, `--on-accent: #FFFFFF` for colored fills, `Bricolage Grotesque` + `Source Sans 3`, and crisp non-templated Turkish copy.
+2. **Security & Privacy Gate:** Keep strict `script-src 'self'` CSP (zero inline scripts or `onclick`), `referrer="no-referrer"`, and `sync.js` Gist ID/origin/schema validation. Before committing, verify zero local paths, real emails, secrets/tokens, or `ALMANYA_HEDEF_PLANI.md` appear in tracked files.
+3. **State & Sync Compatibility:** Preserve `deutschkarte_state_v1` schema backwards compatibility, `sync.js` merge/tombstone (`mistakeClearedAt`) and `resetAt` dominance (`saveState({ sync: true })` for learning state vs `{ sync: false, preserveTimestamp: true }` for view-only changes), and token isolation in `deutschkarte_gist_sync_v1`.
+4. Update `sw.js` (`PRECACHE_URLS` + `CACHE_VERSION`), run `node --check` + unit/browser verification, update `PROJECT_CONTEXT.md`, and push to `main`.
 
 ---
 
-## Protokol 1: Yeni Ders Notları Ekleme
+## 5. Feature Backlog (Roadmap to A2–C1 / 300+ Words)
 
-Kullanıcı yeni el yazısı notları veya PDF ders notları paylaştığında aşağıdaki 5 adımı eksiksiz uygulayın:
-
-1. **Modüler Ders Dosyası Oluştur ve Kaydet**
-   - `data/lesson_XX.js` (ör. `data/lesson_02.js`) dosyasını oluşturun ve uygun `level` (`"A1"`, `"A2"`, `"B1"`, `"B2"` veya `"C1"`) bilgisiyle dışa aktarın.
-   - Yeni dersi `data/index.js` içine `import` edip `LESSONS` dizisine ekleyin (`data/index.js` `level`, `lesson` ve `lessonId` değerlerini otomatik normalize eder).
-   - Yalnızca ders ekleniyorsa `app.js`, `styles.css` veya `index.html` dosyalarında değişiklik **yapmayın**.
-
-2. **Duden Doğrulaması, Doğal Türkçe ve Örnek Cümleler**
-   - El yazısı veya OCR kaynaklı yazım hatalarını, eksik umlautları (`ä`, `ö`, `ü`, `ß`), büyük/küçük harf hatalarını, yanlış artikelleri ve çoğul eklerini **Duden** Almanca standartlarına göre kesinleştirin.
-   - `onlySingular` (`nur Singular`) ve `onlyPlural` (`nur Plural`) durumlarını mutlaka işaretleyin.
-   - Türkçe karşılıkları çeviri kokan mekanik ifadeler yerine doğal Türkçe ile yazın ve her kayıt için seviyesine uygun `example: { de, tr }` cümlesi ekleyin.
-
-3. **Mevcut Verilerle Tekilleştirme (Deduplication)**
-   - Yeni kayıtları eklemeden önce `data/index.js` içindeki mevcut `ALL_WORDS` kayıtlarıyla karşılaştırın; daha önceki derslerde eklenmiş aynı kelime veya kalıpları yeni derste tekrarlamayın.
-
-4. **Service Worker Önbellek Sürümünü Artır**
-   - `sw.js` içindeki `PRECACHE_URLS` listesine yeni `./data/lesson_XX.js` yolunu ekleyin.
-   - `sw.js` dosyasındaki `CACHE_VERSION` sabitini bir üst sürüme (`"deutschkarte-v7"`, `"deutschkarte-v8"` vb.) artırarak kullanıcıların tarayıcılarında eski önbellek takılması olmadan yeni kelimelerin hemen yüklenmesini sağlayın.
-
-5. **Bu Dosyayı Güncelle ve GitHub Pages'e Yayınla**
-   - `PROJECT_CONTEXT.md` içindeki dosya/ders bilgilerini ve **Değişiklik Günlüğü**'nü güncelleyin.
-   - Değişiklikleri `node --check` ile doğrulayıp `git add`, `git commit` ve `git push` ile `main` dalına gönderin; böylece canlı `https://sohotakuan.github.io/deutschkarte/` adresi ve telefona eklenen PWA otomatik güncellensin.
+- **Long-term SRS:** Add `60 / 120 day` intervals, pure Due Review mode (`Tekrar Zamanı`), and mandatory typing gate for Boxes 4–5.
+- **Grammar Expansion:** Add verb `Perfekt` (`hat/ist` + `Partizip II`) and `Präposition + Kasus` fields.
+- **Cloze Mode:** Sentence fill-in-the-blank practice powered by `example.de`.
 
 ---
 
-## Protokol 2: Sitede Değişiklik ve Yeni Özellik Geliştirme
+## 6. Changelog
 
-Kullanıcı uygulamada arayüz değişikliği, yeni çalışma modu veya algoritma güncellemesi istediğinde aşağıdaki kurallara uyun:
-
-1. **Tasarım Sistemi (`frontend-design`):**
-   - Global skill dosyası `~/.gemini/config/skills/frontend-design/SKILL.md` yönergelerine sadık kalın.
-   - Aydınlık ve Prusya gecesi karanlık mod (`[data-theme="dark"]`) token'larını koruyun; renkli buton/rozet metinlerinde daima `--on-accent: #FFFFFF` kullanın (`--card` kullanmayın).
-   - Tipografide yalnızca `Bricolage Grotesque` ve `Source Sans 3` kullanın; büyük harfli (`uppercase`) etiketler, monospace yazı tipi, orta nokta/uzun tire süslemeleri ve dağınık gölgeli kart şablonları eklemeyin.
-2. **Gizlilik ve Güvenlik Kuralı:**
-   - Bu depo herkese açıktır (`Public`). Commit öncesinde asla yerel kullanıcı klasör yolları (`C:\Users\...`), gerçek e-posta adresleri, token'lar (`ghp_`/`gho_`/`github_pat_`) veya `ALMANYA_HEDEF_PLANI.md` dosyası eklenmediğinden emin olun.
-   - `index.html` içine inline `<script>` veya `<style>` eklemeyin (sıkı `script-src 'self'` CSP kuralını koruyun) ve dış `fetch` çağrılarında kaynak doğrulamasını sürdürün.
-3. **Veri, Yerel Hafıza ve Senkronizasyon Güvenliği:**
-   - Mevcut `localStorage` (`deutschkarte_state_v1`) şemasıyla geriye dönük uyumluluğu bozmayın; eski cihaz verileri/JSON yedekleri sorunsuz yüklenebilmelidir.
-   - `sync.js` içindeki `mergeStates`, `mistakeClearedAt`, `resetAt`, `isValidGistId` ve kaynak doğrulaması kurallarını koruyun; öğrenme verisi değiştiren her yeni işlem `saveState({ sync: true })` çağırmalı, salt arayüz/filtre değişimleri `saveState({ sync: false, preserveTimestamp: true })` kullanmalıdır.
-   - `deutschkarte_gist_sync_v1` (GitHub token) **asla** JSON yedeklerine, Gist içeriğine veya repoya sızmamalıdır.
-4. **Çevrimdışı PWA ve Yayın:**
-   - Yeni `.js` / `.css` / medya dosyası eklerseniz `sw.js` `PRECACHE_URLS` dizisine ekleyin ve her kod değişikliğinde `CACHE_VERSION` sürümünü artırın.
-   - `node --check` (ve ilgili birim/tarayıcı testleri) ile doğrulayın, bu `PROJECT_CONTEXT.md` dosyasını güncelleyin, ardından `git add`, `git commit`, `git push` ile canlıya alın.
-
----
-
-## Gelecek A2–C1 Geliştirme Fikirleri (Backlog — İhtiyaç Doğduğunda Uygulanacak)
-
-- **300+ kelimede uzun dönem SRS iyileştirmesi:** Kutulara `60 / 120 gün` aralıkları, yalnızca süresi dolanları getiren saf `Tekrar Zamanı` modu ve 4.–5. kutulara yalnızca yazmalı doğru cevapla yükselme kuralı.
-- **A2–B1 Fiil ve Edat Alanları:** Fiillerde `Perfekt` yardımcı fiil + Partizip II (`fliegen -> ist geflogen`) ve B1–C1 fiil+edat kalıpları (`warten auf + Akkusativ`).
-- **Boşluk Doldurma (Cloze) Modu:** Örnek cümle içinde bağlamdan kelime/edat/artikel tamamlama pratiği.
-
----
-
-## Değişiklik Günlüğü
-
-- **2026-11-21:** İlk sürüm (`v1`–`v5`) tamamlandı: A1 Ders 1 (71 Duden doğrulamalı kayıt + örnek cümleler), Leitner 5 kutulu SRS, `Artikel Pratiği`, çift yönlü `TR / DE` ve `DE / TR`, `de-DE` Web Speech telaffuz, Prusya gecesi karanlık mod, offline-first GitHub Gist senkronizasyonu (`sync.js`), `sw.js` `deutschkarte-v5` ve `SohoTakuan/deutschkarte` GitHub Pages yayını. Kişisel hedefler `ALMANYA_HEDEF_PLANI.md` dosyasına ayrıldı.
-- **2026-11-21 (Güvenlik Sertleştirmesi — `v6`):** Inline script'ler `theme-init.js` ve `boot-guard.js` dosyalarına taşındı, sıkı `script-src 'self'` CSP ve `no-referrer` eklendi, `sync.js` içinde Gist ID/origin/şema doğrulaması eklendi, `.gitignore` hassas dosyalara karşı genişletildi ve yerel kullanıcı yolu git geçmişinden temizlendi (`sw.js` `deutschkarte-v6`).
+- **2026-11-21 (`v1`–`v5`):** Initial release: A1 Lesson 1 (71 Duden-verified items + examples), 5-box Leitner SRS, `Artikel Pratiği`, bidirectional `TR / DE` & `DE / TR`, `de-DE` Web Speech pronunciation, Prussian-night dark mode, offline-first GitHub Gist sync (`sync.js`), `sw.js` `deutschkarte-v5`, deployed to `SohoTakuan/deutschkarte` GitHub Pages; personal Germany plan separated into `ALMANYA_HEDEF_PLANI.md`.
+- **2026-11-21 (Security Hardening — `v6`):** Extracted inline scripts to `theme-init.js` and `boot-guard.js`, enforced strict `script-src 'self'` CSP and `no-referrer`, added Gist ID/origin/schema validation in `sync.js`, hardened `.gitignore`, scrubbed local username path from git history, bumped `sw.js` to `deutschkarte-v6`.
+- **2026-11-21 (Docs):** Converted `PROJECT_CONTEXT.md` (and local `ALMANYA_HEDEF_PLANI.md`) to concise English for improved agent accuracy.
