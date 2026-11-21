@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1E4DB7">
+  <meta name="description" content="Türkçe konuşanlar için Almanca kelime, artikel ve çoğul alıştırma kartları">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>DeutschKarte — Almanca Kelime ve Artikel Kartları</title>
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("deutschkarte_theme");
+        var prefersDark =
+          window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var theme =
+          saved === "dark" || saved === "light"
+            ? saved
+            : prefersDark
+              ? "dark"
+              : "light";
+        document.documentElement.dataset.theme = theme;
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) {
+          meta.setAttribute("content", theme === "dark" ? "#1B2738" : "#1E4DB7");
+        }
+      } catch (err) {
+        // Ignore storage errors before app boot
+      }
+    })();
+  </script>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="site-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="mark-bar mark-der"></span>
+          <span class="mark-bar mark-die"></span>
+          <span class="mark-bar mark-das"></span>
+        </span>
+        <span class="brand-name">DeutschKarte</span>
+      </div>
+
+      <nav class="primary-nav" aria-label="Ana bölümler">
+        <button type="button" id="tab-study" class="nav-tab is-active" aria-pressed="true">Çalış</button>
+        <button type="button" id="tab-dictionary" class="nav-tab" aria-pressed="false">Kelime Sözlüğü</button>
+      </nav>
+
+      <div class="header-actions">
+        <button
+          type="button"
+          id="toggle-theme"
+          class="header-action theme-toggle"
+          aria-pressed="false"
+          aria-label="Karanlık moda geç"
+        >
+          <svg class="theme-icon icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <svg class="theme-icon icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2"/>
+            <path d="M12 20v2"/>
+            <path d="m4.93 4.93 1.41 1.41"/>
+            <path d="m17.66 17.66 1.41 1.41"/>
+            <path d="M2 12h2"/>
+            <path d="M20 12h2"/>
+            <path d="m6.34 17.66-1.41 1.41"/>
+            <path d="m19.07 4.93-1.41 1.41"/>
+          </svg>
+          <span id="theme-toggle-label" class="theme-toggle-label">Karanlık</span>
+        </button>
+
+        <button type="button" id="open-backup" class="header-action" aria-haspopup="dialog">
+          İlerleme
+        </button>
+      </div>
+    </header>
+
+    <main class="main-stage">
+      <section id="study-view" class="view-section" aria-label="Çalışma alanı">
+        <div class="control-deck">
+          <div class="mode-group" role="group" aria-label="Çalışma modu">
+            <button type="button" class="mode-btn is-active" data-mode="mixed">Karma Mod</button>
+            <button type="button" class="mode-btn" data-mode="choice">Sadece Şıklı</button>
+            <button type="button" class="mode-btn" data-mode="typing">Sadece Yazmalı</button>
+            <button type="button" class="mode-btn" data-mode="articles">Artikel Pratiği</button>
+            <button type="button" class="mode-btn mode-btn-wide" data-mode="mistakes">
+              <span>Zorlandıklarım</span>
+              <span id="mistakes-badge" class="count-badge" hidden>0</span>
+            </button>
+          </div>
+
+          <div class="deck-right">
+            <div id="direction-group" class="direction-group" role="group" aria-label="Çalışma yönü">
+              <button type="button" class="dir-btn is-active" data-dir="tr-de" aria-pressed="true" title="Türkçeden Almancaya">TR / DE</button>
+              <button type="button" class="dir-btn" data-dir="de-tr" aria-pressed="false" title="Almancadan Türkçeye">DE / TR</button>
+            </div>
+
+            <div class="lesson-picker">
+              <label for="lesson-select" class="sr-only">Ders seçin</label>
+              <select id="lesson-select" class="lesson-select" aria-label="Ders seçimi"></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="session-strip">
+          <div class="session-metrics">
+            <span class="metric-item">Bugün: <strong id="daily-progress">0 / 20</strong></span>
+            <span class="metric-item">Öğrenilen: <strong id="mastered-count">0 / 71</strong></span>
+            <span class="metric-item">Doğru: <strong id="session-score">0 / 0</strong></span>
+            <span class="metric-item">Seri: <strong id="session-streak">0</strong></span>
+          </div>
+          <button type="button" id="reset-session" class="text-action">Oturumu sıfırla</button>
+        </div>
+
+        <article id="study-card" class="study-card" data-gender="neutral">
+          <div class="card-accent-bar" aria-hidden="true"></div>
+
+          <div id="card-active-body" class="card-body">
+            <div class="card-meta">
+              <span id="card-lesson-label" class="meta-lesson">A1, Ders 1</span>
+              <span id="card-kind-label" class="meta-kind">İsim</span>
+            </div>
+
+            <div class="card-prompt">
+              <div class="prompt-head">
+                <h1 id="prompt-tr" class="prompt-title">Yükleniyor...</h1>
+                <button type="button" id="btn-speak-prompt" class="speak-btn" hidden aria-label="Almanca kelimeyi dinle">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  </svg>
+                  <span>Dinle</span>
+                </button>
+              </div>
+              <p id="prompt-hint" class="prompt-hint" hidden></p>
+            </div>
+
+            <div id="typing-area" class="answer-area" hidden>
+              <div id="noun-fields" class="noun-fields" hidden>
+                <div class="field-group">
+                  <span class="field-label" id="article-group-label">Artikel</span>
+                  <div class="article-group" role="group" aria-labelledby="article-group-label">
+                    <button type="button" class="article-btn" data-article="der" aria-pressed="false">der</button>
+                    <button type="button" class="article-btn" data-article="die" aria-pressed="false">die</button>
+                    <button type="button" class="article-btn" data-article="das" aria-pressed="false">das</button>
+                    <button type="button" class="article-btn" data-article="nur Pl." aria-pressed="false">nur Pl.</button>
+                    <button type="button" class="article-btn" data-article="nur Sg." aria-pressed="false">nur Sg.</button>
+                  </div>
+                </div>
+
+                <div class="noun-inputs-grid">
+                  <div class="field-group">
+                    <label for="input-singular" class="field-label">Tekil (Singular)</label>
+                    <input
+                      type="text"
+                      id="input-singular"
+                      class="text-input"
+                      placeholder="Örn. Kaffee"
+                      autocomplete="off"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      spellcheck="false"
+                    >
+                    <span id="singular-lock-note" class="field-lock-note" hidden></span>
+                  </div>
+
+                  <div class="field-group">
+                    <label for="input-plural" class="field-label">Çoğul (Plural)</label>
+                    <input
+                      type="text"
+                      id="input-plural"
+                      class="text-input"
+                      placeholder="Örn. Kaffees"
+                      autocomplete="off"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      spellcheck="false"
+                    >
+                    <span id="plural-lock-note" class="field-lock-note" hidden></span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="phrase-fields" class="phrase-fields" hidden>
+                <div class="field-group">
+                  <label for="input-phrase" id="input-phrase-label" class="field-label">Almanca karşılığı</label>
+                  <input
+                    type="text"
+                    id="input-phrase"
+                    class="text-input"
+                    placeholder="Almanca ifadeyi yazın"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                  >
+                </div>
+              </div>
+
+              <div id="umlaut-bar" class="umlaut-bar" aria-label="Almanca özel harfler">
+                <span class="umlaut-caption">Özel harfler</span>
+                <div class="umlaut-keys">
+                  <button type="button" class="umlaut-btn" data-char="ä" data-upper="Ä">ä</button>
+                  <button type="button" class="umlaut-btn" data-char="ö" data-upper="Ö">ö</button>
+                  <button type="button" class="umlaut-btn" data-char="ü" data-upper="Ü">ü</button>
+                  <button type="button" class="umlaut-btn" data-char="ß" data-upper="ß">ß</button>
+                  <button type="button" id="toggle-umlaut-case" class="umlaut-case-btn" aria-pressed="false" title="Büyük veya küçük harf değiştir">Aa</button>
+                </div>
+              </div>
+
+              <p id="input-guidance" class="input-guidance" hidden></p>
+
+              <div id="typing-actions" class="card-actions">
+                <button type="button" id="btn-check" class="btn-primary">Kontrol et</button>
+                <button type="button" id="btn-skip" class="btn-secondary">Kartı atla</button>
+              </div>
+            </div>
+
+            <div id="choice-area" class="answer-area" hidden>
+              <div id="choice-list" class="choice-list" role="group" aria-label="Seçenekler"></div>
+              <div id="choice-actions" class="card-actions card-actions-compact">
+                <span class="shortcut-hint">Kısayol: 1–4 ile seçin</span>
+                <button type="button" id="btn-skip-choice" class="btn-secondary">Kartı atla</button>
+              </div>
+            </div>
+
+            <div id="article-drill-area" class="answer-area" hidden>
+              <div id="article-drill-list" class="article-drill-grid" role="group" aria-label="Artikel seçenekleri">
+                <button type="button" class="drill-btn" data-article="der" data-index="0">
+                  <span class="choice-key">1</span>
+                  <span class="drill-label">der</span>
+                </button>
+                <button type="button" class="drill-btn" data-article="die" data-index="1">
+                  <span class="choice-key">2</span>
+                  <span class="drill-label">die</span>
+                </button>
+                <button type="button" class="drill-btn" data-article="das" data-index="2">
+                  <span class="choice-key">3</span>
+                  <span class="drill-label">das</span>
+                </button>
+                <button type="button" class="drill-btn" data-article="nur Pl." data-index="3">
+                  <span class="choice-key">4</span>
+                  <span class="drill-label">nur Pl.</span>
+                </button>
+              </div>
+              <div id="article-drill-actions" class="card-actions card-actions-compact">
+                <span class="shortcut-hint">Kısayol: 1–4 ile seçin</span>
+                <button type="button" id="btn-skip-article" class="btn-secondary">Kartı atla</button>
+              </div>
+            </div>
+
+            <div id="feedback-area" class="feedback-area" hidden>
+              <div id="feedback-banner" class="feedback-banner"></div>
+              <div id="feedback-breakdown" class="feedback-breakdown" hidden></div>
+              <p id="feedback-tip" class="feedback-tip" hidden></p>
+              <p id="feedback-note" class="feedback-note" hidden></p>
+              <div id="feedback-example" class="feedback-example" hidden>
+                <div class="example-copy">
+                  <span id="feedback-example-de" class="example-de"></span>
+                  <span id="feedback-example-tr" class="example-tr"></span>
+                </div>
+                <button type="button" id="btn-speak-example" class="speak-btn speak-btn-sm" aria-label="Örnek cümleyi dinle">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                  </svg>
+                  <span>Cümle</span>
+                </button>
+              </div>
+              <p id="feedback-mistake-status" class="feedback-mistake-status" hidden></p>
+              <div class="card-actions">
+                <button type="button" id="btn-next" class="btn-primary">Sonraki kart</button>
+                <button type="button" id="btn-speak-answer" class="speak-btn" aria-label="Almanca cevabı dinle">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  </svg>
+                  <span>Dinle</span>
+                </button>
+                <span class="shortcut-hint">Enter ile geçin</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="card-empty-state" class="card-empty-state" hidden>
+            <h2 id="empty-title" class="empty-title">Zorlandığınız kelime yok</h2>
+            <p id="empty-desc" class="empty-desc">Yanlış yaptığınız kelimeler burada toplanır ve art arda iki kez doğru bilene kadar sıkça karşınıza çıkar.</p>
+            <div class="empty-actions">
+              <button type="button" id="empty-switch-mixed" class="btn-primary">Karma moda geç</button>
+              <button type="button" id="empty-all-lessons" class="btn-secondary" hidden>Tüm dersleri göster</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section id="dictionary-view" class="view-section" aria-label="Kelime Sözlüğü" hidden>
+        <div class="dict-header">
+          <h1 class="dict-title">Kelime Sözlüğü</h1>
+          <span id="dict-count" class="dict-count">0 kelime</span>
+        </div>
+
+        <div class="dict-toolbar">
+          <div class="dict-search-wrap">
+            <label for="dict-search" class="sr-only">Sözlükte ara</label>
+            <input
+              type="search"
+              id="dict-search"
+              class="text-input dict-search"
+              placeholder="Türkçe veya Almanca kelime ara..."
+              autocomplete="off"
+            >
+          </div>
+          <div class="dict-lesson-wrap">
+            <label for="dict-lesson-select" class="sr-only">Ders filtresi</label>
+            <select id="dict-lesson-select" class="lesson-select" aria-label="Sözlük ders filtresi"></select>
+          </div>
+        </div>
+
+        <div class="dict-filters-stack">
+          <div class="dict-filters" role="group" aria-label="Tür ve liste filtreleri">
+            <button type="button" class="filter-chip is-active" data-filter="all">Tümü</button>
+            <button type="button" class="filter-chip" data-filter="noun">İsimler</button>
+            <button type="button" class="filter-chip" data-filter="phrase">Kalıp ve Fiiller</button>
+            <button type="button" class="filter-chip" data-filter="mistakes">Zorlandıklarım</button>
+          </div>
+          <div class="dict-filters" role="group" aria-label="Artikel filtreleri">
+            <button type="button" class="filter-chip" data-filter="der">der</button>
+            <button type="button" class="filter-chip" data-filter="die">die</button>
+            <button type="button" class="filter-chip" data-filter="das">das</button>
+            <button type="button" class="filter-chip" data-filter="nur Pl.">nur Pl.</button>
+            <button type="button" class="filter-chip" data-filter="nur Sg.">nur Sg.</button>
+          </div>
+        </div>
+
+        <ul id="dict-list" class="dict-list"></ul>
+        <div id="dict-empty" class="dict-empty" hidden>
+          <p>Arama ölçütünüze uygun kelime bulunamadı.</p>
+          <button type="button" id="dict-clear-filters" class="btn-secondary">Filtreleri temizle</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="backup-dialog" class="modal-dialog" aria-labelledby="backup-title">
+    <div class="modal-surface">
+      <div class="modal-header">
+        <h2 id="backup-title" class="modal-title">İlerleme ve Yedekleme</h2>
+        <button type="button" id="close-backup" class="icon-close" aria-label="Pencereyi kapat">Kapat</button>
+      </div>
+
+      <div class="stats-grid stats-grid-3">
+        <div class="stat-box">
+          <span class="stat-label">Öğrenilen</span>
+          <strong id="stat-learned" class="stat-value">0 / 0</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Günlük seri</span>
+          <strong id="stat-daily-streak" class="stat-value">0 gün</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Genel doğruluk</span>
+          <strong id="stat-accuracy" class="stat-value">%0</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Toplam cevap</span>
+          <strong id="stat-total" class="stat-value">0</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">En uzun seri</span>
+          <strong id="stat-best-streak" class="stat-value">0</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Zorlandıklarım</span>
+          <strong id="stat-mistakes" class="stat-value">0</strong>
+        </div>
+      </div>
+
+      <div class="level-progress-section">
+        <div class="section-head-row">
+          <h3 class="backup-heading">Seviye ilerlemesi</h3>
+          <span id="srs-summary" class="srs-summary"></span>
+        </div>
+        <div id="level-progress-list" class="level-progress-list"></div>
+      </div>
+
+      <div class="prefs-section">
+        <h3 class="backup-heading">Çalışma tercihleri</h3>
+        <div class="prefs-row">
+          <label for="daily-goal-select" class="pref-label">Günlük hedef</label>
+          <select id="daily-goal-select" class="lesson-select pref-select">
+            <option value="10">10 kart / gün</option>
+            <option value="20">20 kart / gün</option>
+            <option value="30">30 kart / gün</option>
+            <option value="50">50 kart / gün</option>
+          </select>
+        </div>
+        <label class="pref-check">
+          <input type="checkbox" id="auto-speak-toggle">
+          <span>Cevaptan sonra Almanca telaffuzu otomatik seslendir</span>
+        </label>
+      </div>
+
+      <div class="sync-section">
+        <div class="section-head-row">
+          <h3 class="backup-heading">Bulut senkronizasyonu (GitHub Gist)</h3>
+          <span id="sync-meta" class="srs-summary">Bağlı değil</span>
+        </div>
+
+        <div id="sync-disconnected" class="sync-panel">
+          <p class="backup-desc">GitHub token'ınızı PC ve telefonda bir kez girerek ilerlemenizi otomatik eşitleyebilirsiniz. Token yalnızca bu cihazda saklanır.</p>
+          <div class="sync-form">
+            <label for="gist-token-input" class="sr-only">GitHub token</label>
+            <input
+              type="password"
+              id="gist-token-input"
+              class="text-input sync-token-input"
+              placeholder="ghp_..."
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            >
+            <button type="button" id="btn-sync-connect" class="btn-primary">Bağlan ve eşitle</button>
+          </div>
+          <a
+            href="https://github.com/settings/tokens/new?description=DeutschKarte&scopes=gist"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-action sync-token-link"
+          >GitHub'dan tek tıkla token oluştur (yalnızca gist izni)</a>
+        </div>
+
+        <div id="sync-connected" class="sync-panel" hidden>
+          <p id="sync-connected-info" class="backup-desc">GitHub Gist bağlı. Değişiklikler çevrimiçi olduğunuzda otomatik eşitlenir.</p>
+          <div class="sync-actions">
+            <button type="button" id="btn-sync-now" class="btn-secondary">Şimdi eşitle</button>
+            <button type="button" id="btn-sync-disconnect" class="btn-danger-outline">Bağlantıyı kes</button>
+          </div>
+        </div>
+
+        <p id="sync-status" class="backup-status" hidden></p>
+      </div>
+
+      <div class="backup-section">
+        <h3 class="backup-heading">Veri yedekleme</h3>
+        <p class="backup-desc">İlerlemenizi JSON dosyası olarak cihazınıza kaydedip bilgisayar veya telefon arasında aktarabilirsiniz.</p>
+        <div class="backup-actions">
+          <button type="button" id="btn-export-json" class="btn-primary">Yedeği indir</button>
+          <button type="button" id="btn-import-json" class="btn-secondary">Yedek yükle</button>
+          <input type="file" id="input-import-json" accept="application/json,.json" class="sr-only" tabindex="-1">
+        </div>
+        <p id="backup-status" class="backup-status" hidden></p>
+      </div>
+
+      <div class="danger-section">
+        <div id="reset-initial-row" class="danger-row">
+          <span class="danger-text">Tüm kayıtlı ilerleme ve zorlandığınız kelimeler bu cihazdan silinir.</span>
+          <button type="button" id="btn-reset-ask" class="btn-danger-outline">İlerlemeyi sıfırla</button>
+        </div>
+        <div id="reset-confirm-row" class="danger-row" hidden>
+          <span class="danger-text">Emin misiniz? Bu işlem geri alınamaz.</span>
+          <div class="danger-confirm-actions">
+            <button type="button" id="btn-reset-confirm" class="btn-danger">Evet, sıfırla</button>
+            <button type="button" id="btn-reset-cancel" class="btn-secondary">Vazgeç</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+  <script>
+    (function () {
+      function showBootRecovery(title, hint, allowCacheReset) {
+        var titleEl = document.getElementById("prompt-tr");
+        var hintEl = document.getElementById("prompt-hint");
+        var promptWrap = titleEl ? titleEl.closest(".card-prompt") : null;
+        if (titleEl) {
+          titleEl.textContent = title;
+        }
+        if (hintEl) {
+          hintEl.textContent = hint;
+          hintEl.hidden = false;
+        }
+        if (allowCacheReset && promptWrap && !document.getElementById("boot-reset-btn")) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.id = "boot-reset-btn";
+          btn.className = "btn-secondary";
+          btn.style.marginTop = "14px";
+          btn.textContent = "Önbelleği temizle ve yenile";
+          btn.addEventListener("click", async function () {
+            try {
+              if ("serviceWorker" in navigator) {
+                var regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map(function (r) { return r.unregister(); }));
+              }
+              if ("caches" in window) {
+                var keys = await caches.keys();
+                await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+              }
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+            window.location.reload();
+          });
+          promptWrap.appendChild(btn);
+        }
+      }
+
+      if (window.location.protocol === "file:") {
+        showBootRecovery(
+          "Yerel sunucu gerekli",
+          "ES modülleri doğrudan dosya yolunda çalışmaz. Klasördeki baslat.bat dosyasına çift tıklayarak http://localhost:8000 üzerinden açın.",
+          false
+        );
+        return;
+      }
+
+      window.setTimeout(function () {
+        if (!window.__deutschkarteReady) {
+          showBootRecovery(
+            "Uygulama başlatılamadı",
+            "Sunucu bağlantısı veya tarayıcı önbelleği güncel değil. Sunucunun açık olduğundan emin olup önbelleği temizleyerek yenileyin.",
+            true
+          );
+        }
+      }, 3000);
+    })();
+  </script>
+</body>
+</html>
