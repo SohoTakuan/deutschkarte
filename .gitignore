@@ -13,3 +13,10 @@ deutschkarte-yedek-*.json
 *.pdf
 *.docx
 *.txt
+*.jpg
+*.jpeg
+*.heic
+*.webp
+*.png
+!icons/*.png
+ham_notlar/

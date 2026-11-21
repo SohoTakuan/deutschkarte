@@ -34,7 +34,7 @@
 - `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`) guarding against the Windows Store `python` alias stub.
 - `data/lesson_01.js`: Lesson 1 (`level: "A1"`, 71 Duden-verified items with A1 `example: { de, tr }`: 49 nouns, 18 phrases, 4 verbs).
 - `data/index.js`: Aggregates `LESSONS`, deduplicates `ALL_WORDS` by `id`, normalizes `level`, `lessonId`, and `lesson`, exports `LEVEL_ORDER`, `getLessonList`, `getWordsForLesson`, `getLevelSummary`.
-- `.nojekyll` & `.gitignore`: Static serving flag and ignore rules (blocks `ALMANYA_HEDEF_PLANI.md`, `.env`, `*token*`, `*secret*`, `*.key`, `*.pem`, `deutschkarte-yedek-*.json`, `*.pdf`, `*.docx`, `*.txt`, OS noise).
+- `.nojekyll` & `.gitignore`: Static serving flag and ignore rules (blocks `ALMANYA_HEDEF_PLANI.md`, `.env`, `*token*`, `*secret*`, `*.key`, `*.pem`, `deutschkarte-yedek-*.json`, `*.pdf`, `*.docx`, `*.txt`, `*.jpg`, `*.jpeg`, `*.heic`, `*.webp`, `*.png` except `icons/*.png`, `ham_notlar/`, OS noise).
 - `PROJECT_CONTEXT.md`: This technical memory file.
 
 ### Local-Only Ignored File
@@ -102,7 +102,7 @@ export default {
 2. Verify every word against **Duden** (spelling, `ä/ö/ü/ß`, `article`, `plural`, `onlySingular`/`onlyPlural`), write natural Turkish meanings, and add a level-appropriate `example: { de, tr }`.
 3. Deduplicate against `ALL_WORDS` in `data/index.js`.
 4. Add `./data/lesson_XX.js` to `PRECACHE_URLS` and bump `CACHE_VERSION` (`deutschkarte-v7`, `deutschkarte-v8`, ...) in `sw.js`.
-5. Update `PROJECT_CONTEXT.md` (+ **Changelog**), verify `node --check`, then `git add`, `git commit`, and `git push origin main`.
+5. Update `PROJECT_CONTEXT.md` (+ **Changelog**), run `node --check`, verify zero raw note files, personal info, local paths, real emails, secrets, or `ALMANYA_HEDEF_PLANI.md` are staged/tracked, then `git add`, `git commit`, and `git push origin main`.
 
 ### Protocol 2: UI Changes & Feature Development
 1. Follow `~/.gemini/config/skills/frontend-design/SKILL.md`: keep Prussian light/dark tokens, `--on-accent: #FFFFFF` for colored fills, `Bricolage Grotesque` + `Source Sans 3`, and crisp non-templated Turkish copy.
@@ -125,3 +125,4 @@ export default {
 - **2026-11-21 (`v1`–`v5`):** Initial release: A1 Lesson 1 (71 Duden-verified items + examples), 5-box Leitner SRS, `Artikel Pratiği`, bidirectional `TR / DE` & `DE / TR`, `de-DE` Web Speech pronunciation, Prussian-night dark mode, offline-first GitHub Gist sync (`sync.js`), `sw.js` `deutschkarte-v5`, deployed to `SohoTakuan/deutschkarte` GitHub Pages; personal Germany plan separated into `ALMANYA_HEDEF_PLANI.md`.
 - **2026-11-21 (Security Hardening — `v6`):** Extracted inline scripts to `theme-init.js` and `boot-guard.js`, enforced strict `script-src 'self'` CSP and `no-referrer`, added Gist ID/origin/schema validation in `sync.js`, hardened `.gitignore`, scrubbed local username path from git history, bumped `sw.js` to `deutschkarte-v6`.
 - **2026-11-21 (Docs):** Converted `PROJECT_CONTEXT.md` (and local `ALMANYA_HEDEF_PLANI.md`) to concise English for improved agent accuracy.
+- **2026-11-21 (Privacy Safeguard):** Extended `.gitignore` to ignore raw note folders (`ham_notlar/`) and non-icon images (`*.jpg`, `*.jpeg`, `*.heic`, `*.webp`, `*.png` with `!icons/*.png`), and added an explicit pre-commit privacy check to `Protocol 1`.
