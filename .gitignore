@@ -2,3 +2,14 @@ Thumbs.db
 .DS_Store
 desktop.ini
 *.log
+ALMANYA_HEDEF_PLANI.md
+.env
+.env.*
+*token*
+*secret*
+*.key
+*.pem
+deutschkarte-yedek-*.json
+*.pdf
+*.docx
+*.txt

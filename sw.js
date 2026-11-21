@@ -1,9 +1,11 @@
-const CACHE_VERSION = "deutschkarte-v5";
+const CACHE_VERSION = "deutschkarte-v6";
 
 const PRECACHE_URLS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./theme-init.js",
+  "./boot-guard.js",
   "./app.js",
   "./sync.js",
   "./manifest.json",

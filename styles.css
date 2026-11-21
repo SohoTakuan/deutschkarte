@@ -938,6 +938,10 @@ button {
   background-color: var(--bad-bg);
 }
 
+.boot-reset-btn {
+  margin-top: 14px;
+}
+
 /* Multiple Choice Options */
 
 .choice-list {

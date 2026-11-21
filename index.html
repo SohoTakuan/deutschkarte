@@ -4,33 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#1E4DB7">
+  <meta name="referrer" content="no-referrer">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';"
+  >
   <meta name="description" content="Türkçe konuşanlar için Almanca kelime, artikel ve çoğul alıştırma kartları">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>DeutschKarte — Almanca Kelime ve Artikel Kartları</title>
-  <script>
-    (function () {
-      try {
-        var saved = localStorage.getItem("deutschkarte_theme");
-        var prefersDark =
-          window.matchMedia &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches;
-        var theme =
-          saved === "dark" || saved === "light"
-            ? saved
-            : prefersDark
-              ? "dark"
-              : "light";
-        document.documentElement.dataset.theme = theme;
-        var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) {
-          meta.setAttribute("content", theme === "dark" ? "#1B2738" : "#1E4DB7");
-        }
-      } catch (err) {
-        // Ignore storage errors before app boot
-      }
-    })();
-  </script>
+  <script src="theme-init.js"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -485,64 +468,6 @@
   <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
 
   <script type="module" src="app.js"></script>
-  <script>
-    (function () {
-      function showBootRecovery(title, hint, allowCacheReset) {
-        var titleEl = document.getElementById("prompt-tr");
-        var hintEl = document.getElementById("prompt-hint");
-        var promptWrap = titleEl ? titleEl.closest(".card-prompt") : null;
-        if (titleEl) {
-          titleEl.textContent = title;
-        }
-        if (hintEl) {
-          hintEl.textContent = hint;
-          hintEl.hidden = false;
-        }
-        if (allowCacheReset && promptWrap && !document.getElementById("boot-reset-btn")) {
-          var btn = document.createElement("button");
-          btn.type = "button";
-          btn.id = "boot-reset-btn";
-          btn.className = "btn-secondary";
-          btn.style.marginTop = "14px";
-          btn.textContent = "Önbelleği temizle ve yenile";
-          btn.addEventListener("click", async function () {
-            try {
-              if ("serviceWorker" in navigator) {
-                var regs = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(regs.map(function (r) { return r.unregister(); }));
-              }
-              if ("caches" in window) {
-                var keys = await caches.keys();
-                await Promise.all(keys.map(function (k) { return caches.delete(k); }));
-              }
-            } catch (e) {
-              // Ignore cleanup errors
-            }
-            window.location.reload();
-          });
-          promptWrap.appendChild(btn);
-        }
-      }
-
-      if (window.location.protocol === "file:") {
-        showBootRecovery(
-          "Yerel sunucu gerekli",
-          "ES modülleri doğrudan dosya yolunda çalışmaz. Klasördeki baslat.bat dosyasına çift tıklayarak http://localhost:8000 üzerinden açın.",
-          false
-        );
-        return;
-      }
-
-      window.setTimeout(function () {
-        if (!window.__deutschkarteReady) {
-          showBootRecovery(
-            "Uygulama başlatılamadı",
-            "Sunucu bağlantısı veya tarayıcı önbelleği güncel değil. Sunucunun açık olduğundan emin olup önbelleği temizleyerek yenileyin.",
-            true
-          );
-        }
-      }, 3000);
-    })();
-  </script>
+  <script src="boot-guard.js" defer></script>
 </body>
 </html>

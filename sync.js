@@ -2,6 +2,11 @@ export const SYNC_STORAGE_KEY = "deutschkarte_gist_sync_v1";
 export const GIST_FILENAME = "deutschkarte-sync.json";
 export const GIST_DESCRIPTION = "DeutschKarte ilerleme senkronizasyonu";
 const GIST_API_BASE = "https://api.github.com/gists";
+const GIST_RAW_ORIGIN = "https://gist.githubusercontent.com";
+
+export function isValidGistId(gistId) {
+  return typeof gistId === "string" && /^[a-fA-F0-9]{8,64}$/.test(gistId.trim());
+}
 
 export function loadSyncConfig() {
   if (typeof localStorage === "undefined") {
@@ -13,9 +18,10 @@ export function loadSyncConfig() {
       return { token: "", gistId: "", lastSyncAt: 0 };
     }
     const parsed = JSON.parse(raw);
+    const rawGistId = typeof parsed?.gistId === "string" ? parsed.gistId.trim() : "";
     return {
       token: typeof parsed?.token === "string" ? parsed.token.trim() : "",
-      gistId: typeof parsed?.gistId === "string" ? parsed.gistId.trim() : "",
+      gistId: isValidGistId(rawGistId) ? rawGistId : "",
       lastSyncAt: Number(parsed?.lastSyncAt) || 0
     };
   } catch {
@@ -28,11 +34,12 @@ export function saveSyncConfig(config) {
     return;
   }
   try {
+    const rawGistId = String(config?.gistId || "").trim();
     localStorage.setItem(
       SYNC_STORAGE_KEY,
       JSON.stringify({
         token: String(config?.token || "").trim(),
-        gistId: String(config?.gistId || "").trim(),
+        gistId: isValidGistId(rawGistId) ? rawGistId : "",
         lastSyncAt: Number(config?.lastSyncAt) || 0
       })
     );
@@ -346,6 +353,7 @@ async function githubGistRequest(url, token, options = {}) {
     response = await fetch(url, {
       ...options,
       cache: "no-store",
+      referrerPolicy: "no-referrer",
       headers: {
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${token}`,
@@ -394,6 +402,9 @@ export async function findExistingSyncGist(token) {
 }
 
 export async function fetchSyncGistContent(token, gistId) {
+  if (!isValidGistId(gistId)) {
+    throw new SyncHttpError("Gist bulunamadı.", 404);
+  }
   const gist = await githubGistRequest(`${GIST_API_BASE}/${encodeURIComponent(gistId)}`, token, {
     method: "GET"
   });
@@ -404,7 +415,19 @@ export async function fetchSyncGistContent(token, gistId) {
 
   let rawText = file.content;
   if ((file.truncated || typeof rawText !== "string") && file.raw_url) {
-    const rawResp = await fetch(file.raw_url, { cache: "no-store" });
+    let rawOrigin = "";
+    try {
+      rawOrigin = new URL(file.raw_url).origin;
+    } catch {
+      rawOrigin = "";
+    }
+    if (rawOrigin !== GIST_RAW_ORIGIN) {
+      throw new SyncHttpError("Güvenilmeyen Gist içerik kaynağı reddedildi.", 0);
+    }
+    const rawResp = await fetch(file.raw_url, {
+      cache: "no-store",
+      referrerPolicy: "no-referrer"
+    });
     if (!rawResp.ok) {
       throw new SyncHttpError("Gist içeriği indirilemedi.", rawResp.status);
     }
@@ -415,7 +438,11 @@ export async function fetchSyncGistContent(token, gistId) {
     return null;
   }
   try {
-    return JSON.parse(rawText);
+    const parsed = JSON.parse(rawText);
+    if (!parsed || typeof parsed !== "object" || parsed.app !== "DeutschKarte") {
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -458,6 +485,9 @@ export async function createSyncGist(token, state) {
 }
 
 export async function updateSyncGist(token, gistId, state) {
+  if (!isValidGistId(gistId)) {
+    throw new SyncHttpError("Gist kimliği geçersiz.", 404);
+  }
   const payload = buildRemotePayload(state);
   await githubGistRequest(`${GIST_API_BASE}/${encodeURIComponent(gistId)}`, token, {
     method: "PATCH",
