@@ -2258,6 +2258,12 @@ button {
   color: var(--ink-muted);
 }
 
+.ai-model-select {
+  flex: 1 1 170px;
+  min-height: 36px;
+  font-size: 0.8125rem;
+}
+
 .ai-save-btn,
 .ai-remove-btn {
   min-height: 36px;
