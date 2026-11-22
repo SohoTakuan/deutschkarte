@@ -1,9 +1,14 @@
 const AI_STORAGE_KEY = "deutschkarte_ai_tutor_v1";
-const GEMINI_MODEL = "gemini-3.8-flash";
+const GEMINI_MODELS = [
+  "gemini-3.8-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite"
+];
 const MAX_HISTORY_TURNS = 10;
 const MAX_PROMPT_LENGTH = 1500;
-const REQUEST_TIMEOUT_MS = 25000;
+const REQUEST_TIMEOUT_MS = 15000;
 const CREDENTIAL_PATTERN = /^[\x21-\x7E]{20,256}$/;
+let preferredModelIndex = 0;
 
 function isValidApiKeyFormat(key) {
   return typeof key === "string" && CREDENTIAL_PATTERN.test(key.trim());
@@ -193,30 +198,14 @@ function getQuickChipsForContext(ctx) {
   ];
 }
 
-async function requestGeminiReply({ apiKey, history, screenContext }) {
-  if (!navigator.onLine) {
-    throw new Error("İnternet bağlantısı yok. Çevrimiçi olduğunuzda tekrar deneyin veya üstteki düğmeyle bağlamı kopyalayın.");
-  }
-
-  const recent = history.slice(-MAX_HISTORY_TURNS);
-  const contents = recent.map((msg, idx) => {
-    const isLatestUser = idx === recent.length - 1 && msg.role === "user";
-    const text = isLatestUser
-      ? `[Anlık Ekran Bağlamı]\n${screenContext.summary}\n\n[Öğrencinin Sorusu]\n${msg.text}`
-      : msg.text;
-    return {
-      role: msg.role === "assistant" ? "model" : "user",
-      parts: [{ text }]
-    };
-  });
-
+async function requestSingleModel({ model, apiKey, contents }) {
   const controller = new AbortController();
   const timerId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   let response;
   try {
     response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: "POST",
         credentials: "omit",
@@ -241,9 +230,19 @@ async function requestGeminiReply({ apiKey, history, screenContext }) {
     );
   } catch (err) {
     if (err?.name === "AbortError") {
-      throw new Error("Yanıt zaman aşımına uğradı. Lütfen tekrar deneyin.");
+      return {
+        ok: false,
+        retryable: true,
+        status: 0,
+        error: new Error("Yanıt zaman aşımına uğradı. Lütfen tekrar deneyin.")
+      };
     }
-    throw new Error("Gemini API sunucusuna ulaşılamadı. Bağlantınızı kontrol edin.");
+    return {
+      ok: false,
+      retryable: false,
+      status: 0,
+      error: new Error("Gemini API sunucusuna ulaşılamadı. Bağlantınızı kontrol edin.")
+    };
   } finally {
     window.clearTimeout(timerId);
   }
@@ -257,17 +256,41 @@ async function requestGeminiReply({ apiKey, history, screenContext }) {
 
   if (!response.ok) {
     if (response.status === 400 || response.status === 401 || response.status === 403) {
-      throw new Error("API anahtarı geçersiz veya yetkisiz. Ayarlardan Gemini API anahtarınızı kontrol edin.");
+      return {
+        ok: false,
+        retryable: false,
+        status: response.status,
+        error: new Error("API anahtarı geçersiz veya yetkisiz. Ayarlardan Gemini API anahtarınızı kontrol edin.")
+      };
     }
+    const retryable = [404, 429, 500, 502, 503, 504].includes(response.status);
     if (response.status === 429) {
-      throw new Error("Ücretsiz kullanım istek sınırına ulaşıldı. Biraz bekleyip tekrar deneyin.");
+      return {
+        ok: false,
+        retryable: true,
+        status: 429,
+        error: new Error("Ücretsiz kullanım istek sınırına ulaşıldı. Biraz bekleyip tekrar deneyin.")
+      };
+    }
+    if (response.status === 503) {
+      return {
+        ok: false,
+        retryable: true,
+        status: 503,
+        error: new Error("Gemini sunucuları şu an yoğun (503). Birkaç saniye sonra tekrar deneyin.")
+      };
     }
     const apiMessage = sanitizeUpstreamError(data?.error?.message, apiKey);
-    throw new Error(
-      apiMessage
-        ? `Gemini hatası (${response.status}): ${apiMessage}`
-        : `Gemini isteği başarısız oldu (${response.status}).`
-    );
+    return {
+      ok: false,
+      retryable,
+      status: response.status,
+      error: new Error(
+        apiMessage
+          ? `Gemini hatası (${response.status}): ${apiMessage}`
+          : `Gemini isteği başarısız oldu (${response.status}).`
+      )
+    };
   }
 
   const parts = data?.candidates?.[0]?.content?.parts;
@@ -279,10 +302,54 @@ async function requestGeminiReply({ apiKey, history, screenContext }) {
     : "";
 
   if (!reply) {
-    throw new Error("Modelden boş yanıt döndü. Soruyu biraz daha net yazıp tekrar deneyin.");
+    return {
+      ok: false,
+      retryable: true,
+      status: 200,
+      error: new Error("Modelden boş yanıt döndü. Soruyu biraz daha net yazıp tekrar deneyin.")
+    };
   }
 
-  return reply;
+  return { ok: true, reply };
+}
+
+async function requestGeminiReply({ apiKey, history, screenContext }) {
+  if (!navigator.onLine) {
+    throw new Error("İnternet bağlantısı yok. Çevrimiçi olduğunuzda tekrar deneyin veya üstteki düğmeyle bağlamı kopyalayın.");
+  }
+
+  const recent = history.slice(-MAX_HISTORY_TURNS);
+  const contents = recent.map((msg, idx) => {
+    const isLatestUser = idx === recent.length - 1 && msg.role === "user";
+    const text = isLatestUser
+      ? `[Anlık Ekran Bağlamı]\n${screenContext.summary}\n\n[Öğrencinin Sorusu]\n${msg.text}`
+      : msg.text;
+    return {
+      role: msg.role === "assistant" ? "model" : "user",
+      parts: [{ text }]
+    };
+  });
+
+  const orderedModels = [];
+  for (let i = 0; i < GEMINI_MODELS.length; i += 1) {
+    const idx = (preferredModelIndex + i) % GEMINI_MODELS.length;
+    orderedModels.push(GEMINI_MODELS[idx]);
+  }
+
+  let lastError = null;
+  for (const model of orderedModels) {
+    const result = await requestSingleModel({ model, apiKey, contents });
+    if (result.ok) {
+      preferredModelIndex = GEMINI_MODELS.indexOf(model);
+      return result.reply;
+    }
+    lastError = result.error;
+    if (!result.retryable) {
+      throw lastError;
+    }
+  }
+
+  throw lastError || new Error("Gemini yanıtı alınamadı.");
 }
 
 export function initAiTutor({ getScreenContext, announce }) {
