@@ -44,10 +44,12 @@ export function getWordsForLesson(lessonFilter) {
   );
 }
 
-export function getLevelSummary(cardsMap = {}) {
+export function getLevelSummary(cardsMap = {}, hiddenMap = {}) {
   const activeLevels = new Set(ALL_WORDS.map((item) => item.level));
   return LEVEL_ORDER.filter((level) => activeLevels.has(level)).map((level) => {
-    const words = ALL_WORDS.filter((item) => item.level === level);
+    const words = ALL_WORDS.filter(
+      (item) => item.level === level && !hiddenMap[item.id]
+    );
     let learned = 0;
     let inProgress = 0;
     let unseen = 0;

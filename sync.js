@@ -108,7 +108,9 @@ function pickSharedSnapshot(state) {
     },
     cards: state.cards || {},
     mistakes: state.mistakes || {},
-    mistakeClearedAt: state.mistakeClearedAt || {}
+    mistakeClearedAt: state.mistakeClearedAt || {},
+    hiddenWords: state.hiddenWords || {},
+    hiddenRestoredAt: state.hiddenRestoredAt || {}
   };
 }
 
@@ -123,6 +125,55 @@ function stableStringify(value) {
   return `{${keys
     .map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`)
     .join(",")}}`;
+}
+
+function sanitizeTimestampMap(rawMap, validWordIds) {
+  const clean = {};
+  if (!rawMap || typeof rawMap !== "object") {
+    return clean;
+  }
+  for (const [id, ts] of Object.entries(rawMap)) {
+    const num = Number(ts);
+    if (validWordIds.has(id) && Number.isFinite(num) && num > 0) {
+      clean[id] = num;
+    }
+  }
+  return clean;
+}
+
+function mergeHiddenState(
+  localHidden,
+  localRestored,
+  remoteHidden,
+  remoteRestored,
+  validWordIds
+) {
+  const mergedRestoredAt = sanitizeTimestampMap(localRestored, validWordIds);
+  for (const [id, num] of Object.entries(
+    sanitizeTimestampMap(remoteRestored, validWordIds)
+  )) {
+    if (num > (mergedRestoredAt[id] || 0)) {
+      mergedRestoredAt[id] = num;
+    }
+  }
+
+  const candidateHidden = sanitizeTimestampMap(localHidden, validWordIds);
+  for (const [id, num] of Object.entries(
+    sanitizeTimestampMap(remoteHidden, validWordIds)
+  )) {
+    if (num > (candidateHidden[id] || 0)) {
+      candidateHidden[id] = num;
+    }
+  }
+
+  const mergedHiddenWords = {};
+  for (const [id, num] of Object.entries(candidateHidden)) {
+    if (num > (mergedRestoredAt[id] || 0)) {
+      mergedHiddenWords[id] = num;
+    }
+  }
+
+  return { mergedHiddenWords, mergedRestoredAt };
 }
 
 export function mergeStates(localState, remoteState, validWordIds, normalizeDailyFn) {
@@ -151,6 +202,16 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
 
   // Explicit reset dominance: if one side reset more recently than the other side's last edit
   if (remoteResetAt > localUpdatedAt && remoteResetAt >= localResetAt) {
+    const {
+      mergedHiddenWords: adoptedHiddenWords,
+      mergedRestoredAt: adoptedHiddenRestoredAt
+    } = mergeHiddenState(
+      remoteState.hiddenWords,
+      remoteState.hiddenRestoredAt,
+      null,
+      null,
+      validWordIds
+    );
     const adopted = {
       settings: {
         ...localState.settings,
@@ -172,6 +233,8 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
       cards: {},
       mistakes: {},
       mistakeClearedAt: {},
+      hiddenWords: adoptedHiddenWords,
+      hiddenRestoredAt: adoptedHiddenRestoredAt,
       updatedAt: remoteUpdatedAt,
       resetAt: remoteResetAt
     };
@@ -308,6 +371,14 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
       : localState.settings.autoSpeak
   };
 
+  const { mergedHiddenWords, mergedRestoredAt } = mergeHiddenState(
+    localState.hiddenWords,
+    localState.hiddenRestoredAt,
+    remoteState.hiddenWords,
+    remoteState.hiddenRestoredAt,
+    validWordIds
+  );
+
   const mergedState = {
     settings: mergedSettings,
     progress: {
@@ -319,6 +390,8 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
     cards: mergedCards,
     mistakes: mergedMistakes,
     mistakeClearedAt: mergedClearedAt,
+    hiddenWords: mergedHiddenWords,
+    hiddenRestoredAt: mergedRestoredAt,
     updatedAt: Math.max(localUpdatedAt, remoteUpdatedAt),
     resetAt: Math.max(localResetAt, remoteResetAt)
   };
@@ -463,7 +536,9 @@ function buildRemotePayload(state) {
     daily: state.daily,
     cards: state.cards,
     mistakes: state.mistakes,
-    mistakeClearedAt: state.mistakeClearedAt || {}
+    mistakeClearedAt: state.mistakeClearedAt || {},
+    hiddenWords: state.hiddenWords || {},
+    hiddenRestoredAt: state.hiddenRestoredAt || {}
   };
 }
 

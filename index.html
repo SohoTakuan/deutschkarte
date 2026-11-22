@@ -113,7 +113,24 @@
           <div id="card-active-body" class="card-body">
             <div class="card-meta">
               <span id="card-lesson-label" class="meta-lesson">A1, Ders 1</span>
-              <span id="card-kind-label" class="meta-kind">İsim</span>
+              <div class="card-meta-right">
+                <span id="card-kind-label" class="meta-kind">İsim</span>
+                <button
+                  type="button"
+                  id="btn-hide-word"
+                  class="card-hide-btn"
+                  title="Bu kelimeyi çalışma listesinden gizle"
+                  aria-label="Bu kelimeyi çalışma listesinden gizle"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                  <span>Gizle</span>
+                </button>
+              </div>
             </div>
 
             <div class="card-prompt">
@@ -285,6 +302,7 @@
             <div class="empty-actions">
               <button type="button" id="empty-switch-mixed" class="btn-primary">Karma moda geç</button>
               <button type="button" id="empty-all-lessons" class="btn-secondary" hidden>Tüm dersleri göster</button>
+              <button type="button" id="empty-open-hidden" class="btn-primary" hidden>Gizlenenleri aç</button>
             </div>
           </div>
         </article>
@@ -319,6 +337,10 @@
             <button type="button" class="filter-chip" data-filter="noun">İsimler</button>
             <button type="button" class="filter-chip" data-filter="phrase">Kalıp ve Fiiller</button>
             <button type="button" class="filter-chip" data-filter="mistakes">Zorlandıklarım</button>
+            <button type="button" class="filter-chip filter-chip-with-badge" data-filter="hidden">
+              <span>Gizlenenler</span>
+              <span id="dict-hidden-badge" class="chip-count-badge" hidden>0</span>
+            </button>
           </div>
           <div class="dict-filters" role="group" aria-label="Artikel filtreleri">
             <button type="button" class="filter-chip" data-filter="der">der</button>
@@ -331,7 +353,7 @@
 
         <ul id="dict-list" class="dict-list"></ul>
         <div id="dict-empty" class="dict-empty" hidden>
-          <p>Arama ölçütünüze uygun kelime bulunamadı.</p>
+          <p id="dict-empty-text">Arama ölçütünüze uygun kelime bulunamadı.</p>
           <button type="button" id="dict-clear-filters" class="btn-secondary">Filtreleri temizle</button>
         </div>
       </section>
@@ -451,7 +473,7 @@
 
       <div class="danger-section">
         <div id="reset-initial-row" class="danger-row">
-          <span class="danger-text">Tüm kayıtlı ilerleme ve zorlandığınız kelimeler bu cihazdan silinir.</span>
+          <span class="danger-text">Tüm kayıtlı ilerleme, zorlandığınız ve gizlediğiniz kelimeler bu cihazdan silinir.</span>
           <button type="button" id="btn-reset-ask" class="btn-danger-outline">İlerlemeyi sıfırla</button>
         </div>
         <div id="reset-confirm-row" class="danger-row" hidden>
@@ -464,6 +486,11 @@
       </div>
     </div>
   </dialog>
+
+  <div id="undo-toast" class="undo-toast" role="status" aria-live="polite" hidden>
+    <span id="undo-toast-text" class="undo-toast-text"></span>
+    <button type="button" id="btn-undo-hide" class="undo-toast-btn">Geri al</button>
+  </div>
 
   <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
 

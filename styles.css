@@ -535,11 +535,38 @@ button {
   color: var(--ink-muted);
 }
 
+.card-meta-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .meta-kind {
   padding: 3px 10px;
   border-radius: var(--radius-pill);
   background-color: var(--desk-subtle);
   color: var(--ink);
+}
+
+.card-hide-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+  background-color: transparent;
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.card-hide-btn:hover {
+  border-color: var(--btn-danger-outline-border);
+  background-color: var(--bad-bg);
+  color: var(--bad-text);
 }
 
 .card-prompt {
@@ -1245,6 +1272,31 @@ button {
   color: var(--card);
 }
 
+.filter-chip-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: var(--desk-subtle);
+  color: var(--ink);
+}
+
+.filter-chip.is-active .chip-count-badge {
+  background-color: var(--card);
+  color: var(--ink);
+}
+
 .dict-list {
   list-style: none;
   margin: 0;
@@ -1422,6 +1474,99 @@ button {
 
 .dict-mistake-toggle.is-marked:hover {
   background-color: var(--warn-hover-bg);
+}
+
+.dict-item.is-hidden-item {
+  background-color: var(--desk);
+}
+
+.dict-item.is-hidden-item .dict-de {
+  color: var(--ink-muted);
+}
+
+.srs-tag.is-hidden {
+  background-color: var(--desk-subtle);
+  border-color: var(--rule-strong);
+  color: var(--ink-muted);
+}
+
+.dict-hide-btn {
+  min-height: 36px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--rule-strong);
+  background-color: var(--card);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.dict-hide-btn:hover {
+  border-color: var(--btn-danger-outline-border);
+  background-color: var(--bad-bg);
+  color: var(--bad-text);
+}
+
+.dict-restore-btn {
+  min-height: 36px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--ok-border);
+  background-color: var(--ok-bg);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ok-text);
+  white-space: nowrap;
+}
+
+.dict-restore-btn:hover {
+  border-color: var(--accent-das);
+}
+
+/* Undo Toast */
+
+.undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 24px);
+  padding: 10px 12px 10px 16px;
+  border-radius: var(--radius-control);
+  background-color: var(--ink);
+  color: var(--card);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 10px 28px var(--dialog-shadow);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.undo-toast-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo-toast-btn {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 0;
+  background-color: var(--btn-primary-bg);
+  color: var(--on-accent);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.undo-toast-btn:hover {
+  background-color: var(--btn-primary-hover);
 }
 
 .dict-empty {
@@ -1807,9 +1952,28 @@ button {
     justify-content: space-between;
   }
 
+  .card-hide-btn {
+    min-height: 36px;
+    padding: 5px 10px;
+  }
+
   .dict-item {
-    padding: 10px 12px;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .dict-item-side {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .dict-side-actions {
+    flex-wrap: wrap;
   }
 
   .filter-chip {
@@ -1839,6 +2003,7 @@ button {
   }
 
   .card-accent-bar,
+  .card-hide-btn,
   .article-btn,
   .text-input,
   .btn-primary,

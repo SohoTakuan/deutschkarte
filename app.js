@@ -87,6 +87,8 @@ function createDefaultState() {
     cards: {},
     mistakes: {},
     mistakeClearedAt: {},
+    hiddenWords: {},
+    hiddenRestoredAt: {},
     updatedAt: 0,
     resetAt: 0
   };
@@ -102,11 +104,23 @@ function sanitizeClearedAt(rawCleared) {
       continue;
     }
     const num = Number(ts);
-    if (num > 0) {
+    if (Number.isFinite(num) && num > 0) {
       clean[id] = num;
     }
   }
   return clean;
+}
+
+function sanitizeHiddenState(rawHidden, rawRestored) {
+  const hiddenRestoredAt = sanitizeClearedAt(rawRestored);
+  const candidateHidden = sanitizeClearedAt(rawHidden);
+  const hiddenWords = {};
+  for (const [id, ts] of Object.entries(candidateHidden)) {
+    if (ts > (hiddenRestoredAt[id] || 0)) {
+      hiddenWords[id] = ts;
+    }
+  }
+  return { hiddenWords, hiddenRestoredAt };
 }
 
 function sanitizeMistakes(rawMistakes) {
@@ -179,6 +193,11 @@ function loadState() {
     );
     const bestStreak = Math.max(0, Number(parsed.progress?.bestStreak) || 0);
 
+    const { hiddenWords, hiddenRestoredAt } = sanitizeHiddenState(
+      parsed.hiddenWords,
+      parsed.hiddenRestoredAt
+    );
+
     return {
       settings: { mode, lesson, direction, dailyGoal, autoSpeak },
       progress: { totalAnswered, totalCorrect, bestStreak },
@@ -186,6 +205,8 @@ function loadState() {
       cards: sanitizeCards(parsed.cards),
       mistakes: sanitizeMistakes(parsed.mistakes),
       mistakeClearedAt: sanitizeClearedAt(parsed.mistakeClearedAt),
+      hiddenWords,
+      hiddenRestoredAt,
       updatedAt: Math.max(0, Number(parsed.updatedAt) || 0),
       resetAt: Math.max(0, Number(parsed.resetAt) || 0)
     };
@@ -255,9 +276,11 @@ const els = {
   emptyDesc: document.getElementById("empty-desc"),
   emptySwitchMixed: document.getElementById("empty-switch-mixed"),
   emptyAllLessons: document.getElementById("empty-all-lessons"),
+  emptyOpenHidden: document.getElementById("empty-open-hidden"),
 
   cardLessonLabel: document.getElementById("card-lesson-label"),
   cardKindLabel: document.getElementById("card-kind-label"),
+  btnHideWord: document.getElementById("btn-hide-word"),
   promptTr: document.getElementById("prompt-tr"),
   promptHint: document.getElementById("prompt-hint"),
   btnSpeakPrompt: document.getElementById("btn-speak-prompt"),
@@ -306,9 +329,11 @@ const els = {
   dictSearch: document.getElementById("dict-search"),
   dictLessonSelect: document.getElementById("dict-lesson-select"),
   dictFilterChips: Array.from(document.querySelectorAll(".filter-chip")),
+  dictHiddenBadge: document.getElementById("dict-hidden-badge"),
   dictCount: document.getElementById("dict-count"),
   dictList: document.getElementById("dict-list"),
   dictEmpty: document.getElementById("dict-empty"),
+  dictEmptyText: document.getElementById("dict-empty-text"),
   dictClearFilters: document.getElementById("dict-clear-filters"),
 
   openBackup: document.getElementById("open-backup"),
@@ -345,6 +370,9 @@ const els = {
   btnResetConfirm: document.getElementById("btn-reset-confirm"),
   btnResetCancel: document.getElementById("btn-reset-cancel"),
 
+  undoToast: document.getElementById("undo-toast"),
+  undoToastText: document.getElementById("undo-toast-text"),
+  btnUndoHide: document.getElementById("btn-undo-hide"),
   srAnnouncer: document.getElementById("sr-announcer")
 };
 
@@ -518,17 +546,134 @@ function announce(message) {
   }, 30);
 }
 
+/* Hidden Word Management & Undo Toast */
+
+function isWordHidden(wordId) {
+  return Boolean(appState.hiddenWords[wordId]);
+}
+
+function getActiveWords(words = ALL_WORDS) {
+  return words.filter((word) => !appState.hiddenWords[word.id]);
+}
+
+function getActiveMistakeCount() {
+  return Object.keys(appState.mistakes).filter(
+    (id) => !appState.hiddenWords[id]
+  ).length;
+}
+
+function getHiddenCount() {
+  return Object.keys(appState.hiddenWords).length;
+}
+
+function getWordShortLabel(word) {
+  if (!word) {
+    return "";
+  }
+  if (word.category !== "noun") {
+    return word.de;
+  }
+  if (word.onlyPlural) {
+    return `die ${toArray(word.plural)[0]}`;
+  }
+  return `${word.article} ${toArray(word.singular)[0]}`;
+}
+
+let undoToastTimer = null;
+let lastHiddenWordId = null;
+
+function hideUndoToast() {
+  if (undoToastTimer) {
+    window.clearTimeout(undoToastTimer);
+    undoToastTimer = null;
+  }
+  lastHiddenWordId = null;
+  if (els.undoToast) {
+    els.undoToast.hidden = true;
+  }
+}
+
+function showUndoToast(word) {
+  if (!els.undoToast || !els.undoToastText || !word) {
+    return;
+  }
+  if (undoToastTimer) {
+    window.clearTimeout(undoToastTimer);
+  }
+  lastHiddenWordId = word.id;
+  els.undoToastText.textContent = `"${getWordShortLabel(word)}" gizlendi.`;
+  els.undoToast.hidden = false;
+  undoToastTimer = window.setTimeout(() => {
+    hideUndoToast();
+  }, 6000);
+}
+
+function hideWord(wordId, { fromCard = false } = {}) {
+  if (!WORD_BY_ID.has(wordId)) {
+    return;
+  }
+  const now = Math.max(Date.now(), (appState.hiddenRestoredAt[wordId] || 0) + 1);
+  appState.hiddenWords[wordId] = now;
+  saveState({ sync: true });
+  populateLessonSelects();
+  updateTopControls();
+
+  const word = WORD_BY_ID.get(wordId);
+  showUndoToast(word);
+  announce(`"${getWordShortLabel(word)}" çalışma listesinden gizlendi.`);
+
+  if (fromCard || runtime.currentWord?.id === wordId) {
+    showNextCard();
+  }
+  if (runtime.activeTab === "dictionary") {
+    renderDictionary();
+  }
+  if (els.backupDialog?.open) {
+    refreshBackupModal();
+  }
+}
+
+function unhideWord(wordId, { fromUndo = false } = {}) {
+  if (!WORD_BY_ID.has(wordId)) {
+    return;
+  }
+  const now = Math.max(Date.now(), (appState.hiddenWords[wordId] || 0) + 1);
+  delete appState.hiddenWords[wordId];
+  appState.hiddenRestoredAt[wordId] = now;
+  saveState({ sync: true });
+
+  if (lastHiddenWordId === wordId) {
+    hideUndoToast();
+  }
+  populateLessonSelects();
+  updateTopControls();
+
+  if (runtime.currentWord === null || (fromUndo && runtime.activeTab === "study")) {
+    showNextCard();
+  }
+  if (runtime.activeTab === "dictionary") {
+    renderDictionary();
+  }
+  if (els.backupDialog?.open) {
+    refreshBackupModal();
+  }
+
+  const word = WORD_BY_ID.get(wordId);
+  announce(`"${getWordShortLabel(word)}" tekrar çalışma listesine eklendi.`);
+}
+
 /* Lesson Selectors & Top UI */
 
 function populateLessonSelects() {
   const lessons = getLessonList();
   const selects = [els.lessonSelect, els.dictLessonSelect];
+  const activeTotal = getActiveWords().length;
 
   for (const select of selects) {
     select.innerHTML = "";
     const allOpt = document.createElement("option");
     allOpt.value = "all";
-    allOpt.textContent = `Tüm Dersler (${ALL_WORDS.length})`;
+    allOpt.textContent = `Tüm Dersler (${activeTotal})`;
     select.appendChild(allOpt);
 
     const byLevel = new Map();
@@ -543,9 +688,12 @@ function populateLessonSelects() {
       const optgroup = document.createElement("optgroup");
       optgroup.label = `${level} Seviyesi`;
       for (const lesson of group) {
+        const activeLessonCount = getWordsForLesson(lesson.id).filter(
+          (w) => !isWordHidden(w.id)
+        ).length;
         const opt = document.createElement("option");
         opt.value = lesson.title;
-        opt.textContent = `${lesson.title} (${lesson.count})`;
+        opt.textContent = `${lesson.title} (${activeLessonCount})`;
         optgroup.appendChild(opt);
       }
       select.appendChild(optgroup);
@@ -559,9 +707,15 @@ function populateLessonSelects() {
 function updateTopControls() {
   appState.daily = normalizeDailyState(appState.daily);
 
-  const mistakeCount = Object.keys(appState.mistakes).length;
+  const mistakeCount = getActiveMistakeCount();
   els.mistakesBadge.textContent = String(mistakeCount);
   els.mistakesBadge.hidden = mistakeCount === 0;
+
+  if (els.dictHiddenBadge) {
+    const hiddenCount = getHiddenCount();
+    els.dictHiddenBadge.textContent = String(hiddenCount);
+    els.dictHiddenBadge.hidden = hiddenCount === 0;
+  }
 
   for (const btn of els.modeBtns) {
     btn.classList.toggle("is-active", btn.dataset.mode === appState.settings.mode);
@@ -576,9 +730,10 @@ function updateTopControls() {
     btn.disabled = isArticlesMode;
   }
 
+  const activeWords = getActiveWords();
   els.lessonSelect.value = appState.settings.lesson;
   els.dailyProgress.textContent = `${appState.daily.count} / ${appState.settings.dailyGoal}`;
-  els.masteredCount.textContent = `${countMasteredWords()} / ${ALL_WORDS.length}`;
+  els.masteredCount.textContent = `${countMasteredWords(activeWords)} / ${activeWords.length}`;
   els.sessionScore.textContent = `${runtime.sessionCorrect} / ${runtime.sessionAnswered}`;
   els.sessionStreak.textContent = String(runtime.sessionStreak);
 }
@@ -586,7 +741,9 @@ function updateTopControls() {
 /* Pool & Leitner Weighted Scheduling */
 
 function getActiveStudyPool() {
-  const lessonWords = getWordsForLesson(appState.settings.lesson);
+  const lessonWords = getWordsForLesson(appState.settings.lesson).filter(
+    (word) => !isWordHidden(word.id)
+  );
   if (appState.settings.mode === "mistakes") {
     return lessonWords.filter((word) => Boolean(appState.mistakes[word.id]));
   }
@@ -694,6 +851,16 @@ function buildNounPluralTraps(singular, actualPlurals) {
   return traps.filter((candidate) => !actualSet.has(candidate));
 }
 
+function prioritizeActivePools(...pools) {
+  const activeParts = pools.map((list) =>
+    shuffleArray(list.filter((item) => !isWordHidden(item.id)))
+  );
+  const hiddenParts = pools.map((list) =>
+    shuffleArray(list.filter((item) => isWordHidden(item.id)))
+  );
+  return [...activeParts.flat(), ...hiddenParts.flat()];
+}
+
 function buildChoiceOptions(word, direction) {
   const options = [];
   const seenLabels = new Set();
@@ -710,24 +877,20 @@ function buildChoiceOptions(word, direction) {
   if (direction === "de-tr") {
     addOption(word.tr, true);
 
-    const sameCategory = shuffleArray(
-      ALL_WORDS.filter(
-        (item) =>
-          item.id !== word.id &&
-          item.category === word.category &&
-          item.tr !== word.tr
-      )
+    const sameCategory = ALL_WORDS.filter(
+      (item) =>
+        item.id !== word.id &&
+        item.category === word.category &&
+        item.tr !== word.tr
     );
-    const otherWords = shuffleArray(
-      ALL_WORDS.filter(
-        (item) =>
-          item.id !== word.id &&
-          item.category !== word.category &&
-          item.tr !== word.tr
-      )
+    const otherWords = ALL_WORDS.filter(
+      (item) =>
+        item.id !== word.id &&
+        item.category !== word.category &&
+        item.tr !== word.tr
     );
 
-    for (const candidate of [...sameCategory, ...otherWords]) {
+    for (const candidate of prioritizeActivePools(sameCategory, otherWords)) {
       if (options.length >= 4) {
         break;
       }
@@ -770,15 +933,13 @@ function buildChoiceOptions(word, direction) {
       }
     }
 
-    const otherNouns = shuffleArray(
-      ALL_WORDS.filter(
-        (item) =>
-          item.category === "noun" &&
-          item.id !== word.id &&
-          item.tr !== word.tr
-      )
+    const otherNouns = ALL_WORDS.filter(
+      (item) =>
+        item.category === "noun" &&
+        item.id !== word.id &&
+        item.tr !== word.tr
     );
-    for (const candidate of otherNouns) {
+    for (const candidate of prioritizeActivePools(otherNouns)) {
       if (options.length >= 4) {
         break;
       }
@@ -791,26 +952,22 @@ function buildChoiceOptions(word, direction) {
     const hasPhraseOverlap = (item) =>
       [item.de, ...toArray(item.alt)].some((form) => forbidden.has(form));
 
-    const sameCategory = shuffleArray(
-      ALL_WORDS.filter(
-        (item) =>
-          item.id !== word.id &&
-          item.category === word.category &&
-          item.tr !== word.tr &&
-          !hasPhraseOverlap(item)
-      )
+    const sameCategory = ALL_WORDS.filter(
+      (item) =>
+        item.id !== word.id &&
+        item.category === word.category &&
+        item.tr !== word.tr &&
+        !hasPhraseOverlap(item)
     );
-    const fallbackPool = shuffleArray(
-      ALL_WORDS.filter(
-        (item) =>
-          item.id !== word.id &&
-          item.category !== "noun" &&
-          item.category !== word.category &&
-          item.tr !== word.tr &&
-          !hasPhraseOverlap(item)
-      )
+    const fallbackPool = ALL_WORDS.filter(
+      (item) =>
+        item.id !== word.id &&
+        item.category !== "noun" &&
+        item.category !== word.category &&
+        item.tr !== word.tr &&
+        !hasPhraseOverlap(item)
     );
-    for (const candidate of [...sameCategory, ...fallbackPool]) {
+    for (const candidate of prioritizeActivePools(sameCategory, fallbackPool)) {
       if (options.length >= 4) {
         break;
       }
@@ -828,10 +985,14 @@ function showNextCard() {
   updateTopControls();
 
   if (pool.length === 0) {
+    const lessonAllWords = getWordsForLesson(appState.settings.lesson);
+    const hiddenInLesson = lessonAllWords.filter((w) => isWordHidden(w.id)).length;
+
     runtime.currentWord = null;
     els.cardActiveBody.hidden = true;
     els.cardEmptyState.hidden = false;
     els.studyCard.dataset.gender = "neutral";
+    els.emptyOpenHidden.hidden = true;
 
     if (appState.settings.mode === "mistakes") {
       els.emptyTitle.textContent = "Zorlandığınız kelime yok";
@@ -842,10 +1003,26 @@ function showNextCard() {
       els.emptySwitchMixed.hidden = false;
       els.emptyAllLessons.hidden = appState.settings.lesson === "all";
     } else if (appState.settings.mode === "articles") {
+      const hasAnyNounInLesson = lessonAllWords.some(
+        (w) => w.category === "noun"
+      );
       els.emptyTitle.textContent = "Artikel sorusu bulunamadı";
-      els.emptyDesc.textContent = "Bu derste artikel pratiği için isim kaydı yer almıyor.";
+      els.emptyDesc.textContent = hasAnyNounInLesson
+        ? "Bu dersteki tüm isimler gizlenmiş. Gizlenenler bölümünden tekrar çalışmaya alabilirsiniz."
+        : "Bu derste artikel pratiği için isim kaydı yer almıyor.";
       els.emptySwitchMixed.hidden = false;
       els.emptyAllLessons.hidden = appState.settings.lesson === "all";
+      els.emptyOpenHidden.hidden = !hasAnyNounInLesson;
+    } else if (hiddenInLesson > 0 && hiddenInLesson === lessonAllWords.length) {
+      els.emptyTitle.textContent =
+        appState.settings.lesson === "all"
+          ? "Tüm kelimeler gizlendi"
+          : "Bu dersteki tüm kelimeler gizlendi";
+      els.emptyDesc.textContent =
+        "Kelime Sözlüğü'ndeki Gizlenenler filtresinden istediğiniz kelimeleri tekrar çalışmaya alabilirsiniz.";
+      els.emptySwitchMixed.hidden = true;
+      els.emptyAllLessons.hidden = appState.settings.lesson === "all";
+      els.emptyOpenHidden.hidden = false;
     } else {
       els.emptyTitle.textContent = "Bu derste kelime bulunamadı";
       els.emptyDesc.textContent = "Farklı bir ders seçerek çalışmaya devam edebilirsiniz.";
@@ -1856,6 +2033,15 @@ function getFilteredDictionaryWords() {
   const query = normalizeSearchText(runtime.dictQuery.trim());
 
   return baseWords.filter((word) => {
+    const hidden = isWordHidden(word.id);
+    if (runtime.dictFilter === "hidden") {
+      if (!hidden) {
+        return false;
+      }
+    } else if (hidden) {
+      return false;
+    }
+
     if (runtime.dictFilter === "noun" && word.category !== "noun") {
       return false;
     }
@@ -1926,6 +2112,12 @@ function createSpeakerSvg() {
 }
 
 function renderDictionary() {
+  if (els.dictHiddenBadge) {
+    const hiddenCount = getHiddenCount();
+    els.dictHiddenBadge.textContent = String(hiddenCount);
+    els.dictHiddenBadge.hidden = hiddenCount === 0;
+  }
+
   const items = getFilteredDictionaryWords();
   const isFiltered =
     runtime.dictFilter !== "all" ||
@@ -1937,6 +2129,14 @@ function renderDictionary() {
   els.dictList.innerHTML = "";
 
   if (items.length === 0) {
+    if (els.dictEmptyText) {
+      els.dictEmptyText.textContent =
+        runtime.dictFilter === "hidden" &&
+        runtime.dictQuery.trim() === "" &&
+        runtime.dictLesson === "all"
+          ? "Gizlediğiniz kelime yok."
+          : "Arama ölçütünüze uygun kelime bulunamadı.";
+    }
     els.dictList.hidden = true;
     els.dictEmpty.hidden = false;
     return;
@@ -1948,8 +2148,9 @@ function renderDictionary() {
   const fragment = document.createDocumentFragment();
 
   for (const word of items) {
+    const isHidden = isWordHidden(word.id);
     const li = document.createElement("li");
-    li.className = "dict-item";
+    li.className = isHidden ? "dict-item is-hidden-item" : "dict-item";
     li.dataset.article = word.category === "noun" ? word.article : word.category;
 
     const main = document.createElement("div");
@@ -1992,10 +2193,15 @@ function renderDictionary() {
     const metaRow = document.createElement("div");
     metaRow.className = "dict-meta-row";
 
-    const srs = getWordSrsStatus(word.id);
     const srsTag = document.createElement("span");
-    srsTag.className = `srs-tag is-${srs.key}`;
-    srsTag.textContent = srs.label;
+    if (isHidden) {
+      srsTag.className = "srs-tag is-hidden";
+      srsTag.textContent = "Gizli";
+    } else {
+      const srs = getWordSrsStatus(word.id);
+      srsTag.className = `srs-tag is-${srs.key}`;
+      srsTag.textContent = srs.label;
+    }
 
     const lessonTag = document.createElement("span");
     lessonTag.className = "dict-lesson-tag";
@@ -2019,33 +2225,62 @@ function renderDictionary() {
       sideActions.appendChild(speakBtn);
     }
 
-    const isMistake = Boolean(appState.mistakes[word.id]);
-    const toggleBtn = document.createElement("button");
-    toggleBtn.type = "button";
-    toggleBtn.className = `dict-mistake-toggle ${isMistake ? "is-marked" : ""}`;
-    toggleBtn.setAttribute("aria-pressed", String(isMistake));
-    toggleBtn.setAttribute(
-      "aria-label",
-      isMistake ? "Zorlandıklarımdan çıkar" : "Zorlandıklarıma ekle"
-    );
-    toggleBtn.textContent = isMistake ? "Listeden çıkar" : "Listeye ekle";
-    toggleBtn.addEventListener("click", () => {
-      if (appState.mistakes[word.id]) {
-        delete appState.mistakes[word.id];
-        appState.mistakeClearedAt[word.id] = Date.now();
-      } else {
-        appState.mistakes[word.id] = {
-          streak: 0,
-          misses: 1,
-          updatedAt: Date.now()
-        };
-      }
-      saveState({ sync: true });
-      updateTopControls();
-      renderDictionary();
-    });
+    if (isHidden) {
+      const restoreBtn = document.createElement("button");
+      restoreBtn.type = "button";
+      restoreBtn.className = "dict-restore-btn";
+      restoreBtn.setAttribute(
+        "aria-label",
+        `${deEl.textContent} kelimesini tekrar çalışmaya al`
+      );
+      restoreBtn.textContent = "Geri al";
+      restoreBtn.addEventListener("click", () => {
+        unhideWord(word.id);
+      });
+      sideActions.appendChild(restoreBtn);
+    } else {
+      const isMistake = Boolean(appState.mistakes[word.id]);
+      const toggleBtn = document.createElement("button");
+      toggleBtn.type = "button";
+      toggleBtn.className = `dict-mistake-toggle ${isMistake ? "is-marked" : ""}`;
+      toggleBtn.setAttribute("aria-pressed", String(isMistake));
+      toggleBtn.setAttribute(
+        "aria-label",
+        isMistake ? "Zorlandıklarımdan çıkar" : "Zorlandıklarıma ekle"
+      );
+      toggleBtn.textContent = isMistake ? "Zorlandıklarımda" : "Zorlandım";
+      toggleBtn.addEventListener("click", () => {
+        if (appState.mistakes[word.id]) {
+          delete appState.mistakes[word.id];
+          appState.mistakeClearedAt[word.id] = Date.now();
+        } else {
+          appState.mistakes[word.id] = {
+            streak: 0,
+            misses: 1,
+            updatedAt: Date.now()
+          };
+        }
+        saveState({ sync: true });
+        updateTopControls();
+        renderDictionary();
+      });
 
-    sideActions.appendChild(toggleBtn);
+      const hideBtn = document.createElement("button");
+      hideBtn.type = "button";
+      hideBtn.className = "dict-hide-btn";
+      hideBtn.setAttribute(
+        "aria-label",
+        `${deEl.textContent} kelimesini çalışma listesinden gizle`
+      );
+      hideBtn.textContent = "Gizle";
+      hideBtn.addEventListener("click", () => {
+        hideWord(word.id);
+      });
+
+      sideActions.appendChild(toggleBtn);
+      sideActions.appendChild(hideBtn);
+    }
+
     side.appendChild(metaRow);
     side.appendChild(sideActions);
 
@@ -2064,27 +2299,28 @@ function refreshBackupModal() {
   const { totalAnswered, totalCorrect, bestStreak } = appState.progress;
   const accuracy =
     totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
-  const learnedTotal = countMasteredWords();
+  const activeWords = getActiveWords();
+  const learnedTotal = countMasteredWords(activeWords);
 
-  els.statLearned.textContent = `${learnedTotal} / ${ALL_WORDS.length}`;
+  els.statLearned.textContent = `${learnedTotal} / ${activeWords.length}`;
   els.statDailyStreak.textContent = `${appState.daily.streakDays} gün`;
   els.statTotal.textContent = String(totalAnswered);
   els.statAccuracy.textContent = `%${accuracy}`;
   els.statBestStreak.textContent = String(bestStreak);
-  els.statMistakes.textContent = String(Object.keys(appState.mistakes).length);
+  els.statMistakes.textContent = String(getActiveMistakeCount());
 
   els.dailyGoalSelect.value = String(appState.settings.dailyGoal);
   els.autoSpeakToggle.checked = Boolean(appState.settings.autoSpeak);
   els.autoSpeakToggle.disabled = !isSpeechSupported();
 
   // Level progress & Leitner SRS summary
-  const summaries = getLevelSummary(appState.cards);
+  const summaries = getLevelSummary(appState.cards, appState.hiddenWords);
   const now = Date.now();
   let dueCount = 0;
   let learningCount = 0;
   let unseenCount = 0;
 
-  for (const word of ALL_WORDS) {
+  for (const word of activeWords) {
     const card = appState.cards[word.id];
     if (!card || !card.seen) {
       unseenCount += 1;
@@ -2097,7 +2333,9 @@ function refreshBackupModal() {
     }
   }
 
-  els.srsSummary.textContent = `${dueCount} tekrar zamanı, ${learningCount} öğreniliyor, ${unseenCount} yeni`;
+  const hiddenCount = getHiddenCount();
+  const hiddenNote = hiddenCount > 0 ? `, ${hiddenCount} gizli` : "";
+  els.srsSummary.textContent = `${dueCount} tekrar zamanı, ${learningCount} öğreniliyor, ${unseenCount} yeni${hiddenNote}`;
   els.levelProgressList.innerHTML = "";
 
   for (const item of summaries) {
@@ -2246,14 +2484,16 @@ async function runCloudSync({ manual = false, customToken = null } = {}) {
       const prevPoolEmpty = runtime.currentWord === null;
       appState = result.mergedState;
       saveState({ sync: false, preserveTimestamp: true });
+      populateLessonSelects();
       updateTopControls();
       if (
         prevPoolEmpty ||
         (runtime.activeTab === "study" &&
           !runtime.answered &&
-          appState.settings.mode === "mistakes" &&
           runtime.currentWord &&
-          !appState.mistakes[runtime.currentWord.id])
+          (isWordHidden(runtime.currentWord.id) ||
+            (appState.settings.mode === "mistakes" &&
+              !appState.mistakes[runtime.currentWord.id])))
       ) {
         showNextCard();
       }
@@ -2312,6 +2552,8 @@ function exportBackupJson() {
     cards: appState.cards,
     mistakes: appState.mistakes,
     mistakeClearedAt: appState.mistakeClearedAt,
+    hiddenWords: appState.hiddenWords,
+    hiddenRestoredAt: appState.hiddenRestoredAt,
     updatedAt: appState.updatedAt,
     resetAt: appState.resetAt
   };
@@ -2352,6 +2594,10 @@ async function importBackupJson(file) {
 
     const cleanMistakes = sanitizeMistakes(parsed.mistakes);
     const cleanCards = sanitizeCards(parsed.cards);
+    const { hiddenWords, hiddenRestoredAt } = sanitizeHiddenState(
+      parsed.hiddenWords,
+      parsed.hiddenRestoredAt
+    );
     const lessons = getLessonList().map((l) => l.title);
     const totalAnswered = Math.max(0, Number(parsed.progress.totalAnswered) || 0);
     const totalCorrect = Math.min(
@@ -2382,13 +2628,17 @@ async function importBackupJson(file) {
       cards: cleanCards,
       mistakes: cleanMistakes,
       mistakeClearedAt: sanitizeClearedAt(parsed.mistakeClearedAt),
+      hiddenWords,
+      hiddenRestoredAt,
       updatedAt: Date.now(),
       resetAt: Math.max(0, Number(parsed.resetAt) || 0)
     };
     if (VALID_THEMES.includes(parsed.settings?.theme)) {
       applyTheme(parsed.settings.theme, true);
     }
+    hideUndoToast();
     saveState({ sync: true, preserveTimestamp: true });
+    populateLessonSelects();
     refreshBackupModal();
     updateTopControls();
     showNextCard();
@@ -2542,6 +2792,28 @@ function bindEvents() {
     appState.settings.lesson = "all";
     saveState({ sync: false, preserveTimestamp: true });
     showNextCard();
+  });
+
+  els.emptyOpenHidden?.addEventListener("click", () => {
+    runtime.dictFilter = "hidden";
+    runtime.dictLesson = appState.settings.lesson;
+    els.dictLessonSelect.value = runtime.dictLesson;
+    for (const chip of els.dictFilterChips) {
+      chip.classList.toggle("is-active", chip.dataset.filter === "hidden");
+    }
+    switchTab("dictionary");
+  });
+
+  els.btnHideWord?.addEventListener("click", () => {
+    if (runtime.currentWord) {
+      hideWord(runtime.currentWord.id, { fromCard: true });
+    }
+  });
+
+  els.btnUndoHide?.addEventListener("click", () => {
+    if (lastHiddenWordId) {
+      unhideWord(lastHiddenWordId, { fromUndo: true });
+    }
   });
 
   for (const btn of els.articleBtns) {
@@ -2754,10 +3026,12 @@ function bindEvents() {
     runtime.sessionAnswered = 0;
     runtime.sessionCorrect = 0;
     runtime.sessionStreak = 0;
+    hideUndoToast();
     saveState({ sync: true, preserveTimestamp: true });
     if (VALID_THEMES.includes(keptTheme)) {
       applyTheme(keptTheme, false);
     }
+    populateLessonSelects();
     refreshBackupModal();
     updateTopControls();
     showNextCard();
