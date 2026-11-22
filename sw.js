@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deutschkarte-v8";
+const CACHE_VERSION = "deutschkarte-v9";
 
 const PRECACHE_URLS = [
   "./",
@@ -70,7 +70,7 @@ self.addEventListener("fetch", (event) => {
             }
             return response;
           })
-          .catch(() => cached);
+          .catch(() => cached || Response.error());
         return cached || networkPromise;
       })
     );
@@ -101,7 +101,7 @@ self.addEventListener("fetch", (event) => {
         if (request.mode === "navigate") {
           return caches.match("./index.html");
         }
-        return undefined;
+        return Response.error();
       })
   );
 });

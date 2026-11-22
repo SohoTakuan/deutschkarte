@@ -437,7 +437,7 @@ async function githubGistRequest(url, token, options = {}) {
     });
   } catch {
     throw new SyncHttpError(
-      "İnternet bağlantısı yok. Çevrimdışı olunca ilerlemeniz otomatik eşitlenecek.",
+      "İnternet bağlantısı yok. Çevrimiçi olunca ilerlemeniz otomatik eşitlenecek.",
       0
     );
   }

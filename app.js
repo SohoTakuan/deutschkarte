@@ -266,7 +266,8 @@ const runtime = {
   conjAnswered: false,
   conjScore: 0,
   conjAnsweredCount: 0,
-  conjStreak: 0
+  conjStreak: 0,
+  conjMistakes: {}
 };
 
 const els = {
@@ -292,6 +293,7 @@ const els = {
   conjInfinitiveMeaning: document.getElementById("conj-infinitive-meaning"),
   conjPronoun: document.getElementById("conj-pronoun"),
   conjVerb: document.getElementById("conj-verb"),
+  conjSpeakPrompt: document.getElementById("conj-speak-prompt"),
   conjTrCue: document.getElementById("conj-tr-cue"),
   conjChoiceArea: document.getElementById("conj-choice-area"),
   conjChoiceList: document.getElementById("conj-choice-list"),
@@ -299,6 +301,7 @@ const els = {
   conjSkipChoice: document.getElementById("conj-skip-choice"),
   conjTypingArea: document.getElementById("conj-typing-area"),
   conjInput: document.getElementById("conj-input"),
+  conjUmlautBar: document.getElementById("conj-umlaut-bar"),
   conjUmlautBtns: Array.from(document.querySelectorAll(".conj-umlaut-btn")),
   conjInputGuidance: document.getElementById("conj-input-guidance"),
   conjTypingActions: document.getElementById("conj-typing-actions"),
@@ -312,13 +315,14 @@ const els = {
   conjExample: document.getElementById("conj-example"),
   conjExampleDe: document.getElementById("conj-example-de"),
   conjExampleTr: document.getElementById("conj-example-tr"),
+  conjSpeakExample: document.getElementById("conj-speak-example"),
   conjNext: document.getElementById("conj-next"),
   conjSpeak: document.getElementById("conj-speak"),
   grammarNotesList: document.getElementById("grammar-notes-list"),
   modeBtns: Array.from(document.querySelectorAll(".mode-btn")),
   mistakesBadge: document.getElementById("mistakes-badge"),
   directionGroup: document.getElementById("direction-group"),
-  dirBtns: Array.from(document.querySelectorAll(".dir-btn")),
+  dirBtns: Array.from(document.querySelectorAll("#direction-group .dir-btn")),
   lessonSelect: document.getElementById("lesson-select"),
   dailyProgress: document.getElementById("daily-progress"),
   masteredCount: document.getElementById("mastered-count"),
@@ -353,7 +357,7 @@ const els = {
   singularLockNote: document.getElementById("singular-lock-note"),
   pluralLockNote: document.getElementById("plural-lock-note"),
   umlautBar: document.getElementById("umlaut-bar"),
-  umlautBtns: Array.from(document.querySelectorAll(".umlaut-btn")),
+  umlautBtns: Array.from(document.querySelectorAll("#umlaut-bar .umlaut-btn")),
   toggleUmlautCase: document.getElementById("toggle-umlaut-case"),
   inputGuidance: document.getElementById("input-guidance"),
   typingActions: document.getElementById("typing-actions"),
@@ -385,7 +389,9 @@ const els = {
 
   dictSearch: document.getElementById("dict-search"),
   dictLessonSelect: document.getElementById("dict-lesson-select"),
-  dictFilterChips: Array.from(document.querySelectorAll(".filter-chip")),
+  dictFilterChips: Array.from(
+    document.querySelectorAll("#dictionary-view .filter-chip")
+  ),
   dictHiddenBadge: document.getElementById("dict-hidden-badge"),
   dictCount: document.getElementById("dict-count"),
   dictList: document.getElementById("dict-list"),
@@ -1350,6 +1356,7 @@ function foldDiacritics(str) {
     .replace(/ä/g, "a")
     .replace(/ö/g, "o")
     .replace(/ü/g, "u")
+    .replace(/é/g, "e")
     .replace(/ß/g, "ss");
 }
 
@@ -1494,6 +1501,9 @@ function classifyPhraseCaseTip(candidate, expected, word) {
   if (expected.includes("Ihnen") && /\bihnen\b/.test(candidate)) {
     return "İpucu: Resmi hitapta \"Ihnen\" kelimesi büyük harfle başlar.";
   }
+  if (/\bSie\b/.test(expected) && /\bsie\b/.test(candidate)) {
+    return "İpucu: Resmi hitapta \"Sie\" zamiri daima büyük harfle yazılır.";
+  }
   const expTokens = expected.replace(/[,!?.'’]/g, " ").split(/\s+/);
   const gotTokens = candidate.replace(/[,!?.'’]/g, " ").split(/\s+/);
   for (let i = 0; i < expTokens.length; i += 1) {
@@ -1567,6 +1577,7 @@ function evaluateTurkishAnswer(rawInput, word) {
   const cleanTr = (s) =>
     collapseSpaces(s)
       .replace(/[.!?]+$/g, "")
+      .trim()
       .toLocaleLowerCase("tr-TR");
 
   const candidate = cleanTr(rawInput);
@@ -1582,7 +1593,7 @@ function evaluateTurkishAnswer(rawInput, word) {
     accepted.add(cleanTr(withoutParens));
   }
 
-  for (const part of withoutParens.split("/")) {
+  for (const part of withoutParens.split(/[\/,]/)) {
     const trimmedPart = cleanTr(part);
     if (trimmedPart) {
       accepted.add(trimmedPart);
@@ -1694,7 +1705,7 @@ function handleTypingSubmit() {
       tips.push("İpucu: Bu kelimede \"ss\" yerine \"ß\" harfi kullanılır.");
     }
     if (singularResult.umlautTip || pluralResult.umlautTip) {
-      tips.push("İpucu: Umlaut işaretlerine dikkat edin (ä, ö, ü).");
+      tips.push("İpucu: Umlaut ve aksan işaretlerine dikkat edin (ä, ö, ü, é).");
     }
     if (word.onlyPlural && runtime.selectedArticle === "die") {
       tips.push(
@@ -1747,7 +1758,7 @@ function handleTypingSubmit() {
       tips.push("İpucu: Bu ifadede \"ss\" yerine \"ß\" harfi kullanılır.");
     }
     if (res.umlautTip) {
-      tips.push("İpucu: Umlaut işaretlerine dikkat edin (ä, ö, ü).");
+      tips.push("İpucu: Umlaut ve aksan işaretlerine dikkat edin (ä, ö, ü, é).");
     }
 
     finalizeTurn(word, res.ok, {
@@ -2888,7 +2899,21 @@ function showNextConjugation() {
     pairs.length > 1
       ? pairs.filter((p) => p.pairKey !== runtime.conjLastPairKey)
       : pairs;
-  const picked = filteredPairs[Math.floor(Math.random() * filteredPairs.length)];
+  let totalWeight = 0;
+  const weighted = filteredPairs.map((p) => {
+    const w = (runtime.conjMistakes[p.pairKey] || 0) > 0 ? 3 : 1;
+    totalWeight += w;
+    return { item: p, weight: w };
+  });
+  let roll = Math.random() * totalWeight;
+  let picked = filteredPairs[0];
+  for (const entry of weighted) {
+    roll -= entry.weight;
+    if (roll <= 0) {
+      picked = entry.item;
+      break;
+    }
+  }
 
   const { verb, slot, pairKey } = picked;
   const expected = verb.forms[slot.key];
@@ -2922,6 +2947,9 @@ function showNextConjugation() {
   }
   if (els.conjTrCue) {
     els.conjTrCue.textContent = `${slot.tr} — ${verb.tr}`;
+  }
+  if (els.conjSpeakPrompt) {
+    els.conjSpeakPrompt.hidden = !isSpeechSupported();
   }
 
   updateConjugationStrip();
@@ -2960,6 +2988,7 @@ function showNextConjugation() {
   } else {
     if (els.conjChoiceArea) els.conjChoiceArea.hidden = true;
     if (els.conjTypingArea) els.conjTypingArea.hidden = false;
+    if (els.conjUmlautBar) els.conjUmlautBar.hidden = false;
     if (els.conjTypingActions) els.conjTypingActions.hidden = false;
     if (els.conjInput) {
       els.conjInput.value = "";
@@ -3071,6 +3100,9 @@ function handleConjugationTypingSubmit() {
     els.conjInputGuidance.hidden = true;
   }
   els.conjInput.disabled = true;
+  if (els.conjUmlautBar) {
+    els.conjUmlautBar.hidden = true;
+  }
   for (const btn of els.conjUmlautBtns) {
     btn.disabled = true;
   }
@@ -3088,6 +3120,7 @@ function finalizeConjugation(isCorrect, customTip) {
     return;
   }
   const { verb, slot } = runtime.conjCurrent;
+  const pairKey = `${verb.id}:${slot.key}`;
   const spokenTarget = getConjugationSpokenText(verb, slot);
 
   runtime.conjAnswered = true;
@@ -3095,8 +3128,15 @@ function finalizeConjugation(isCorrect, customTip) {
   if (isCorrect) {
     runtime.conjScore += 1;
     runtime.conjStreak += 1;
+    if (runtime.conjMistakes[pairKey]) {
+      runtime.conjMistakes[pairKey] -= 1;
+      if (runtime.conjMistakes[pairKey] <= 0) {
+        delete runtime.conjMistakes[pairKey];
+      }
+    }
   } else {
     runtime.conjStreak = 0;
+    runtime.conjMistakes[pairKey] = (runtime.conjMistakes[pairKey] || 0) + 1;
   }
   updateConjugationStrip();
 
@@ -3116,7 +3156,7 @@ function finalizeConjugation(isCorrect, customTip) {
       : `Yanlış. Doğru cevap: ${spokenTarget}`;
   }
 
-  const tipToShow = customTip || verb.ruleTip;
+  const tipToShow = [customTip, verb.ruleTip].filter(Boolean).join(" ");
   if (els.conjRuleTip) {
     if (tipToShow) {
       els.conjRuleTip.textContent = tipToShow;
@@ -3169,6 +3209,9 @@ function finalizeConjugation(isCorrect, customTip) {
   const speechReady = isSpeechSupported();
   if (els.conjSpeak) {
     els.conjSpeak.hidden = !speechReady;
+  }
+  if (els.conjSpeakExample) {
+    els.conjSpeakExample.hidden = !speechReady;
   }
   if (appState.settings.autoSpeak) {
     speakGerman(spokenTarget);
@@ -3399,6 +3442,7 @@ function bindEvents() {
     runtime.conjScore = 0;
     runtime.conjAnsweredCount = 0;
     runtime.conjStreak = 0;
+    runtime.conjMistakes = {};
     updateConjugationStrip();
     announce("Çekim sayacı sıfırlandı.");
   });
@@ -3412,6 +3456,16 @@ function bindEvents() {
   els.conjSkipChoice?.addEventListener("click", showNextConjugation);
   els.conjSkipTyping?.addEventListener("click", showNextConjugation);
   els.conjNext?.addEventListener("click", showNextConjugation);
+  els.conjSpeakPrompt?.addEventListener("click", () => {
+    if (runtime.conjCurrent?.verb?.infinitive) {
+      speakGerman(runtime.conjCurrent.verb.infinitive);
+    }
+  });
+  els.conjSpeakExample?.addEventListener("click", () => {
+    if (runtime.conjCurrent?.verb?.example?.de) {
+      speakGerman(runtime.conjCurrent.verb.example.de);
+    }
+  });
   els.conjSpeak?.addEventListener("click", () => {
     if (runtime.conjCurrent) {
       speakGerman(

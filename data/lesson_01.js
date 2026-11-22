@@ -467,7 +467,7 @@ export const lesson01 = {
       plural: "Toiletten",
       example: {
         de: "Entschuldigung, wo ist die Toilette?",
-        tr: "Afedersiniz, tuvalet nerede?"
+        tr: "Affedersiniz, tuvalet nerede?"
       }
     },
     {
@@ -566,7 +566,7 @@ export const lesson01 = {
       id: "l1_43",
       category: "noun",
       lesson: "Ders 1",
-      tr: "Anne",
+      tr: "Anne (samimi)",
       article: "die",
       singular: "Mama",
       plural: "Mamas",
@@ -867,7 +867,7 @@ export const lesson01 = {
       de: "Wie schreibt man das?",
       example: {
         de: "Entschuldigung, wie schreibt man das?",
-        tr: "Afedersiniz, bu nasıl yazılır?"
+        tr: "Affedersiniz, bu nasıl yazılır?"
       }
     },
     {

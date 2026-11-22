@@ -333,7 +333,7 @@ export const GRAMMAR_NOTES = [
         ["er / sie / es", "-t", "er macht", "o yapıyor"],
         ["wir", "-en", "wir machen", "yapıyoruz"],
         ["ihr", "-t", "ihr macht", "yapıyorsunuz (samimi)"],
-        ["sie / Sie", "-en", "sie / Sie machen", "onlar / siz (resmi)"]
+        ["sie / Sie", "-en", "sie / Sie machen", "onlar yapıyor / siz yapıyorsunuz (resmi)"]
       ]
     },
     tip: "Dikkat: kommen fiilinde er/sie/es çekiminde kökteki çift m korunur: kommt (komt değil).",

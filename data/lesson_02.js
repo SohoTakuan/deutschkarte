@@ -294,7 +294,7 @@ export const lesson02 = {
       singular: "Deutsch",
       plural: null,
       onlySingular: true,
-      note: "Dil adı olarak sadece tekil ve çoğunlukla artiksiz kullanılır: Ich lerne Deutsch.",
+      note: "Dil adı olarak sadece tekil ve çoğunlukla artikelsiz kullanılır: Ich lerne Deutsch.",
       example: {
         de: "Ich lerne jeden Tag eine Stunde Deutsch.",
         tr: "Her gün bir saat Almanca öğreniyorum."
@@ -387,7 +387,7 @@ export const lesson02 = {
       singular: "Deutschland",
       plural: null,
       onlySingular: true,
-      note: "Ülke adı; sadece tekil ve normalde artiksiz kullanılır.",
+      note: "Ülke adı; sadece tekil ve normalde artikelsiz kullanılır.",
       example: {
         de: "Ich möchte in Deutschland studieren.",
         tr: "Almanya'da üniversite okumak istiyorum."
@@ -402,7 +402,7 @@ export const lesson02 = {
       singular: "Spanien",
       plural: null,
       onlySingular: true,
-      note: "Ülke adı; sadece tekil ve normalde artiksiz kullanılır.",
+      note: "Ülke adı; sadece tekil ve normalde artikelsiz kullanılır.",
       example: {
         de: "Nico kommt aus Spanien.",
         tr: "Nico İspanya'dan geliyor."

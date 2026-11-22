@@ -73,7 +73,7 @@
   --card-stack-2: #152030;
   --card-stack-3: #2E415A;
 
-  --accent-der: #6294F5;
+  --accent-der: #78A5F8;
   --accent-der-soft: #1C2E4A;
   --accent-die: #F2647D;
   --accent-die-soft: #391924;
@@ -239,6 +239,9 @@ button {
 }
 
 .nav-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: transparent;
   padding: 7px 14px;
@@ -868,6 +871,12 @@ button {
 .umlaut-case-btn:active {
   transform: translateY(1px);
   border-bottom-width: 1px;
+}
+
+.umlaut-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .umlaut-case-btn {
@@ -1884,6 +1893,9 @@ button {
 }
 
 .grammar-sub-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: transparent;
   padding: 7px 14px;
@@ -2071,6 +2083,12 @@ button {
   white-space: nowrap;
 }
 
+.grammar-table th:last-child,
+.grammar-table td:last-child {
+  white-space: normal;
+  min-width: 160px;
+}
+
 .grammar-table th {
   background-color: var(--desk);
   font-weight: 700;
@@ -2089,11 +2107,7 @@ button {
 
 /* Responsive */
 
-@media (max-width: 640px) {
-  .app-shell {
-    padding: 14px 12px 36px;
-  }
-
+@media (max-width: 760px) {
   .site-header {
     flex-wrap: wrap;
   }
@@ -2103,6 +2117,12 @@ button {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 14px 12px 36px;
   }
 
   .nav-tab {
@@ -2167,8 +2187,7 @@ button {
 
   .noun-inputs-grid,
   .feedback-breakdown,
-  .dict-toolbar,
-  .stats-grid-3 {
+  .dict-toolbar {
     grid-template-columns: 1fr;
   }
 

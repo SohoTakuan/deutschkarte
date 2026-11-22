@@ -101,7 +101,7 @@
         <div class="session-strip">
           <div class="session-metrics">
             <span class="metric-item">Bugün: <strong id="daily-progress">0 / 20</strong></span>
-            <span class="metric-item">Öğrenilen: <strong id="mastered-count">0 / 71</strong></span>
+            <span class="metric-item">Öğrenilen: <strong id="mastered-count">0 / 0</strong></span>
             <span class="metric-item">Doğru: <strong id="session-score">0 / 0</strong></span>
             <span class="metric-item">Seri: <strong id="session-streak">0</strong></span>
           </div>
@@ -347,9 +347,18 @@
               </div>
 
               <div class="card-prompt">
-                <div class="conj-prompt-row">
-                  <span id="conj-pronoun" class="conj-pronoun-chip">du</span>
-                  <h2 id="conj-verb" class="conj-verb-title">arbeiten</h2>
+                <div class="prompt-head">
+                  <div class="conj-prompt-row">
+                    <span id="conj-pronoun" class="conj-pronoun-chip">du</span>
+                    <h2 id="conj-verb" class="conj-verb-title">arbeiten</h2>
+                  </div>
+                  <button type="button" id="conj-speak-prompt" class="speak-btn speak-btn-sm" aria-label="Fiil mastarını dinle">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                    </svg>
+                    <span>Dinle</span>
+                  </button>
                 </div>
                 <p id="conj-tr-cue" class="prompt-hint">Sen — çalışmak</p>
               </div>
@@ -377,7 +386,7 @@
                   >
                 </div>
 
-                <div class="umlaut-bar">
+                <div id="conj-umlaut-bar" class="umlaut-bar">
                   <span class="umlaut-caption">Özel harfler</span>
                   <div class="umlaut-keys">
                     <button type="button" class="umlaut-btn conj-umlaut-btn" data-char="ä">ä</button>
@@ -405,6 +414,13 @@
                     <span id="conj-example-de" class="example-de"></span>
                     <span id="conj-example-tr" class="example-tr"></span>
                   </div>
+                  <button type="button" id="conj-speak-example" class="speak-btn speak-btn-sm" aria-label="Örnek cümleyi dinle">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                    </svg>
+                    <span>Cümle</span>
+                  </button>
                 </div>
                 <div class="card-actions">
                   <button type="button" id="conj-next" class="btn-primary">Sonraki fiil</button>
