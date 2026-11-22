@@ -2,7 +2,25 @@ const AI_STORAGE_KEY = "deutschkarte_ai_tutor_v1";
 const VALID_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
 const DEFAULT_MODEL = "gemini-2.5-flash";
 const MAX_HISTORY_TURNS = 10;
+const MAX_PROMPT_LENGTH = 1500;
 const REQUEST_TIMEOUT_MS = 25000;
+const CREDENTIAL_PATTERN = /^[\x21-\x7E]{20,256}$/;
+
+function isValidApiKeyFormat(key) {
+  return typeof key === "string" && CREDENTIAL_PATTERN.test(key.trim());
+}
+
+function sanitizeUpstreamError(message, apiKey) {
+  let clean = String(message || "").trim();
+  if (apiKey) {
+    clean = clean.split(apiKey).join("[gizli]");
+  }
+  clean = clean.replace(/AIza[A-Za-z0-9_-]{10,}/g, "[gizli]");
+  if (clean.length > 180) {
+    clean = `${clean.slice(0, 179)}…`;
+  }
+  return clean;
+}
 
 const SYSTEM_INSTRUCTION = [
   "Sen DeutschKarte uygulamasının içinde çalışan, Duden standartlarına bağlı bir Almanca öğretmenisin.",
@@ -13,43 +31,87 @@ const SYSTEM_INSTRUCTION = [
   "Almanca örneklerde büyük/küçük harf, ä/ö/ü/ß ve Duden yazımına kesinlikle uy; emin olmadığın bir şeyi uydurma."
 ].join(" ");
 
+function parseStoredAiConfig(raw, fallbackSessionOnly) {
+  if (!raw) {
+    return null;
+  }
+  const parsed = JSON.parse(raw);
+  const rawKey = typeof parsed?.apiKey === "string" ? parsed.apiKey.trim() : "";
+  const apiKey = isValidApiKeyFormat(rawKey) ? rawKey : "";
+  const model = VALID_MODELS.includes(parsed?.model) ? parsed.model : DEFAULT_MODEL;
+  const sessionOnly =
+    typeof parsed?.sessionOnly === "boolean" ? parsed.sessionOnly : fallbackSessionOnly;
+  return { apiKey, model, sessionOnly };
+}
+
 function loadAiConfig() {
   try {
-    const raw = localStorage.getItem(AI_STORAGE_KEY);
-    if (!raw) {
-      return { apiKey: "", model: DEFAULT_MODEL };
+    const sessionCfg = parseStoredAiConfig(
+      typeof sessionStorage !== "undefined" ? sessionStorage.getItem(AI_STORAGE_KEY) : null,
+      true
+    );
+    if (sessionCfg) {
+      return sessionCfg;
     }
-    const parsed = JSON.parse(raw);
-    const apiKey = typeof parsed?.apiKey === "string" ? parsed.apiKey.trim() : "";
-    const model = VALID_MODELS.includes(parsed?.model) ? parsed.model : DEFAULT_MODEL;
-    return { apiKey, model };
+    const localCfg = parseStoredAiConfig(
+      typeof localStorage !== "undefined" ? localStorage.getItem(AI_STORAGE_KEY) : null,
+      false
+    );
+    if (localCfg) {
+      return localCfg;
+    }
+    return { apiKey: "", model: DEFAULT_MODEL, sessionOnly: false };
   } catch {
-    return { apiKey: "", model: DEFAULT_MODEL };
+    return { apiKey: "", model: DEFAULT_MODEL, sessionOnly: false };
   }
 }
 
 function saveAiConfig(config) {
+  const rawKey = typeof config.apiKey === "string" ? config.apiKey.trim() : "";
+  const sessionOnly = Boolean(config.sessionOnly);
   const safe = {
-    apiKey: typeof config.apiKey === "string" ? config.apiKey.trim() : "",
-    model: VALID_MODELS.includes(config.model) ? config.model : DEFAULT_MODEL
+    apiKey: isValidApiKeyFormat(rawKey) ? rawKey : "",
+    model: VALID_MODELS.includes(config.model) ? config.model : DEFAULT_MODEL,
+    sessionOnly
   };
   try {
-    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(safe));
+    const serialized = JSON.stringify(safe);
+    if (sessionOnly) {
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem(AI_STORAGE_KEY, serialized);
+      }
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem(AI_STORAGE_KEY);
+      }
+    } else {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(AI_STORAGE_KEY, serialized);
+      }
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.removeItem(AI_STORAGE_KEY);
+      }
+    }
   } catch {
     // Ignore storage quota errors
   }
   return safe;
 }
 
-function removeAiApiKey(currentModel) {
+function removeAiApiKey(currentModel, sessionOnly = false) {
   const safe = {
     apiKey: "",
-    model: VALID_MODELS.includes(currentModel) ? currentModel : DEFAULT_MODEL
+    model: VALID_MODELS.includes(currentModel) ? currentModel : DEFAULT_MODEL,
+    sessionOnly: Boolean(sessionOnly)
   };
   try {
-    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(safe));
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(AI_STORAGE_KEY);
+    }
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(AI_STORAGE_KEY);
+    }
   } catch {
-    // Ignore storage quota errors
+    // Ignore storage removal errors
   }
   return safe;
 }
@@ -161,6 +223,9 @@ async function requestGeminiReply({ apiKey, model, history, screenContext }) {
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
         headers: {
           "Content-Type": "application/json",
           "x-goog-api-key": apiKey
@@ -201,7 +266,7 @@ async function requestGeminiReply({ apiKey, model, history, screenContext }) {
     if (response.status === 429) {
       throw new Error("Ücretsiz kullanım istek sınırına ulaşıldı. Biraz bekleyip tekrar deneyin.");
     }
-    const apiMessage = data?.error?.message;
+    const apiMessage = sanitizeUpstreamError(data?.error?.message, apiKey);
     throw new Error(
       apiMessage
         ? `Gemini hatası (${response.status}): ${apiMessage}`
@@ -236,6 +301,7 @@ export function initAiTutor({ getScreenContext, announce }) {
     btnClose: document.getElementById("ai-btn-close"),
     settingsPanel: document.getElementById("ai-settings-panel"),
     apiKeyInput: document.getElementById("ai-api-key"),
+    sessionOnlyCheck: document.getElementById("ai-session-only"),
     modelSelect: document.getElementById("ai-model-select"),
     btnSaveKey: document.getElementById("ai-btn-save-key"),
     btnRemoveKey: document.getElementById("ai-btn-remove-key"),
@@ -285,6 +351,9 @@ export function initAiTutor({ getScreenContext, announce }) {
   function syncSettingsUI() {
     if (dom.modelSelect) {
       dom.modelSelect.value = config.model;
+    }
+    if (dom.sessionOnlyCheck) {
+      dom.sessionOnlyCheck.checked = Boolean(config.sessionOnly);
     }
     if (dom.apiKeyInput) {
       dom.apiKeyInput.value = "";
@@ -410,10 +479,15 @@ export function initAiTutor({ getScreenContext, announce }) {
       return;
     }
 
-    if (!config.apiKey) {
+    if (text.length > MAX_PROMPT_LENGTH) {
+      setStatus(`Soru en fazla ${MAX_PROMPT_LENGTH} karakter olabilir.`, "error");
+      return;
+    }
+
+    if (!isValidApiKeyFormat(config.apiKey)) {
       settingsOpen = true;
       syncSettingsUI();
-      setStatus("Soru göndermek için önce Gemini API anahtarınızı kaydedin.", "error");
+      setStatus("Soru göndermek için önce geçerli bir Gemini API anahtarı kaydedin.", "error");
       dom.apiKeyInput?.focus();
       return;
     }
@@ -480,7 +554,7 @@ export function initAiTutor({ getScreenContext, announce }) {
     }, 20);
   }
 
-  function close() {
+  function close({ restoreFocus = true } = {}) {
     if (!isDrawerOpen) {
       return;
     }
@@ -491,7 +565,9 @@ export function initAiTutor({ getScreenContext, announce }) {
     }
     dom.fab.setAttribute("aria-expanded", "false");
     dom.fab.classList.remove("is-open");
-    dom.fab.focus();
+    if (restoreFocus) {
+      dom.fab.focus();
+    }
   }
 
   dom.fab.addEventListener("click", () => {
@@ -502,8 +578,8 @@ export function initAiTutor({ getScreenContext, announce }) {
     }
   });
 
-  dom.btnClose?.addEventListener("click", close);
-  dom.backdrop?.addEventListener("click", close);
+  dom.btnClose?.addEventListener("click", () => close());
+  dom.backdrop?.addEventListener("click", () => close());
 
   dom.btnSettings?.addEventListener("click", () => {
     settingsOpen = !settingsOpen;
@@ -516,6 +592,7 @@ export function initAiTutor({ getScreenContext, announce }) {
   dom.btnSaveKey?.addEventListener("click", () => {
     const enteredKey = dom.apiKeyInput?.value.trim() || "";
     const selectedModel = dom.modelSelect?.value || DEFAULT_MODEL;
+    const sessionOnly = Boolean(dom.sessionOnlyCheck?.checked);
 
     if (!enteredKey && !config.apiKey) {
       setStatus("Lütfen geçerli bir Gemini API anahtarı yapıştırın.", "error");
@@ -523,28 +600,66 @@ export function initAiTutor({ getScreenContext, announce }) {
       return;
     }
 
+    if (enteredKey && !isValidApiKeyFormat(enteredKey)) {
+      setStatus(
+        "Anahtar biçimi geçersiz: boşluksuz, yalnızca ASCII karakterlerden oluşan en az 20 karakterli anahtar girin.",
+        "error"
+      );
+      dom.apiKeyInput?.focus();
+      return;
+    }
+
     const nextKey = enteredKey || config.apiKey;
-    config = saveAiConfig({ apiKey: nextKey, model: selectedModel });
+    config = saveAiConfig({ apiKey: nextKey, model: selectedModel, sessionOnly });
     settingsOpen = false;
     syncSettingsUI();
     renderMessages();
-    setStatus("API anahtarı ve model bu cihaza kaydedildi.", "ok");
+    setStatus(
+      sessionOnly
+        ? "API anahtarı yalnızca bu sekme oturumuna kaydedildi."
+        : "API anahtarı ve model bu cihaza kaydedildi.",
+      "ok"
+    );
     announce?.("Gemini API anahtarı kaydedildi.");
     dom.input?.focus();
   });
 
-  dom.modelSelect?.addEventListener("change", () => {
-    config = saveAiConfig({
-      apiKey: config.apiKey,
-      model: dom.modelSelect.value
-    });
+  dom.sessionOnlyCheck?.addEventListener("change", () => {
+    const sessionOnly = Boolean(dom.sessionOnlyCheck.checked);
     if (config.apiKey) {
+      config = saveAiConfig({
+        apiKey: config.apiKey,
+        model: config.model,
+        sessionOnly
+      });
+      setStatus(
+        sessionOnly
+          ? "Anahtar yalnızca bu oturumda tutulacak şekilde taşındı."
+          : "Anahtar bu cihazda kalıcı saklanacak şekilde güncellendi.",
+        "ok"
+      );
+    } else {
+      config.sessionOnly = sessionOnly;
+    }
+  });
+
+  dom.modelSelect?.addEventListener("change", () => {
+    if (config.apiKey) {
+      config = saveAiConfig({
+        apiKey: config.apiKey,
+        model: dom.modelSelect.value,
+        sessionOnly: config.sessionOnly
+      });
       setStatus("Model seçimi güncellendi.", "ok");
+    } else {
+      config.model = VALID_MODELS.includes(dom.modelSelect.value)
+        ? dom.modelSelect.value
+        : DEFAULT_MODEL;
     }
   });
 
   dom.btnRemoveKey?.addEventListener("click", () => {
-    config = removeAiApiKey(config.model);
+    config = removeAiApiKey(config.model, config.sessionOnly);
     syncSettingsUI();
     renderMessages();
     setStatus("API anahtarı bu cihazdan silindi.", "ok");

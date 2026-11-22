@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://generativelanguage.googleapis.com https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';"
+    content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self'; media-src 'none'; frame-src 'none'; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://generativelanguage.googleapis.com https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';"
   >
   <meta name="description" content="Türkçe konuşanlar için Almanca kelime, artikel ve çoğul alıştırma kartları">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -557,6 +557,10 @@
           <input type="checkbox" id="auto-speak-toggle">
           <span>Cevaptan sonra Almanca telaffuzu otomatik seslendir</span>
         </label>
+        <label class="pref-check">
+          <input type="checkbox" id="keep-ai-open-toggle">
+          <span>Sonraki karta / soruya geçince asistan penceresini açık tut</span>
+        </label>
       </div>
 
       <div class="sync-section">
@@ -696,9 +700,15 @@
           class="text-input ai-key-input"
           placeholder="AIza..."
           autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
           spellcheck="false"
         >
       </div>
+      <label class="pref-check ai-session-check">
+        <input type="checkbox" id="ai-session-only">
+        <span>Anahtarı yalnızca bu sekme oturumunda tut (paylaşılan cihaz için)</span>
+      </label>
       <div class="ai-settings-row ai-settings-controls">
         <label for="ai-model-select" class="sr-only">Model</label>
         <select id="ai-model-select" class="lesson-select ai-model-select" aria-label="Gemini modeli">
@@ -722,6 +732,7 @@
         id="ai-input"
         class="ai-input"
         rows="1"
+        maxlength="1500"
         placeholder="Bu ekranla ilgili sorunuzu yazın..."
         aria-label="Asistana soru yaz"
       ></textarea>

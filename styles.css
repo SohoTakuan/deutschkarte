@@ -2253,6 +2253,11 @@ button {
   font-size: 0.875rem;
 }
 
+.ai-session-check {
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
 .ai-model-select {
   flex: 1 1 150px;
   min-height: 36px;

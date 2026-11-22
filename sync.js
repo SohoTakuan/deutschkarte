@@ -3,6 +3,19 @@ export const GIST_FILENAME = "deutschkarte-sync.json";
 export const GIST_DESCRIPTION = "DeutschKarte ilerleme senkronizasyonu";
 const GIST_API_BASE = "https://api.github.com/gists";
 const GIST_RAW_ORIGIN = "https://gist.githubusercontent.com";
+const VALID_DAILY_GOALS = [10, 20, 30, 50];
+const SYNC_TIMEOUT_MS = 20000;
+const MAX_GIST_BYTES = 1024 * 1024;
+const TOKEN_PATTERN = /^[\x21-\x7E]{20,256}$/;
+
+function toNonNegativeInt(val) {
+  const num = Number(val);
+  return Number.isFinite(num) && num > 0 ? Math.floor(num) : 0;
+}
+
+export function isValidTokenFormat(token) {
+  return typeof token === "string" && TOKEN_PATTERN.test(token.trim());
+}
 
 export function isValidGistId(gistId) {
   return typeof gistId === "string" && /^[a-fA-F0-9]{8,64}$/.test(gistId.trim());
@@ -63,11 +76,12 @@ function sanitizeCardEntry(entry) {
   if (!entry || typeof entry !== "object") {
     return null;
   }
-  const box = Math.max(1, Math.min(5, Math.floor(Number(entry.box) || 1)));
-  const seen = Math.max(0, Math.floor(Number(entry.seen) || 0));
-  const correct = Math.min(seen, Math.max(0, Math.floor(Number(entry.correct) || 0)));
-  const lastSeenAt = Math.max(0, Number(entry.lastSeenAt) || 0);
-  const nextReviewAt = Math.max(0, Number(entry.nextReviewAt) || 0);
+  const boxNum = Number(entry.box);
+  const box = Number.isFinite(boxNum) ? Math.max(1, Math.min(5, Math.floor(boxNum))) : 1;
+  const seen = toNonNegativeInt(entry.seen);
+  const correct = Math.min(seen, toNonNegativeInt(entry.correct));
+  const lastSeenAt = toNonNegativeInt(entry.lastSeenAt);
+  const nextReviewAt = toNonNegativeInt(entry.nextReviewAt);
   return { box, seen, correct, lastSeenAt, nextReviewAt };
 }
 
@@ -76,9 +90,9 @@ function sanitizeMistakeEntry(entry) {
     return null;
   }
   return {
-    streak: Math.max(0, Math.min(1, Math.floor(Number(entry.streak) || 0))),
-    misses: Math.max(1, Math.floor(Number(entry.misses) || 1)),
-    updatedAt: Math.max(0, Number(entry.updatedAt) || 0)
+    streak: Math.min(1, toNonNegativeInt(entry.streak)),
+    misses: Math.max(1, toNonNegativeInt(entry.misses)),
+    updatedAt: toNonNegativeInt(entry.updatedAt)
   };
 }
 
@@ -181,10 +195,13 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
     typeof normalizeDailyFn === "function"
       ? normalizeDailyFn
       : (d) => ({
-          date: d?.date || "",
-          count: Math.max(0, Number(d?.count) || 0),
-          streakDays: Math.max(0, Number(d?.streakDays) || 0),
-          lastCompletedDate: d?.lastCompletedDate || null
+          date: typeof d?.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : "",
+          count: toNonNegativeInt(d?.count),
+          streakDays: toNonNegativeInt(d?.streakDays),
+          lastCompletedDate:
+            typeof d?.lastCompletedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.lastCompletedDate)
+              ? d.lastCompletedDate
+              : null
         });
 
   if (!remoteState || typeof remoteState !== "object") {
@@ -195,10 +212,12 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
     };
   }
 
-  const localUpdatedAt = Math.max(0, Number(localState.updatedAt) || 0);
-  const remoteUpdatedAt = Math.max(0, Number(remoteState.updatedAt) || 0);
-  const localResetAt = Math.max(0, Number(localState.resetAt) || 0);
-  const remoteResetAt = Math.max(0, Number(remoteState.resetAt) || 0);
+  const localUpdatedAt = toNonNegativeInt(localState.updatedAt);
+  const remoteUpdatedAt = toNonNegativeInt(remoteState.updatedAt);
+  const localResetAt = toNonNegativeInt(localState.resetAt);
+  const remoteResetAt = toNonNegativeInt(remoteState.resetAt);
+  const remoteGoalNum = Number(remoteState.settings?.dailyGoal);
+  const safeRemoteGoal = VALID_DAILY_GOALS.includes(remoteGoalNum) ? remoteGoalNum : null;
 
   // Explicit reset dominance: if one side reset more recently than the other side's last edit
   if (remoteResetAt > localUpdatedAt && remoteResetAt >= localResetAt) {
@@ -212,22 +231,27 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
       null,
       validWordIds
     );
+    const adoptedTotalAnswered = toNonNegativeInt(remoteState.progress?.totalAnswered);
     const adopted = {
       settings: {
         ...localState.settings,
-        dailyGoal: Number(remoteState.settings?.dailyGoal) || localState.settings.dailyGoal,
+        dailyGoal: safeRemoteGoal ?? localState.settings.dailyGoal,
         autoSpeak:
           typeof remoteState.settings?.autoSpeak === "boolean"
             ? remoteState.settings.autoSpeak
-            : localState.settings.autoSpeak
+            : localState.settings.autoSpeak,
+        keepAiOpen:
+          typeof remoteState.settings?.keepAiOpen === "boolean"
+            ? remoteState.settings.keepAiOpen
+            : Boolean(localState.settings.keepAiOpen)
       },
       progress: {
-        totalAnswered: Math.max(0, Number(remoteState.progress?.totalAnswered) || 0),
+        totalAnswered: adoptedTotalAnswered,
         totalCorrect: Math.min(
-          Math.max(0, Number(remoteState.progress?.totalAnswered) || 0),
-          Math.max(0, Number(remoteState.progress?.totalCorrect) || 0)
+          adoptedTotalAnswered,
+          toNonNegativeInt(remoteState.progress?.totalCorrect)
         ),
-        bestStreak: Math.max(0, Number(remoteState.progress?.bestStreak) || 0)
+        bestStreak: toNonNegativeInt(remoteState.progress?.bestStreak)
       },
       daily: normalizeDaily(remoteState.daily),
       cards: {},
@@ -344,10 +368,10 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
   };
 
   // Merge cumulative progress
-  const localAnswered = Math.max(0, Number(localState.progress?.totalAnswered) || 0);
-  const remoteAnswered = Math.max(0, Number(remoteState.progress?.totalAnswered) || 0);
-  const localCorrect = Math.max(0, Number(localState.progress?.totalCorrect) || 0);
-  const remoteCorrect = Math.max(0, Number(remoteState.progress?.totalCorrect) || 0);
+  const localAnswered = toNonNegativeInt(localState.progress?.totalAnswered);
+  const remoteAnswered = toNonNegativeInt(remoteState.progress?.totalAnswered);
+  const localCorrect = toNonNegativeInt(localState.progress?.totalCorrect);
+  const remoteCorrect = toNonNegativeInt(remoteState.progress?.totalCorrect);
 
   let mergedAnswered = Math.max(localAnswered, remoteAnswered);
   let mergedCorrect = Math.max(localCorrect, remoteCorrect);
@@ -355,20 +379,25 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
   mergedCorrect = Math.min(mergedAnswered, mergedCorrect);
 
   const mergedBestStreak = Math.max(
-    Math.max(0, Number(localState.progress?.bestStreak) || 0),
-    Math.max(0, Number(remoteState.progress?.bestStreak) || 0)
+    toNonNegativeInt(localState.progress?.bestStreak),
+    toNonNegativeInt(remoteState.progress?.bestStreak)
   );
 
-  // Preserve current device's active study UI mode/lesson/direction, sync goal/autoSpeak from newer edit
+  // Preserve current device's active study UI mode/lesson/direction, sync preferences from newer edit
   const preferRemotePrefs = remoteUpdatedAt > localUpdatedAt;
   const mergedSettings = {
     ...localState.settings,
     dailyGoal: preferRemotePrefs
-      ? Number(remoteState.settings?.dailyGoal) || localState.settings.dailyGoal
+      ? safeRemoteGoal ?? localState.settings.dailyGoal
       : localState.settings.dailyGoal,
-    autoSpeak: preferRemotePrefs && typeof remoteState.settings?.autoSpeak === "boolean"
-      ? remoteState.settings.autoSpeak
-      : localState.settings.autoSpeak
+    autoSpeak:
+      preferRemotePrefs && typeof remoteState.settings?.autoSpeak === "boolean"
+        ? remoteState.settings.autoSpeak
+        : localState.settings.autoSpeak,
+    keepAiOpen:
+      preferRemotePrefs && typeof remoteState.settings?.keepAiOpen === "boolean"
+        ? remoteState.settings.keepAiOpen
+        : Boolean(localState.settings.keepAiOpen)
   };
 
   const { mergedHiddenWords, mergedRestoredAt } = mergeHiddenState(
@@ -421,12 +450,16 @@ export class SyncHttpError extends Error {
 }
 
 async function githubGistRequest(url, token, options = {}) {
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
   let response;
   try {
     response = await fetch(url, {
       ...options,
+      credentials: "omit",
       cache: "no-store",
       referrerPolicy: "no-referrer",
+      signal: controller.signal,
       headers: {
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${token}`,
@@ -435,11 +468,16 @@ async function githubGistRequest(url, token, options = {}) {
         ...(options.headers || {})
       }
     });
-  } catch {
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new SyncHttpError("GitHub senkronizasyon isteği zaman aşımına uğradı.", 0);
+    }
     throw new SyncHttpError(
       "İnternet bağlantısı yok. Çevrimiçi olunca ilerlemeniz otomatik eşitlenecek.",
       0
     );
+  } finally {
+    clearTimeout(timerId);
   }
 
   if (response.status === 401) {
@@ -497,17 +535,28 @@ export async function fetchSyncGistContent(token, gistId) {
     if (rawOrigin !== GIST_RAW_ORIGIN) {
       throw new SyncHttpError("Güvenilmeyen Gist içerik kaynağı reddedildi.", 0);
     }
-    const rawResp = await fetch(file.raw_url, {
-      cache: "no-store",
-      referrerPolicy: "no-referrer"
-    });
+    const rawController = new AbortController();
+    const rawTimer = setTimeout(() => rawController.abort(), SYNC_TIMEOUT_MS);
+    let rawResp;
+    try {
+      rawResp = await fetch(file.raw_url, {
+        credentials: "omit",
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
+        signal: rawController.signal
+      });
+    } catch {
+      throw new SyncHttpError("Gist içeriği indirilemedi veya zaman aşımına uğradı.", 0);
+    } finally {
+      clearTimeout(rawTimer);
+    }
     if (!rawResp.ok) {
       throw new SyncHttpError("Gist içeriği indirilemedi.", rawResp.status);
     }
     rawText = await rawResp.text();
   }
 
-  if (!rawText) {
+  if (!rawText || rawText.length > MAX_GIST_BYTES) {
     return null;
   }
   try {
@@ -585,8 +634,11 @@ export async function syncWithGitHubGist({
   normalizeDailyFn
 }) {
   const cleanToken = String(token || "").trim();
-  if (!cleanToken) {
-    throw new SyncHttpError("Lütfen geçerli bir GitHub token'ı girin.", 0);
+  if (!isValidTokenFormat(cleanToken)) {
+    throw new SyncHttpError(
+      "Lütfen boşluksuz, yalnızca ASCII karakterlerden oluşan geçerli bir GitHub token'ı girin.",
+      0
+    );
   }
 
   let activeGistId = String(gistId || "").trim();

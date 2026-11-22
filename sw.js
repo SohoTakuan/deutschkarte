@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deutschkarte-v10";
+const CACHE_VERSION = "deutschkarte-v11";
 
 const PRECACHE_URLS = [
   "./",
@@ -88,7 +88,7 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (response && response.ok) {
+        if (response && response.ok && response.type === "basic") {
           const copy = response.clone();
           caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
         }

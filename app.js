@@ -27,7 +27,20 @@ const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const SRS_INTERVAL_DAYS = { 1: 0, 2: 1, 3: 3, 4: 7, 5: 21 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WORD_BY_ID = new Map(ALL_WORDS.map((word) => [word.id, word]));
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_IMPORT_BYTES = 1024 * 1024;
 let aiTutor = null;
+
+function toNonNegativeInt(val) {
+  const num = Number(val);
+  return Number.isFinite(num) && num > 0 ? Math.floor(num) : 0;
+}
+
+function maybeAutoCloseAi() {
+  if (!appState?.settings?.keepAiOpen && aiTutor?.isOpen()) {
+    aiTutor.close({ restoreFocus: false });
+  }
+}
 
 function getLocalDateKey(date = new Date()) {
   const y = date.getFullYear();
@@ -54,16 +67,20 @@ function normalizeDailyState(rawDaily) {
     };
   }
 
-  const savedDate = typeof rawDaily.date === "string" ? rawDaily.date : today;
+  const savedDate =
+    typeof rawDaily.date === "string" && DATE_KEY_PATTERN.test(rawDaily.date)
+      ? rawDaily.date
+      : today;
   const lastCompletedDate =
-    typeof rawDaily.lastCompletedDate === "string"
+    typeof rawDaily.lastCompletedDate === "string" &&
+    DATE_KEY_PATTERN.test(rawDaily.lastCompletedDate)
       ? rawDaily.lastCompletedDate
       : null;
 
   const isSameDay = savedDate === today;
-  const count = isSameDay ? Math.max(0, Math.floor(Number(rawDaily.count) || 0)) : 0;
+  const count = isSameDay ? toNonNegativeInt(rawDaily.count) : 0;
 
-  let streakDays = Math.max(0, Math.floor(Number(rawDaily.streakDays) || 0));
+  let streakDays = toNonNegativeInt(rawDaily.streakDays);
   if (lastCompletedDate !== today && lastCompletedDate !== yesterday) {
     streakDays = 0;
   }
@@ -83,7 +100,8 @@ function createDefaultState() {
       lesson: "all",
       direction: "tr-de",
       dailyGoal: 20,
-      autoSpeak: false
+      autoSpeak: false,
+      keepAiOpen: false
     },
     progress: {
       totalAnswered: 0,
@@ -139,9 +157,9 @@ function sanitizeMistakes(rawMistakes) {
     if (!WORD_BY_ID.has(id) || !entry || typeof entry !== "object") {
       continue;
     }
-    const streak = Math.max(0, Math.min(1, Math.floor(Number(entry.streak) || 0)));
-    const misses = Math.max(1, Math.floor(Number(entry.misses) || 1));
-    const updatedAt = Number(entry.updatedAt) || Date.now();
+    const streak = Math.min(1, toNonNegativeInt(entry.streak));
+    const misses = Math.max(1, toNonNegativeInt(entry.misses));
+    const updatedAt = toNonNegativeInt(entry.updatedAt) || Date.now();
     clean[id] = { streak, misses, updatedAt };
   }
   return clean;
@@ -156,11 +174,12 @@ function sanitizeCards(rawCards) {
     if (!WORD_BY_ID.has(id) || !entry || typeof entry !== "object") {
       continue;
     }
-    const box = Math.max(1, Math.min(5, Math.floor(Number(entry.box) || 1)));
-    const seen = Math.max(0, Math.floor(Number(entry.seen) || 0));
-    const correct = Math.min(seen, Math.max(0, Math.floor(Number(entry.correct) || 0)));
-    const lastSeenAt = Number(entry.lastSeenAt) || 0;
-    const nextReviewAt = Number(entry.nextReviewAt) || 0;
+    const boxNum = Number(entry.box);
+    const box = Number.isFinite(boxNum) ? Math.max(1, Math.min(5, Math.floor(boxNum))) : 1;
+    const seen = toNonNegativeInt(entry.seen);
+    const correct = Math.min(seen, toNonNegativeInt(entry.correct));
+    const lastSeenAt = toNonNegativeInt(entry.lastSeenAt);
+    const nextReviewAt = toNonNegativeInt(entry.nextReviewAt);
     clean[id] = { box, seen, correct, lastSeenAt, nextReviewAt };
   }
   return clean;
@@ -192,13 +211,14 @@ function loadState() {
     const rawGoal = Number(parsed.settings?.dailyGoal);
     const dailyGoal = VALID_DAILY_GOALS.includes(rawGoal) ? rawGoal : 20;
     const autoSpeak = Boolean(parsed.settings?.autoSpeak);
+    const keepAiOpen = Boolean(parsed.settings?.keepAiOpen);
 
-    const totalAnswered = Math.max(0, Number(parsed.progress?.totalAnswered) || 0);
+    const totalAnswered = toNonNegativeInt(parsed.progress?.totalAnswered);
     const totalCorrect = Math.min(
       totalAnswered,
-      Math.max(0, Number(parsed.progress?.totalCorrect) || 0)
+      toNonNegativeInt(parsed.progress?.totalCorrect)
     );
-    const bestStreak = Math.max(0, Number(parsed.progress?.bestStreak) || 0);
+    const bestStreak = toNonNegativeInt(parsed.progress?.bestStreak);
 
     const { hiddenWords, hiddenRestoredAt } = sanitizeHiddenState(
       parsed.hiddenWords,
@@ -206,7 +226,7 @@ function loadState() {
     );
 
     return {
-      settings: { mode, lesson, direction, dailyGoal, autoSpeak },
+      settings: { mode, lesson, direction, dailyGoal, autoSpeak, keepAiOpen },
       progress: { totalAnswered, totalCorrect, bestStreak },
       daily: normalizeDailyState(parsed.daily),
       cards: sanitizeCards(parsed.cards),
@@ -214,8 +234,8 @@ function loadState() {
       mistakeClearedAt: sanitizeClearedAt(parsed.mistakeClearedAt),
       hiddenWords,
       hiddenRestoredAt,
-      updatedAt: Math.max(0, Number(parsed.updatedAt) || 0),
-      resetAt: Math.max(0, Number(parsed.resetAt) || 0)
+      updatedAt: toNonNegativeInt(parsed.updatedAt),
+      resetAt: toNonNegativeInt(parsed.resetAt)
     };
   } catch {
     return defaults;
@@ -416,6 +436,7 @@ const els = {
   levelProgressList: document.getElementById("level-progress-list"),
   dailyGoalSelect: document.getElementById("daily-goal-select"),
   autoSpeakToggle: document.getElementById("auto-speak-toggle"),
+  keepAiOpenToggle: document.getElementById("keep-ai-open-toggle"),
   btnExportJson: document.getElementById("btn-export-json"),
   btnImportJson: document.getElementById("btn-import-json"),
   inputImportJson: document.getElementById("input-import-json"),
@@ -2387,6 +2408,9 @@ function refreshBackupModal() {
   els.dailyGoalSelect.value = String(appState.settings.dailyGoal);
   els.autoSpeakToggle.checked = Boolean(appState.settings.autoSpeak);
   els.autoSpeakToggle.disabled = !isSpeechSupported();
+  if (els.keepAiOpenToggle) {
+    els.keepAiOpenToggle.checked = Boolean(appState.settings.keepAiOpen);
+  }
 
   // Level progress & Leitner SRS summary
   const summaries = getLevelSummary(appState.cards, appState.hiddenWords);
@@ -2651,6 +2675,10 @@ async function importBackupJson(file) {
   if (!file) {
     return;
   }
+  if (file.size > MAX_IMPORT_BYTES) {
+    showBackupStatus("Yedek dosyası 1 MB sınırını aşıyor.", true);
+    return;
+  }
   try {
     const text = await file.text();
     const parsed = JSON.parse(text);
@@ -2674,12 +2702,12 @@ async function importBackupJson(file) {
       parsed.hiddenRestoredAt
     );
     const lessons = getLessonList().map((l) => l.title);
-    const totalAnswered = Math.max(0, Number(parsed.progress.totalAnswered) || 0);
+    const totalAnswered = toNonNegativeInt(parsed.progress.totalAnswered);
     const totalCorrect = Math.min(
       totalAnswered,
-      Math.max(0, Number(parsed.progress.totalCorrect) || 0)
+      toNonNegativeInt(parsed.progress.totalCorrect)
     );
-    const bestStreak = Math.max(0, Number(parsed.progress.bestStreak) || 0);
+    const bestStreak = toNonNegativeInt(parsed.progress.bestStreak);
     const rawGoal = Number(parsed.settings?.dailyGoal);
 
     appState = {
@@ -2696,7 +2724,11 @@ async function importBackupJson(file) {
           ? parsed.settings.direction
           : "tr-de",
         dailyGoal: VALID_DAILY_GOALS.includes(rawGoal) ? rawGoal : 20,
-        autoSpeak: Boolean(parsed.settings?.autoSpeak)
+        autoSpeak: Boolean(parsed.settings?.autoSpeak),
+        keepAiOpen:
+          typeof parsed.settings?.keepAiOpen === "boolean"
+            ? parsed.settings.keepAiOpen
+            : Boolean(appState.settings.keepAiOpen)
       },
       progress: { totalAnswered, totalCorrect, bestStreak },
       daily: normalizeDailyState(parsed.daily),
@@ -2706,7 +2738,7 @@ async function importBackupJson(file) {
       hiddenWords,
       hiddenRestoredAt,
       updatedAt: Date.now(),
-      resetAt: Math.max(0, Number(parsed.resetAt) || 0)
+      resetAt: toNonNegativeInt(parsed.resetAt)
     };
     if (VALID_THEMES.includes(parsed.settings?.theme)) {
       applyTheme(parsed.settings.theme, true);
@@ -3464,9 +3496,18 @@ function bindEvents() {
   }
 
   els.conjCheck?.addEventListener("click", handleConjugationTypingSubmit);
-  els.conjSkipChoice?.addEventListener("click", showNextConjugation);
-  els.conjSkipTyping?.addEventListener("click", showNextConjugation);
-  els.conjNext?.addEventListener("click", showNextConjugation);
+  els.conjSkipChoice?.addEventListener("click", () => {
+    maybeAutoCloseAi();
+    showNextConjugation();
+  });
+  els.conjSkipTyping?.addEventListener("click", () => {
+    maybeAutoCloseAi();
+    showNextConjugation();
+  });
+  els.conjNext?.addEventListener("click", () => {
+    maybeAutoCloseAi();
+    showNextConjugation();
+  });
   els.conjSpeakPrompt?.addEventListener("click", () => {
     if (runtime.conjCurrent?.verb?.infinitive) {
       speakGerman(runtime.conjCurrent.verb.infinitive);
@@ -3603,10 +3644,22 @@ function bindEvents() {
   });
 
   els.btnCheck?.addEventListener("click", handleTypingSubmit);
-  els.btnSkip?.addEventListener("click", showNextCard);
-  els.btnSkipChoice?.addEventListener("click", showNextCard);
-  els.btnSkipArticle?.addEventListener("click", showNextCard);
-  els.btnNext?.addEventListener("click", showNextCard);
+  els.btnSkip?.addEventListener("click", () => {
+    maybeAutoCloseAi();
+    showNextCard();
+  });
+  els.btnSkipChoice?.addEventListener("click", () => {
+    maybeAutoCloseAi();
+    showNextCard();
+  });
+  els.btnSkipArticle?.addEventListener("click", () => {
+    maybeAutoCloseAi();
+    showNextCard();
+  });
+  els.btnNext?.addEventListener("click", () => {
+    maybeAutoCloseAi();
+    showNextCard();
+  });
 
   els.btnSpeakPrompt?.addEventListener("click", () => {
     if (!runtime.currentWord) {
@@ -3704,6 +3757,11 @@ function bindEvents() {
 
   els.autoSpeakToggle?.addEventListener("change", () => {
     appState.settings.autoSpeak = Boolean(els.autoSpeakToggle.checked);
+    saveState({ sync: true });
+  });
+
+  els.keepAiOpenToggle?.addEventListener("change", () => {
+    appState.settings.keepAiOpen = Boolean(els.keepAiOpenToggle.checked);
     saveState({ sync: true });
   });
 
@@ -3846,6 +3904,7 @@ function bindEvents() {
         }
         e.preventDefault();
         if (runtime.conjAnswered) {
+          maybeAutoCloseAi();
           showNextConjugation();
         } else if (runtime.conjMode === "typing") {
           handleConjugationTypingSubmit();
@@ -3911,6 +3970,7 @@ function bindEvents() {
       }
       e.preventDefault();
       if (runtime.answered) {
+        maybeAutoCloseAi();
         showNextCard();
       } else if (runtime.currentQuestionType === "typing") {
         handleTypingSubmit();
