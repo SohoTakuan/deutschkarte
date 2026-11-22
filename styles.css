@@ -1872,6 +1872,221 @@ button {
   gap: 8px;
 }
 
+/* Grammar & Conjugation View */
+
+.grammar-subnav {
+  display: inline-flex;
+  background-color: var(--desk-subtle);
+  padding: 3px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--rule);
+  margin-bottom: 14px;
+}
+
+.grammar-sub-btn {
+  border: 0;
+  background: transparent;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--ink-muted);
+  min-height: 36px;
+}
+
+.grammar-sub-btn:hover:not(.is-active) {
+  color: var(--ink);
+}
+
+.grammar-sub-btn.is-active {
+  background-color: var(--card);
+  color: var(--ink);
+  box-shadow: 0 1px 0 var(--rule);
+}
+
+.grammar-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.grammar-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.conj-prompt-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.conj-pronoun-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-control);
+  background-color: var(--accent-der-soft);
+  border: 1px solid var(--accent-der);
+  color: var(--accent-der);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.15rem, 2.6vw, 1.4rem);
+}
+
+.conj-verb-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.55rem, 3.4vw, 2.1rem);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.conj-principal-parts {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  background-color: var(--desk);
+  border: 1px solid var(--rule);
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.conj-mini-table {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.conj-mini-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 11px;
+  border-radius: 6px;
+  background-color: var(--desk);
+  border: 1px solid var(--rule);
+  font-size: 0.875rem;
+}
+
+.conj-mini-row.is-highlight {
+  background-color: var(--accent-der-soft);
+  border-color: var(--accent-der);
+}
+
+.conj-mini-pronoun {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.conj-mini-form {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.grammar-notes-header {
+  margin-bottom: 14px;
+}
+
+.grammar-notes-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.9375rem;
+  color: var(--ink-muted);
+}
+
+.grammar-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.grammar-note-card {
+  background-color: var(--card);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-card);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.grammar-note-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.grammar-note-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--ink);
+}
+
+.grammar-note-badge {
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background-color: var(--accent-der-soft);
+  border: 1px solid var(--rule);
+  color: var(--accent-der);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.grammar-note-summary {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+
+.grammar-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-control);
+}
+
+.grammar-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  text-align: left;
+}
+
+.grammar-table th,
+.grammar-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--desk-subtle);
+  white-space: nowrap;
+}
+
+.grammar-table th {
+  background-color: var(--desk);
+  font-weight: 700;
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+}
+
+.grammar-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.grammar-table td:first-child {
+  font-weight: 700;
+  color: var(--ink);
+}
+
 /* Responsive */
 
 @media (max-width: 640px) {
@@ -1887,11 +2102,33 @@ button {
     order: 3;
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .nav-tab {
     text-align: center;
+    padding: 7px 6px;
+    font-size: 0.875rem;
+  }
+
+  .grammar-subnav {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+  }
+
+  .grammar-sub-btn {
+    text-align: center;
+    font-size: 0.875rem;
+    padding: 7px 8px;
+  }
+
+  .conj-mini-table {
+    grid-template-columns: 1fr;
+  }
+
+  .grammar-note-card {
+    padding: 16px;
   }
 
   .mode-group {

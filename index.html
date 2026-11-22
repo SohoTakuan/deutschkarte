@@ -36,6 +36,7 @@
 
       <nav class="primary-nav" aria-label="Ana bölümler">
         <button type="button" id="tab-study" class="nav-tab is-active" aria-pressed="true">Çalış</button>
+        <button type="button" id="tab-grammar" class="nav-tab" aria-pressed="false">Çekim ve Notlar</button>
         <button type="button" id="tab-dictionary" class="nav-tab" aria-pressed="false">Kelime Sözlüğü</button>
       </nav>
 
@@ -306,6 +307,129 @@
             </div>
           </div>
         </article>
+      </section>
+
+      <section id="grammar-view" class="view-section" aria-label="Çekim ve Ders Notları" hidden>
+        <div class="grammar-subnav" role="group" aria-label="Çekim ve notlar alt bölümleri">
+          <button type="button" id="grammar-sub-drill" class="grammar-sub-btn is-active" aria-pressed="true">Çekim Pratiği</button>
+          <button type="button" id="grammar-sub-notes" class="grammar-sub-btn" aria-pressed="false">Ders Notları ve Tablolar</button>
+        </div>
+
+        <div id="grammar-drill-panel" class="grammar-panel">
+          <div class="grammar-toolbar">
+            <div id="grammar-group-filters" class="dict-filters" role="group" aria-label="Fiil grubu filtresi">
+              <button type="button" class="filter-chip is-active" data-group="all">Tümü</button>
+              <button type="button" class="filter-chip" data-group="regular">Düzenli</button>
+              <button type="button" class="filter-chip" data-group="td">-t / -d (-e- kuralı)</button>
+              <button type="button" class="filter-chip" data-group="irregular">Düzensiz</button>
+            </div>
+
+            <div id="grammar-mode-group" class="direction-group" role="group" aria-label="Alıştırma türü">
+              <button type="button" class="dir-btn conj-mode-btn is-active" data-conj-mode="choice" aria-pressed="true">Şıklı</button>
+              <button type="button" class="dir-btn conj-mode-btn" data-conj-mode="typing" aria-pressed="false">Yazmalı</button>
+            </div>
+          </div>
+
+          <div class="session-strip">
+            <div class="session-metrics">
+              <span class="metric-item">Doğru: <strong id="conj-score">0 / 0</strong></span>
+              <span class="metric-item">Seri: <strong id="conj-streak">0</strong></span>
+            </div>
+            <button type="button" id="conj-reset" class="text-action">Sıfırla</button>
+          </div>
+
+          <article id="conj-card" class="study-card" data-gender="neutral">
+            <div class="card-accent-bar" aria-hidden="true"></div>
+            <div class="card-body">
+              <div class="card-meta">
+                <span id="conj-group-label" class="meta-lesson">Ders 2, Düzenli</span>
+                <span id="conj-infinitive-meaning" class="meta-kind">yapmak</span>
+              </div>
+
+              <div class="card-prompt">
+                <div class="conj-prompt-row">
+                  <span id="conj-pronoun" class="conj-pronoun-chip">du</span>
+                  <h2 id="conj-verb" class="conj-verb-title">arbeiten</h2>
+                </div>
+                <p id="conj-tr-cue" class="prompt-hint">Sen — çalışmak</p>
+              </div>
+
+              <div id="conj-choice-area" class="answer-area">
+                <div id="conj-choice-list" class="choice-list" role="group" aria-label="Çekim seçenekleri"></div>
+                <div id="conj-choice-actions" class="card-actions card-actions-compact">
+                  <span class="shortcut-hint">Kısayol: 1–4 ile seçin</span>
+                  <button type="button" id="conj-skip-choice" class="btn-secondary">Kartı atla</button>
+                </div>
+              </div>
+
+              <div id="conj-typing-area" class="answer-area" hidden>
+                <div class="field-group">
+                  <label for="conj-input" class="field-label">Doğru fiil çekimi</label>
+                  <input
+                    type="text"
+                    id="conj-input"
+                    class="text-input"
+                    placeholder="Örn. arbeitest"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                  >
+                </div>
+
+                <div class="umlaut-bar">
+                  <span class="umlaut-caption">Özel harfler</span>
+                  <div class="umlaut-keys">
+                    <button type="button" class="umlaut-btn conj-umlaut-btn" data-char="ä">ä</button>
+                    <button type="button" class="umlaut-btn conj-umlaut-btn" data-char="ö">ö</button>
+                    <button type="button" class="umlaut-btn conj-umlaut-btn" data-char="ü">ü</button>
+                    <button type="button" class="umlaut-btn conj-umlaut-btn" data-char="ß">ß</button>
+                  </div>
+                </div>
+
+                <p id="conj-input-guidance" class="input-guidance" hidden></p>
+
+                <div id="conj-typing-actions" class="card-actions">
+                  <button type="button" id="conj-check" class="btn-primary">Kontrol et</button>
+                  <button type="button" id="conj-skip-typing" class="btn-secondary">Kartı atla</button>
+                </div>
+              </div>
+
+              <div id="conj-feedback-area" class="feedback-area" hidden>
+                <div id="conj-feedback-banner" class="feedback-banner"></div>
+                <p id="conj-rule-tip" class="feedback-tip" hidden></p>
+                <p id="conj-principal-parts" class="conj-principal-parts" hidden></p>
+                <div id="conj-mini-table" class="conj-mini-table" aria-label="Tüm şahıs çekimleri"></div>
+                <div id="conj-example" class="feedback-example" hidden>
+                  <div class="example-copy">
+                    <span id="conj-example-de" class="example-de"></span>
+                    <span id="conj-example-tr" class="example-tr"></span>
+                  </div>
+                </div>
+                <div class="card-actions">
+                  <button type="button" id="conj-next" class="btn-primary">Sonraki fiil</button>
+                  <button type="button" id="conj-speak" class="speak-btn" aria-label="Çekimi dinle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                    </svg>
+                    <span>Dinle</span>
+                  </button>
+                  <span class="shortcut-hint">Enter ile geçin</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div id="grammar-notes-panel" class="grammar-panel" hidden>
+          <div class="grammar-notes-header">
+            <h1 class="dict-title">Ders Notları ve Çekim Tabloları</h1>
+            <p class="grammar-notes-subtitle">Defter notların, Duden kurallarıyla düzenlenmiş ve seslendirmeli.</p>
+          </div>
+          <div id="grammar-notes-list" class="grammar-notes-list"></div>
+        </div>
       </section>
 
       <section id="dictionary-view" class="view-section" aria-label="Kelime Sözlüğü" hidden>

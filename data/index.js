@@ -1,7 +1,8 @@
 import { lesson01 } from "./lesson_01.js";
+import { lesson02 } from "./lesson_02.js";
 
 export const LEVEL_ORDER = ["A1", "A2", "B1", "B2", "C1"];
-export const LESSONS = [lesson01];
+export const LESSONS = [lesson01, lesson02];
 
 const seenIds = new Set();
 

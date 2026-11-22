@@ -5,6 +5,11 @@ import {
   getWordsForLesson
 } from "./data/index.js";
 import {
+  CONJUGATION_VERBS,
+  GRAMMAR_NOTES,
+  PRONOUN_SLOTS
+} from "./data/grammar.js";
+import {
   clearSyncConfig,
   loadSyncConfig,
   saveSyncConfig,
@@ -250,14 +255,66 @@ const runtime = {
   lastFocusedInput: null,
   dictFilter: "all",
   dictLesson: "all",
-  dictQuery: ""
+  dictQuery: "",
+  grammarSubTab: "drill",
+  grammarInitialized: false,
+  grammarNotesRendered: false,
+  conjGroup: "all",
+  conjMode: "choice",
+  conjCurrent: null,
+  conjLastPairKey: "",
+  conjAnswered: false,
+  conjScore: 0,
+  conjAnsweredCount: 0,
+  conjStreak: 0
 };
 
 const els = {
   tabStudy: document.getElementById("tab-study"),
+  tabGrammar: document.getElementById("tab-grammar"),
   tabDictionary: document.getElementById("tab-dictionary"),
   studyView: document.getElementById("study-view"),
+  grammarView: document.getElementById("grammar-view"),
   dictionaryView: document.getElementById("dictionary-view"),
+  grammarSubDrill: document.getElementById("grammar-sub-drill"),
+  grammarSubNotes: document.getElementById("grammar-sub-notes"),
+  grammarDrillPanel: document.getElementById("grammar-drill-panel"),
+  grammarNotesPanel: document.getElementById("grammar-notes-panel"),
+  grammarGroupChips: Array.from(
+    document.querySelectorAll("#grammar-group-filters .filter-chip")
+  ),
+  conjModeBtns: Array.from(document.querySelectorAll(".conj-mode-btn")),
+  conjScore: document.getElementById("conj-score"),
+  conjStreak: document.getElementById("conj-streak"),
+  conjReset: document.getElementById("conj-reset"),
+  conjCard: document.getElementById("conj-card"),
+  conjGroupLabel: document.getElementById("conj-group-label"),
+  conjInfinitiveMeaning: document.getElementById("conj-infinitive-meaning"),
+  conjPronoun: document.getElementById("conj-pronoun"),
+  conjVerb: document.getElementById("conj-verb"),
+  conjTrCue: document.getElementById("conj-tr-cue"),
+  conjChoiceArea: document.getElementById("conj-choice-area"),
+  conjChoiceList: document.getElementById("conj-choice-list"),
+  conjChoiceActions: document.getElementById("conj-choice-actions"),
+  conjSkipChoice: document.getElementById("conj-skip-choice"),
+  conjTypingArea: document.getElementById("conj-typing-area"),
+  conjInput: document.getElementById("conj-input"),
+  conjUmlautBtns: Array.from(document.querySelectorAll(".conj-umlaut-btn")),
+  conjInputGuidance: document.getElementById("conj-input-guidance"),
+  conjTypingActions: document.getElementById("conj-typing-actions"),
+  conjCheck: document.getElementById("conj-check"),
+  conjSkipTyping: document.getElementById("conj-skip-typing"),
+  conjFeedbackArea: document.getElementById("conj-feedback-area"),
+  conjFeedbackBanner: document.getElementById("conj-feedback-banner"),
+  conjRuleTip: document.getElementById("conj-rule-tip"),
+  conjPrincipalParts: document.getElementById("conj-principal-parts"),
+  conjMiniTable: document.getElementById("conj-mini-table"),
+  conjExample: document.getElementById("conj-example"),
+  conjExampleDe: document.getElementById("conj-example-de"),
+  conjExampleTr: document.getElementById("conj-example-tr"),
+  conjNext: document.getElementById("conj-next"),
+  conjSpeak: document.getElementById("conj-speak"),
+  grammarNotesList: document.getElementById("grammar-notes-list"),
   modeBtns: Array.from(document.querySelectorAll(".mode-btn")),
   mistakesBadge: document.getElementById("mistakes-badge"),
   directionGroup: document.getElementById("direction-group"),
@@ -2726,28 +2783,645 @@ function watchSystemTheme() {
   }
 }
 
+/* Grammar Notes & Conjugation Drill */
+
+function getVerbGroupLabel(group) {
+  if (group === "td") return "-t / -d (-e- kuralı)";
+  if (group === "irregular") return "Düzensiz";
+  return "Düzenli";
+}
+
+function getConjugationSpokenText(verb, slot) {
+  const pronoun = slot.label.split("/")[0].trim();
+  return `${pronoun} ${verb.forms[slot.key]}`;
+}
+
+function getConjugationChoiceOptions(verb, slot) {
+  const expected = verb.forms[slot.key];
+  const rawStem = verb.infinitive.replace(/en$/i, "");
+  const trapPool = [];
+
+  if (verb.group === "td") {
+    trapPool.push(
+      `${rawStem}st`,
+      `${rawStem}t`,
+      `${rawStem}est`,
+      `${rawStem}et`,
+      `${rawStem}e`
+    );
+  }
+  if (verb.infinitive === "kommen") {
+    trapPool.push("komt", "kommst", "komme", "kommen");
+  } else if (verb.infinitive === "haben") {
+    trapPool.push("hast", "habt", "habst", "hat", "habe", "haben");
+  } else if (verb.infinitive === "sein") {
+    trapPool.push("bin", "bist", "ist", "sind", "seid");
+  } else if (verb.infinitive === "heißen") {
+    trapPool.push("heißst", "heiße", "heißt", "heißen");
+  } else if (verb.infinitive === "sprechen" || verb.infinitive === "helfen") {
+    trapPool.push(`${rawStem}st`, `${rawStem}t`, `${rawStem}e`, `${rawStem}en`);
+  }
+
+  const sameVerbForms = shuffleArray(Object.values(verb.forms));
+  const genericForms = [
+    `${rawStem}e`,
+    `${rawStem}st`,
+    `${rawStem}t`,
+    `${rawStem}en`
+  ];
+
+  const distractors = [];
+  const seen = new Set([expected]);
+  for (const candidate of [...shuffleArray(trapPool), ...sameVerbForms, ...genericForms]) {
+    if (!candidate || seen.has(candidate)) continue;
+    seen.add(candidate);
+    distractors.push({ label: candidate, isCorrect: false });
+    if (distractors.length >= 3) break;
+  }
+
+  return shuffleArray([{ label: expected, isCorrect: true }, ...distractors]);
+}
+
+function updateConjugationStrip() {
+  if (els.conjScore) {
+    els.conjScore.textContent = `${runtime.conjScore} / ${runtime.conjAnsweredCount}`;
+  }
+  if (els.conjStreak) {
+    els.conjStreak.textContent = String(runtime.conjStreak);
+  }
+}
+
+function switchGrammarSubTab(subTab) {
+  runtime.grammarSubTab = subTab === "notes" ? "notes" : "drill";
+  const isDrill = runtime.grammarSubTab === "drill";
+
+  els.grammarSubDrill?.classList.toggle("is-active", isDrill);
+  els.grammarSubDrill?.setAttribute("aria-pressed", String(isDrill));
+  els.grammarSubNotes?.classList.toggle("is-active", !isDrill);
+  els.grammarSubNotes?.setAttribute("aria-pressed", String(!isDrill));
+
+  if (els.grammarDrillPanel) els.grammarDrillPanel.hidden = !isDrill;
+  if (els.grammarNotesPanel) els.grammarNotesPanel.hidden = isDrill;
+
+  if (!isDrill && !runtime.grammarNotesRendered) {
+    renderGrammarNotes();
+  }
+  if (isDrill && !runtime.conjCurrent) {
+    showNextConjugation();
+  }
+}
+
+function showNextConjugation() {
+  const pool =
+    runtime.conjGroup === "all"
+      ? CONJUGATION_VERBS
+      : CONJUGATION_VERBS.filter((verb) => verb.group === runtime.conjGroup);
+  const verbs = pool.length > 0 ? pool : CONJUGATION_VERBS;
+
+  const pairs = [];
+  for (const verb of verbs) {
+    for (const slot of PRONOUN_SLOTS) {
+      pairs.push({ verb, slot, pairKey: `${verb.id}:${slot.key}` });
+    }
+  }
+  const filteredPairs =
+    pairs.length > 1
+      ? pairs.filter((p) => p.pairKey !== runtime.conjLastPairKey)
+      : pairs;
+  const picked = filteredPairs[Math.floor(Math.random() * filteredPairs.length)];
+
+  const { verb, slot, pairKey } = picked;
+  const expected = verb.forms[slot.key];
+  const options =
+    runtime.conjMode === "choice"
+      ? getConjugationChoiceOptions(verb, slot)
+      : [];
+
+  runtime.conjLastPairKey = pairKey;
+  runtime.conjCurrent = { verb, slot, expected, options };
+  runtime.conjAnswered = false;
+
+  if (els.conjCard) {
+    els.conjCard.dataset.gender = "neutral";
+    els.conjCard.classList.remove("is-advancing");
+    void els.conjCard.offsetWidth;
+    els.conjCard.classList.add("is-advancing");
+  }
+
+  if (els.conjGroupLabel) {
+    els.conjGroupLabel.textContent = `${verb.lesson}, ${getVerbGroupLabel(verb.group)}`;
+  }
+  if (els.conjInfinitiveMeaning) {
+    els.conjInfinitiveMeaning.textContent = verb.tr;
+  }
+  if (els.conjPronoun) {
+    els.conjPronoun.textContent = slot.label;
+  }
+  if (els.conjVerb) {
+    els.conjVerb.textContent = verb.infinitive;
+  }
+  if (els.conjTrCue) {
+    els.conjTrCue.textContent = `${slot.tr} — ${verb.tr}`;
+  }
+
+  updateConjugationStrip();
+
+  if (els.conjFeedbackArea) els.conjFeedbackArea.hidden = true;
+  if (els.conjInputGuidance) {
+    els.conjInputGuidance.hidden = true;
+    els.conjInputGuidance.textContent = "";
+  }
+
+  if (runtime.conjMode === "choice") {
+    if (els.conjTypingArea) els.conjTypingArea.hidden = true;
+    if (els.conjChoiceArea) els.conjChoiceArea.hidden = false;
+    if (els.conjChoiceActions) els.conjChoiceActions.hidden = false;
+    if (els.conjChoiceList) {
+      els.conjChoiceList.innerHTML = "";
+      options.forEach((opt, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "choice-btn";
+        btn.dataset.index = String(idx);
+
+        const keySpan = document.createElement("span");
+        keySpan.className = "choice-key";
+        keySpan.textContent = String(idx + 1);
+
+        const textSpan = document.createElement("span");
+        textSpan.textContent = `${slot.label.split("/")[0].trim()} ${opt.label}`;
+
+        btn.appendChild(keySpan);
+        btn.appendChild(textSpan);
+        btn.addEventListener("click", () => handleConjugationChoiceSelect(idx));
+        els.conjChoiceList.appendChild(btn);
+      });
+    }
+  } else {
+    if (els.conjChoiceArea) els.conjChoiceArea.hidden = true;
+    if (els.conjTypingArea) els.conjTypingArea.hidden = false;
+    if (els.conjTypingActions) els.conjTypingActions.hidden = false;
+    if (els.conjInput) {
+      els.conjInput.value = "";
+      els.conjInput.disabled = false;
+      if (
+        !els.backupDialog?.open &&
+        runtime.activeTab === "grammar" &&
+        runtime.grammarSubTab === "drill"
+      ) {
+        window.setTimeout(() => {
+          if (
+            !els.backupDialog?.open &&
+            runtime.activeTab === "grammar" &&
+            runtime.grammarSubTab === "drill"
+          ) {
+            els.conjInput.focus();
+          }
+        }, 10);
+      }
+    }
+    for (const btn of els.conjUmlautBtns) {
+      btn.disabled = false;
+    }
+  }
+}
+
+function handleConjugationChoiceSelect(index) {
+  if (runtime.conjAnswered || !runtime.conjCurrent) {
+    return;
+  }
+  const chosen = runtime.conjCurrent.options[index];
+  if (!chosen) {
+    return;
+  }
+
+  const buttons = Array.from(
+    els.conjChoiceList?.querySelectorAll(".choice-btn") || []
+  );
+  buttons.forEach((btn, idx) => {
+    btn.disabled = true;
+    const opt = runtime.conjCurrent.options[idx];
+    if (opt?.isCorrect) {
+      btn.classList.add("is-correct");
+    } else if (idx === index && !opt?.isCorrect) {
+      btn.classList.add("is-wrong");
+    }
+  });
+
+  if (els.conjChoiceActions) {
+    els.conjChoiceActions.hidden = true;
+  }
+  finalizeConjugation(chosen.isCorrect, null);
+}
+
+function evaluateConjugationInput(rawInput, verb, slot) {
+  const expected = verb.forms[slot.key];
+  let candidate = collapseSpaces(rawInput);
+
+  const allowedPrefixes = slot.label
+    .split("/")
+    .map((part) => part.trim().toLowerCase());
+  const firstSpace = candidate.indexOf(" ");
+  if (firstSpace > 0) {
+    const firstWord = candidate.slice(0, firstSpace).toLowerCase();
+    if (allowedPrefixes.includes(firstWord)) {
+      candidate = collapseSpaces(candidate.slice(firstSpace + 1));
+    }
+  }
+
+  if (candidate === expected) {
+    return { ok: true, tip: null };
+  }
+  if (candidate.toLowerCase() === expected.toLowerCase()) {
+    return {
+      ok: true,
+      tip: "İpucu: Almancada çekimli fiiller cümle içinde küçük harfle yazılır."
+    };
+  }
+  if (
+    expected.includes("ß") &&
+    !candidate.includes("ß") &&
+    candidate.toLowerCase().replace(/ß/g, "ss") ===
+      expected.toLowerCase().replace(/ß/g, "ss")
+  ) {
+    return {
+      ok: false,
+      tip: "İpucu: Bu fiilde \"ss\" yerine \"ß\" harfi kullanılır."
+    };
+  }
+  return { ok: false, tip: null };
+}
+
+function handleConjugationTypingSubmit() {
+  if (runtime.conjAnswered || !runtime.conjCurrent || !els.conjInput) {
+    return;
+  }
+  const raw = collapseSpaces(els.conjInput.value);
+  if (!raw) {
+    if (els.conjInputGuidance) {
+      els.conjInputGuidance.textContent =
+        "Çekimli fiili yazın veya \"Kartı atla\" ile sıradaki soruya geçin.";
+      els.conjInputGuidance.hidden = false;
+    }
+    els.conjInput.focus();
+    return;
+  }
+
+  if (els.conjInputGuidance) {
+    els.conjInputGuidance.hidden = true;
+  }
+  els.conjInput.disabled = true;
+  for (const btn of els.conjUmlautBtns) {
+    btn.disabled = true;
+  }
+  if (els.conjTypingActions) {
+    els.conjTypingActions.hidden = true;
+  }
+
+  const { verb, slot } = runtime.conjCurrent;
+  const res = evaluateConjugationInput(raw, verb, slot);
+  finalizeConjugation(res.ok, res.tip);
+}
+
+function finalizeConjugation(isCorrect, customTip) {
+  if (!runtime.conjCurrent) {
+    return;
+  }
+  const { verb, slot } = runtime.conjCurrent;
+  const spokenTarget = getConjugationSpokenText(verb, slot);
+
+  runtime.conjAnswered = true;
+  runtime.conjAnsweredCount += 1;
+  if (isCorrect) {
+    runtime.conjScore += 1;
+    runtime.conjStreak += 1;
+  } else {
+    runtime.conjStreak = 0;
+  }
+  updateConjugationStrip();
+
+  if (els.conjCard) {
+    els.conjCard.dataset.gender = isCorrect ? "das" : "die";
+  }
+
+  if (els.conjFeedbackArea) {
+    els.conjFeedbackArea.hidden = false;
+  }
+  if (els.conjFeedbackBanner) {
+    els.conjFeedbackBanner.className = `feedback-banner ${
+      isCorrect ? "is-correct" : "is-wrong"
+    }`;
+    els.conjFeedbackBanner.textContent = isCorrect
+      ? `Doğru: ${spokenTarget}`
+      : `Yanlış. Doğru cevap: ${spokenTarget}`;
+  }
+
+  const tipToShow = customTip || verb.ruleTip;
+  if (els.conjRuleTip) {
+    if (tipToShow) {
+      els.conjRuleTip.textContent = tipToShow;
+      els.conjRuleTip.hidden = false;
+    } else {
+      els.conjRuleTip.hidden = true;
+    }
+  }
+
+  if (els.conjPrincipalParts) {
+    if (verb.principalParts) {
+      els.conjPrincipalParts.textContent = `Temel biçimler (Präsens · Präteritum · Perfekt): ${verb.principalParts}`;
+      els.conjPrincipalParts.hidden = false;
+    } else {
+      els.conjPrincipalParts.hidden = true;
+    }
+  }
+
+  if (els.conjMiniTable) {
+    els.conjMiniTable.innerHTML = "";
+    for (const rowSlot of PRONOUN_SLOTS) {
+      const row = document.createElement("div");
+      row.className =
+        rowSlot.key === slot.key ? "conj-mini-row is-highlight" : "conj-mini-row";
+
+      const pSpan = document.createElement("span");
+      pSpan.className = "conj-mini-pronoun";
+      pSpan.textContent = rowSlot.label;
+
+      const fSpan = document.createElement("span");
+      fSpan.className = "conj-mini-form";
+      fSpan.textContent = verb.forms[rowSlot.key];
+
+      row.appendChild(pSpan);
+      row.appendChild(fSpan);
+      els.conjMiniTable.appendChild(row);
+    }
+  }
+
+  if (els.conjExample) {
+    if (verb.example?.de) {
+      els.conjExampleDe.textContent = verb.example.de;
+      els.conjExampleTr.textContent = verb.example.tr || "";
+      els.conjExample.hidden = false;
+    } else {
+      els.conjExample.hidden = true;
+    }
+  }
+
+  const speechReady = isSpeechSupported();
+  if (els.conjSpeak) {
+    els.conjSpeak.hidden = !speechReady;
+  }
+  if (appState.settings.autoSpeak) {
+    speakGerman(spokenTarget);
+  }
+
+  announce(els.conjFeedbackBanner?.textContent || spokenTarget);
+  if (
+    !els.backupDialog?.open &&
+    runtime.activeTab === "grammar" &&
+    runtime.grammarSubTab === "drill"
+  ) {
+    window.setTimeout(() => {
+      if (
+        !els.backupDialog?.open &&
+        runtime.activeTab === "grammar" &&
+        runtime.grammarSubTab === "drill"
+      ) {
+        els.conjNext?.focus();
+      }
+    }, 10);
+  }
+}
+
+function insertConjChar(char) {
+  if (
+    runtime.conjAnswered ||
+    runtime.conjMode !== "typing" ||
+    !els.conjInput ||
+    els.conjInput.disabled
+  ) {
+    return;
+  }
+  const target = els.conjInput;
+  const start = target.selectionStart ?? target.value.length;
+  const end = target.selectionEnd ?? target.value.length;
+  target.value =
+    target.value.slice(0, start) + char + target.value.slice(end);
+  const nextPos = start + char.length;
+  target.focus();
+  target.setSelectionRange(nextPos, nextPos);
+}
+
+function renderGrammarNotes() {
+  if (!els.grammarNotesList) {
+    return;
+  }
+  els.grammarNotesList.innerHTML = "";
+  const speechReady = isSpeechSupported();
+  const fragment = document.createDocumentFragment();
+
+  for (const note of GRAMMAR_NOTES) {
+    const card = document.createElement("article");
+    card.className = "grammar-note-card";
+
+    const head = document.createElement("div");
+    head.className = "grammar-note-head";
+
+    const title = document.createElement("h2");
+    title.className = "grammar-note-title";
+    title.textContent = note.title;
+
+    const badge = document.createElement("span");
+    badge.className = "grammar-note-badge";
+    badge.textContent = `${note.level} · ${note.badge}`;
+
+    head.appendChild(title);
+    head.appendChild(badge);
+    card.appendChild(head);
+
+    if (note.summary) {
+      const summary = document.createElement("p");
+      summary.className = "grammar-note-summary";
+      summary.textContent = note.summary;
+      card.appendChild(summary);
+    }
+
+    if (note.table && Array.isArray(note.table.rows)) {
+      const wrap = document.createElement("div");
+      wrap.className = "grammar-table-wrap";
+
+      const table = document.createElement("table");
+      table.className = "grammar-table";
+
+      if (Array.isArray(note.table.headers)) {
+        const thead = document.createElement("thead");
+        const tr = document.createElement("tr");
+        for (const hText of note.table.headers) {
+          const th = document.createElement("th");
+          th.scope = "col";
+          th.textContent = hText;
+          tr.appendChild(th);
+        }
+        thead.appendChild(tr);
+        table.appendChild(thead);
+      }
+
+      const tbody = document.createElement("tbody");
+      for (const rowCells of note.table.rows) {
+        const tr = document.createElement("tr");
+        for (const cellText of rowCells) {
+          const td = document.createElement("td");
+          td.textContent = cellText;
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      card.appendChild(wrap);
+    }
+
+    if (note.tip) {
+      const tip = document.createElement("p");
+      tip.className = "feedback-tip";
+      tip.textContent = note.tip;
+      card.appendChild(tip);
+    }
+
+    if (note.example?.de) {
+      const ex = document.createElement("div");
+      ex.className = "feedback-example";
+
+      const copy = document.createElement("div");
+      copy.className = "example-copy";
+
+      const exDe = document.createElement("span");
+      exDe.className = "example-de";
+      exDe.textContent = note.example.de;
+
+      const exTr = document.createElement("span");
+      exTr.className = "example-tr";
+      exTr.textContent = note.example.tr || "";
+
+      copy.appendChild(exDe);
+      copy.appendChild(exTr);
+      ex.appendChild(copy);
+
+      if (speechReady) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "speak-btn speak-btn-sm";
+        btn.setAttribute("aria-label", `${note.example.de} örneğini dinle`);
+        btn.appendChild(createSpeakerSvg());
+        const label = document.createElement("span");
+        label.textContent = "Dinle";
+        btn.appendChild(label);
+        btn.addEventListener("click", () => speakGerman(note.example.de));
+        ex.appendChild(btn);
+      }
+
+      card.appendChild(ex);
+    }
+
+    fragment.appendChild(card);
+  }
+
+  els.grammarNotesList.appendChild(fragment);
+  runtime.grammarNotesRendered = true;
+}
+
 /* Tab Switching & Events */
 
 function switchTab(tabName) {
   runtime.activeTab = tabName;
   const isStudy = tabName === "study";
+  const isGrammar = tabName === "grammar";
+  const isDict = tabName === "dictionary";
 
   els.tabStudy.classList.toggle("is-active", isStudy);
   els.tabStudy.setAttribute("aria-pressed", String(isStudy));
-  els.tabDictionary.classList.toggle("is-active", !isStudy);
-  els.tabDictionary.setAttribute("aria-pressed", String(!isStudy));
+  els.tabGrammar?.classList.toggle("is-active", isGrammar);
+  els.tabGrammar?.setAttribute("aria-pressed", String(isGrammar));
+  els.tabDictionary.classList.toggle("is-active", isDict);
+  els.tabDictionary.setAttribute("aria-pressed", String(isDict));
 
   els.studyView.hidden = !isStudy;
-  els.dictionaryView.hidden = isStudy;
+  if (els.grammarView) els.grammarView.hidden = !isGrammar;
+  els.dictionaryView.hidden = !isDict;
 
-  if (!isStudy) {
+  if (isDict) {
     renderDictionary();
+  } else if (isGrammar) {
+    if (!runtime.grammarInitialized) {
+      runtime.grammarInitialized = true;
+      showNextConjugation();
+    }
+    if (runtime.grammarSubTab === "notes" && !runtime.grammarNotesRendered) {
+      renderGrammarNotes();
+    }
   }
 }
 
 function bindEvents() {
   els.tabStudy?.addEventListener("click", () => switchTab("study"));
+  els.tabGrammar?.addEventListener("click", () => switchTab("grammar"));
   els.tabDictionary?.addEventListener("click", () => switchTab("dictionary"));
+
+  els.grammarSubDrill?.addEventListener("click", () =>
+    switchGrammarSubTab("drill")
+  );
+  els.grammarSubNotes?.addEventListener("click", () =>
+    switchGrammarSubTab("notes")
+  );
+
+  for (const chip of els.grammarGroupChips) {
+    chip.addEventListener("click", () => {
+      runtime.conjGroup = chip.dataset.group || "all";
+      for (const item of els.grammarGroupChips) {
+        item.classList.toggle("is-active", item === chip);
+      }
+      showNextConjugation();
+    });
+  }
+
+  for (const btn of els.conjModeBtns) {
+    btn.addEventListener("click", () => {
+      runtime.conjMode = btn.dataset.conjMode === "typing" ? "typing" : "choice";
+      for (const item of els.conjModeBtns) {
+        const active = item === btn;
+        item.classList.toggle("is-active", active);
+        item.setAttribute("aria-pressed", String(active));
+      }
+      showNextConjugation();
+    });
+  }
+
+  els.conjReset?.addEventListener("click", () => {
+    runtime.conjScore = 0;
+    runtime.conjAnsweredCount = 0;
+    runtime.conjStreak = 0;
+    updateConjugationStrip();
+    announce("Çekim sayacı sıfırlandı.");
+  });
+
+  for (const btn of els.conjUmlautBtns) {
+    btn.addEventListener("mousedown", (e) => e.preventDefault());
+    btn.addEventListener("click", () => insertConjChar(btn.dataset.char || ""));
+  }
+
+  els.conjCheck?.addEventListener("click", handleConjugationTypingSubmit);
+  els.conjSkipChoice?.addEventListener("click", showNextConjugation);
+  els.conjSkipTyping?.addEventListener("click", showNextConjugation);
+  els.conjNext?.addEventListener("click", showNextConjugation);
+  els.conjSpeak?.addEventListener("click", () => {
+    if (runtime.conjCurrent) {
+      speakGerman(
+        getConjugationSpokenText(
+          runtime.conjCurrent.verb,
+          runtime.conjCurrent.slot
+        )
+      );
+    }
+  });
 
   for (const btn of els.modeBtns) {
     btn.addEventListener("click", () => {
@@ -3057,7 +3731,65 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (els.backupDialog.open || runtime.activeTab !== "study" || !runtime.currentWord) {
+    if (els.backupDialog.open) {
+      return;
+    }
+
+    if (runtime.activeTab === "grammar") {
+      if (runtime.grammarSubTab !== "drill" || !runtime.conjCurrent) {
+        return;
+      }
+
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        speakGerman(
+          runtime.conjAnswered
+            ? getConjugationSpokenText(
+                runtime.conjCurrent.verb,
+                runtime.conjCurrent.slot
+              )
+            : runtime.conjCurrent.verb.infinitive
+        );
+        return;
+      }
+
+      if (
+        !runtime.conjAnswered &&
+        runtime.conjMode === "choice" &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !e.shiftKey &&
+        ["1", "2", "3", "4"].includes(e.key)
+      ) {
+        e.preventDefault();
+        handleConjugationChoiceSelect(Number(e.key) - 1);
+        return;
+      }
+
+      if (e.key === "Enter") {
+        const targetTag = e.target?.tagName;
+        if (targetTag === "SELECT") {
+          return;
+        }
+        if (
+          targetTag === "BUTTON" &&
+          e.target !== els.conjNext &&
+          e.target !== els.conjCheck
+        ) {
+          return;
+        }
+        e.preventDefault();
+        if (runtime.conjAnswered) {
+          showNextConjugation();
+        } else if (runtime.conjMode === "typing") {
+          handleConjugationTypingSubmit();
+        }
+      }
+      return;
+    }
+
+    if (runtime.activeTab !== "study" || !runtime.currentWord) {
       return;
     }
 
