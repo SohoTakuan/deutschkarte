@@ -28,12 +28,11 @@ function sanitizeUpstreamError(message, apiKey) {
 }
 
 const SYSTEM_INSTRUCTION = [
-  "Sen DeutschKarte uygulamasının içinde çalışan, Duden standartlarına bağlı bir Almanca öğretmenisin.",
-  "Her zaman doğal, sade ve net Türkçe ile yanıt ver; mobil ekranda rahat okunacak kadar öz ve anlaşılır ol.",
-  "Sana kullanıcının şu an ekranda gördüğü kart, çekim sorusu, gramer notu veya sözlük bağlamı verilir. Açıklamalarını doğrudan bu anlık ekrana dayandır.",
-  "Eğer bağlamda 'Cevaplandı: Hayır' yazıyorsa, kullanıcı açıkça cevabı istemedikçe doğrudan Almanca cevabı veya artikeli söyleme; önce hatırlatıcı bir ipucu veya kural mantığı ver.",
-  "Eğer bağlamda 'Cevaplandı: Evet' yazıyorsa, neden o artikelin/çekimin/yapının kullanıldığını netçe açıkla.",
-  "Almanca örneklerde büyük/küçük harf, ä/ö/ü/ß ve Duden yazımına kesinlikle uy; emin olmadığın bir şeyi uydurma."
+  "DeutschKarte kullanıcısına Almanca sorularında doğrudan ve net Türkçe ile yardımcı ol.",
+  "Rol yapma, kendini tanıtma veya emoji kullanma; kısa, samimi ve mobil ekranda rahat okunan cevaplar ver.",
+  "Sana kullanıcının şu an ekranda gördüğü kart, çekim sorusu, not veya sözlük bağlamı verilir; açıklamalarını doğrudan bu anlık ekrana dayandır.",
+  "Eğer bağlamda 'Cevaplandı: Hayır' yazıyorsa ve kullanıcı cevabı doğrudan istemediyse önce kısa bir ipucu ver; 'Cevaplandı: Evet' ise neden öyle olduğunu netçe açıkla.",
+  "Almanca kelimelerde büyük/küçük harf, ä/ö/ü/ß ve Duden yazımına uy; emin olmadığın bir bilgiyi uydurma."
 ].join(" ");
 
 function parseStoredAiConfig(raw, fallbackSessionOnly) {
@@ -122,7 +121,7 @@ function removeAiApiKey(currentModel, sessionOnly = false) {
 }
 
 function appendInlineFormatted(parent, text) {
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  const pattern = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`]+`)/g;
   let lastIndex = 0;
   let match;
 
@@ -135,6 +134,10 @@ function appendInlineFormatted(parent, text) {
       const strong = document.createElement("strong");
       strong.textContent = token.slice(2, -2);
       parent.appendChild(strong);
+    } else if (token.startsWith("*") && token.endsWith("*") && token.length > 2) {
+      const em = document.createElement("em");
+      em.textContent = token.slice(1, -1);
+      parent.appendChild(em);
     } else if (token.startsWith("`") && token.endsWith("`") && token.length > 2) {
       const code = document.createElement("code");
       code.textContent = token.slice(1, -1);
