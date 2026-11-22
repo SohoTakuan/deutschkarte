@@ -1,6 +1,5 @@
 const AI_STORAGE_KEY = "deutschkarte_ai_tutor_v1";
-const VALID_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.8-flash";
 const MAX_HISTORY_TURNS = 10;
 const MAX_PROMPT_LENGTH = 1500;
 const REQUEST_TIMEOUT_MS = 25000;
@@ -38,10 +37,9 @@ function parseStoredAiConfig(raw, fallbackSessionOnly) {
   const parsed = JSON.parse(raw);
   const rawKey = typeof parsed?.apiKey === "string" ? parsed.apiKey.trim() : "";
   const apiKey = isValidApiKeyFormat(rawKey) ? rawKey : "";
-  const model = VALID_MODELS.includes(parsed?.model) ? parsed.model : DEFAULT_MODEL;
   const sessionOnly =
     typeof parsed?.sessionOnly === "boolean" ? parsed.sessionOnly : fallbackSessionOnly;
-  return { apiKey, model, sessionOnly };
+  return { apiKey, sessionOnly };
 }
 
 function loadAiConfig() {
@@ -60,9 +58,9 @@ function loadAiConfig() {
     if (localCfg) {
       return localCfg;
     }
-    return { apiKey: "", model: DEFAULT_MODEL, sessionOnly: false };
+    return { apiKey: "", sessionOnly: false };
   } catch {
-    return { apiKey: "", model: DEFAULT_MODEL, sessionOnly: false };
+    return { apiKey: "", sessionOnly: false };
   }
 }
 
@@ -71,7 +69,6 @@ function saveAiConfig(config) {
   const sessionOnly = Boolean(config.sessionOnly);
   const safe = {
     apiKey: isValidApiKeyFormat(rawKey) ? rawKey : "",
-    model: VALID_MODELS.includes(config.model) ? config.model : DEFAULT_MODEL,
     sessionOnly
   };
   try {
@@ -97,10 +94,9 @@ function saveAiConfig(config) {
   return safe;
 }
 
-function removeAiApiKey(currentModel, sessionOnly = false) {
+function removeAiApiKey(sessionOnly = false) {
   const safe = {
     apiKey: "",
-    model: VALID_MODELS.includes(currentModel) ? currentModel : DEFAULT_MODEL,
     sessionOnly: Boolean(sessionOnly)
   };
   try {
@@ -197,7 +193,7 @@ function getQuickChipsForContext(ctx) {
   ];
 }
 
-async function requestGeminiReply({ apiKey, model, history, screenContext }) {
+async function requestGeminiReply({ apiKey, history, screenContext }) {
   if (!navigator.onLine) {
     throw new Error("İnternet bağlantısı yok. Çevrimiçi olduğunuzda tekrar deneyin veya üstteki düğmeyle bağlamı kopyalayın.");
   }
@@ -220,7 +216,7 @@ async function requestGeminiReply({ apiKey, model, history, screenContext }) {
   let response;
   try {
     response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`,
       {
         method: "POST",
         credentials: "omit",
@@ -302,7 +298,6 @@ export function initAiTutor({ getScreenContext, announce }) {
     settingsPanel: document.getElementById("ai-settings-panel"),
     apiKeyInput: document.getElementById("ai-api-key"),
     sessionOnlyCheck: document.getElementById("ai-session-only"),
-    modelSelect: document.getElementById("ai-model-select"),
     btnSaveKey: document.getElementById("ai-btn-save-key"),
     btnRemoveKey: document.getElementById("ai-btn-remove-key"),
     settingsStatus: document.getElementById("ai-settings-status"),
@@ -349,9 +344,6 @@ export function initAiTutor({ getScreenContext, announce }) {
   }
 
   function syncSettingsUI() {
-    if (dom.modelSelect) {
-      dom.modelSelect.value = config.model;
-    }
     if (dom.sessionOnlyCheck) {
       dom.sessionOnlyCheck.checked = Boolean(config.sessionOnly);
     }
@@ -506,7 +498,6 @@ export function initAiTutor({ getScreenContext, announce }) {
     try {
       const reply = await requestGeminiReply({
         apiKey: config.apiKey,
-        model: config.model,
         history,
         screenContext
       });
@@ -591,7 +582,6 @@ export function initAiTutor({ getScreenContext, announce }) {
 
   dom.btnSaveKey?.addEventListener("click", () => {
     const enteredKey = dom.apiKeyInput?.value.trim() || "";
-    const selectedModel = dom.modelSelect?.value || DEFAULT_MODEL;
     const sessionOnly = Boolean(dom.sessionOnlyCheck?.checked);
 
     if (!enteredKey && !config.apiKey) {
@@ -610,14 +600,14 @@ export function initAiTutor({ getScreenContext, announce }) {
     }
 
     const nextKey = enteredKey || config.apiKey;
-    config = saveAiConfig({ apiKey: nextKey, model: selectedModel, sessionOnly });
+    config = saveAiConfig({ apiKey: nextKey, sessionOnly });
     settingsOpen = false;
     syncSettingsUI();
     renderMessages();
     setStatus(
       sessionOnly
         ? "API anahtarı yalnızca bu sekme oturumuna kaydedildi."
-        : "API anahtarı ve model bu cihaza kaydedildi.",
+        : "API anahtarı bu cihaza kaydedildi.",
       "ok"
     );
     announce?.("Gemini API anahtarı kaydedildi.");
@@ -629,7 +619,6 @@ export function initAiTutor({ getScreenContext, announce }) {
     if (config.apiKey) {
       config = saveAiConfig({
         apiKey: config.apiKey,
-        model: config.model,
         sessionOnly
       });
       setStatus(
@@ -643,23 +632,8 @@ export function initAiTutor({ getScreenContext, announce }) {
     }
   });
 
-  dom.modelSelect?.addEventListener("change", () => {
-    if (config.apiKey) {
-      config = saveAiConfig({
-        apiKey: config.apiKey,
-        model: dom.modelSelect.value,
-        sessionOnly: config.sessionOnly
-      });
-      setStatus("Model seçimi güncellendi.", "ok");
-    } else {
-      config.model = VALID_MODELS.includes(dom.modelSelect.value)
-        ? dom.modelSelect.value
-        : DEFAULT_MODEL;
-    }
-  });
-
   dom.btnRemoveKey?.addEventListener("click", () => {
-    config = removeAiApiKey(config.model, config.sessionOnly);
+    config = removeAiApiKey(config.sessionOnly);
     syncSettingsUI();
     renderMessages();
     setStatus("API anahtarı bu cihazdan silindi.", "ok");
