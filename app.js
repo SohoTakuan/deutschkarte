@@ -16,6 +16,7 @@ import {
   SyncHttpError,
   syncWithGitHubGist
 } from "./sync.js";
+import { initAiTutor } from "./ai-tutor.js";
 
 const STORAGE_KEY = "deutschkarte_state_v1";
 const THEME_STORAGE_KEY = "deutschkarte_theme";
@@ -26,6 +27,7 @@ const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const SRS_INTERVAL_DAYS = { 1: 0, 2: 1, 3: 3, 4: 7, 5: 21 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WORD_BY_ID = new Map(ALL_WORDS.map((word) => [word.id, word]));
+let aiTutor = null;
 
 function getLocalDateKey(date = new Date()) {
   const y = date.getFullYear();
@@ -1164,6 +1166,7 @@ function showNextCard() {
   } else {
     renderTypingView(word, direction);
   }
+  aiTutor?.refreshContext();
 }
 
 function renderChoiceView() {
@@ -1937,6 +1940,7 @@ function finalizeTurn(word, isCorrect, details) {
   if (runtime.activeTab === "dictionary") {
     renderDictionary();
   }
+  aiTutor?.refreshContext();
 }
 
 function renderFeedback(word, isCorrect, details, mistakeStatusText) {
@@ -2358,6 +2362,9 @@ function renderDictionary() {
   }
 
   els.dictList.appendChild(fragment);
+  if (runtime.activeTab === "dictionary") {
+    aiTutor?.refreshContext();
+  }
 }
 
 /* Backup & Stats Modal */
@@ -2880,6 +2887,7 @@ function switchGrammarSubTab(subTab) {
   if (isDrill && !runtime.conjCurrent) {
     showNextConjugation();
   }
+  aiTutor?.refreshContext();
 }
 
 function showNextConjugation() {
@@ -3013,6 +3021,7 @@ function showNextConjugation() {
       btn.disabled = false;
     }
   }
+  aiTutor?.refreshContext();
 }
 
 function handleConjugationChoiceSelect(index) {
@@ -3218,6 +3227,7 @@ function finalizeConjugation(isCorrect, customTip) {
   }
 
   announce(els.conjFeedbackBanner?.textContent || spokenTarget);
+  aiTutor?.refreshContext();
   if (
     !els.backupDialog?.open &&
     runtime.activeTab === "grammar" &&
@@ -3402,6 +3412,7 @@ function switchTab(tabName) {
       renderGrammarNotes();
     }
   }
+  aiTutor?.refreshContext();
 }
 
 function bindEvents() {
@@ -3785,7 +3796,7 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
-    if (els.backupDialog.open) {
+    if (els.backupDialog.open || aiTutor?.isOpen()) {
       return;
     }
 
@@ -3926,6 +3937,157 @@ function registerServiceWorker() {
   }
 }
 
+function buildAiScreenContext() {
+  if (runtime.activeTab === "grammar") {
+    if (runtime.grammarSubTab === "notes") {
+      const noteSummaries = GRAMMAR_NOTES.map(
+        (n, idx) =>
+          `${idx + 1}. ${n.title} (${n.badge}): ${n.summary}${n.tip ? ` İpucu: ${n.tip}` : ""}`
+      ).join("\n");
+      return {
+        tab: "grammar",
+        subTab: "notes",
+        answered: true,
+        label: "Ders Notları ve Tablolar",
+        summary: `Sekme: Çekim ve Notlar -> Ders Notları ve Tablolar\nEkrandaki not başlıkları:\n${noteSummaries}`
+      };
+    }
+
+    const cur = runtime.conjCurrent;
+    if (!cur) {
+      return {
+        tab: "grammar",
+        subTab: "drill",
+        answered: false,
+        label: "Çekim Pratiği",
+        summary: "Sekme: Çekim ve Notlar -> Çekim Pratiği (henüz aktif fiil yüklenmedi)."
+      };
+    }
+
+    const { verb, slot, expected } = cur;
+    const modeLabel = runtime.conjMode === "typing" ? "Yazmalı" : "Şıklı";
+    const lines = [
+      `Sekme: Çekim ve Notlar -> Çekim Pratiği (${modeLabel})`,
+      `Fiil: ${verb.infinitive} (${verb.tr}) · Grup: ${getVerbGroupLabel(verb.group)}`,
+      `İstenen zamir: ${slot.label} (${slot.tr})`,
+      `Cevaplandı: ${runtime.conjAnswered ? "Evet" : "Hayır"}`
+    ];
+    if (runtime.conjAnswered) {
+      if (els.conjFeedbackBanner?.textContent) {
+        lines.push(`Sonuç: ${els.conjFeedbackBanner.textContent}`);
+      }
+      if (verb.ruleTip) lines.push(`Kural: ${verb.ruleTip}`);
+      if (verb.principalParts) lines.push(`Temel biçimler: ${verb.principalParts}`);
+      if (verb.example?.de) {
+        lines.push(`Örnek cümle: ${verb.example.de} (${verb.example.tr || ""})`);
+      }
+    } else {
+      lines.push(`[Gizli Çözüm Bilgisi: ${slot.label.split("/")[0].trim()} ${expected} | Kural: ${verb.ruleTip || "-"}]`);
+    }
+
+    return {
+      tab: "grammar",
+      subTab: "drill",
+      answered: runtime.conjAnswered,
+      label: `Çekim · ${slot.label.split("/")[0].trim()} ${verb.infinitive}`,
+      summary: lines.join("\n")
+    };
+  }
+
+  if (runtime.activeTab === "dictionary") {
+    const query = (els.dictSearch?.value || "").trim();
+    const visibleItems = Array.from(
+      els.dictList?.querySelectorAll(".dict-item") || []
+    )
+      .slice(0, 12)
+      .map((item) => {
+        const de = item.querySelector(".dict-de")?.textContent?.trim() || "";
+        const tr = item.querySelector(".dict-tr")?.textContent?.trim() || "";
+        return de && tr ? `${de} = ${tr}` : "";
+      })
+      .filter(Boolean);
+
+    return {
+      tab: "dictionary",
+      subTab: "dictionary",
+      answered: true,
+      label: query ? `Sözlük · "${query}"` : "Kelime Sözlüğü",
+      summary: [
+        `Sekme: Kelime Sözlüğü`,
+        `Aktif filtre: ${runtime.dictFilter}${query ? ` | Arama: "${query}"` : ""}`,
+        `Sayaç: ${els.dictCount?.textContent || ""}`,
+        visibleItems.length > 0
+          ? `Ekrandaki ilk öğeler:\n- ${visibleItems.join("\n- ")}`
+          : "Eşleşen öğe görünmüyor."
+      ].join("\n")
+    };
+  }
+
+  const word = runtime.currentWord;
+  if (!word) {
+    return {
+      tab: "study",
+      subTab: "study",
+      answered: false,
+      label: "Çalış",
+      summary: `Sekme: Çalış (aktif kart yok: ${els.emptyTitle?.textContent || "Boş"})`
+    };
+  }
+
+  const dirLabel =
+    runtime.currentQuestionType === "articles"
+      ? "Artikel Pratiği"
+      : runtime.currentDirection === "de-tr"
+        ? "DE -> TR"
+        : "TR -> DE";
+  const qLabel =
+    runtime.currentQuestionType === "articles"
+      ? "Artikel seçimi"
+      : runtime.currentQuestionType === "choice"
+        ? "Çoktan seçmeli"
+        : "Yazmalı";
+  const promptText = els.promptTr?.textContent?.trim() || word.tr;
+  const solutionText =
+    word.category === "noun" ? formatNounSummary(word) : word.de;
+
+  const lines = [
+    `Sekme: Çalış (${dirLabel} · ${qLabel})`,
+    `Ders: ${word.lesson} | Tür: ${word.category}`,
+    `Ekrandaki soru: ${promptText}`,
+    `Cevaplandı: ${runtime.answered ? "Evet" : "Hayır"}`
+  ];
+  if (word.hint) lines.push(`İpucu: ${word.hint}`);
+
+  if (runtime.answered) {
+    if (els.feedbackBanner?.textContent) {
+      lines.push(`Sonuç: ${els.feedbackBanner.textContent}`);
+    }
+    if (els.feedbackTip?.textContent && !els.feedbackTip.hidden) {
+      lines.push(`Geri bildirim ipucu: ${els.feedbackTip.textContent}`);
+    }
+    lines.push(`Türkçe: ${word.tr} | Almanca: ${solutionText}`);
+    if (word.note) lines.push(`Not: ${word.note}`);
+    if (word.example?.de) {
+      lines.push(`Örnek: ${word.example.de} (${word.example.tr || ""})`);
+    }
+  } else {
+    lines.push(
+      `[Gizli Çözüm Bilgisi: Türkçe="${word.tr}" | Almanca="${solutionText}"${word.note ? ` | Not="${word.note}"` : ""}]`
+    );
+  }
+
+  const shortPrompt =
+    promptText.length > 26 ? `${promptText.slice(0, 25)}…` : promptText;
+
+  return {
+    tab: "study",
+    subTab: "study",
+    answered: runtime.answered,
+    label: `Çalış · ${shortPrompt}`,
+    summary: lines.join("\n")
+  };
+}
+
 function init() {
   try {
     applyTheme(getInitialTheme(), false);
@@ -3939,6 +4101,10 @@ function init() {
     populateLessonSelects();
     updateUmlautCaseLabels();
     bindEvents();
+    aiTutor = initAiTutor({
+      getScreenContext: buildAiScreenContext,
+      announce
+    });
     showNextCard();
     registerServiceWorker();
     window.__deutschkarteReady = true;

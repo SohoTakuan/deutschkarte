@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';"
+    content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://generativelanguage.googleapis.com https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none';"
   >
   <meta name="description" content="Türkçe konuşanlar için Almanca kelime, artikel ve çoğul alıştırma kartları">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -631,6 +631,103 @@
     <span id="undo-toast-text" class="undo-toast-text"></span>
     <button type="button" id="btn-undo-hide" class="undo-toast-btn">Geri al</button>
   </div>
+
+  <div id="ai-backdrop" class="ai-backdrop" hidden></div>
+
+  <button
+    type="button"
+    id="ai-fab"
+    class="ai-fab"
+    aria-label="Almanca asistanı aç"
+    aria-expanded="false"
+    aria-controls="ai-drawer"
+  >
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+    <span class="ai-fab-label">Sor</span>
+  </button>
+
+  <aside id="ai-drawer" class="ai-drawer" role="dialog" aria-label="Almanca Asistan" hidden>
+    <header class="ai-drawer-head">
+      <div class="ai-drawer-title-wrap">
+        <h2 class="ai-drawer-title">Almanca Asistan</h2>
+        <p id="ai-context-label" class="ai-context-label">Bağlam: Çalış</p>
+      </div>
+      <div class="ai-drawer-tools">
+        <button type="button" id="ai-btn-copy-context" class="ai-icon-btn" title="Ekran bağlamını kopyala" aria-label="Ekran bağlamını kopyala">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
+        <button type="button" id="ai-btn-clear" class="ai-icon-btn" title="Sohbeti temizle" aria-label="Sohbeti temizle">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/>
+            <path d="M14 11v6"/>
+          </svg>
+        </button>
+        <button type="button" id="ai-btn-settings" class="ai-icon-btn" title="API anahtarı ayarları" aria-label="API anahtarı ayarları" aria-pressed="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <button type="button" id="ai-btn-close" class="ai-icon-btn" title="Kapat" aria-label="Asistanı kapat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section id="ai-settings-panel" class="ai-settings-panel" aria-label="Gemini API ayarları">
+      <p class="ai-settings-note">
+        Gemini API anahtarınız yalnızca bu cihazın tarayıcısında saklanır; GitHub yedeğine veya sunucuya gönderilmez.
+      </p>
+      <div class="ai-settings-row">
+        <label for="ai-api-key" class="sr-only">Gemini API Anahtarı</label>
+        <input
+          type="password"
+          id="ai-api-key"
+          class="text-input ai-key-input"
+          placeholder="AIza..."
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+      <div class="ai-settings-row ai-settings-controls">
+        <label for="ai-model-select" class="sr-only">Model</label>
+        <select id="ai-model-select" class="lesson-select ai-model-select" aria-label="Gemini modeli">
+          <option value="gemini-2.5-flash">gemini-2.5-flash (Önerilen)</option>
+          <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Hızlı)</option>
+        </select>
+        <button type="button" id="ai-btn-save-key" class="btn-primary ai-save-btn">Kaydet</button>
+        <button type="button" id="ai-btn-remove-key" class="btn-danger-outline ai-remove-btn" hidden>Anahtarı sil</button>
+      </div>
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="ai-key-link">Ücretsiz anahtar al</a>
+    </section>
+
+    <p id="ai-settings-status" class="ai-settings-status" hidden></p>
+
+    <div id="ai-messages" class="ai-messages" role="log" aria-live="polite"></div>
+
+    <div id="ai-quick-chips" class="ai-quick-chips" aria-label="Hızlı sorular"></div>
+
+    <div class="ai-composer">
+      <textarea
+        id="ai-input"
+        class="ai-input"
+        rows="1"
+        placeholder="Bu ekranla ilgili sorunuzu yazın..."
+        aria-label="Asistana soru yaz"
+      ></textarea>
+      <button type="button" id="ai-btn-send" class="btn-primary ai-send-btn" aria-label="Gönder">Gönder</button>
+    </div>
+  </aside>
 
   <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
 
