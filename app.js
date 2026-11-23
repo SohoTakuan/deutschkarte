@@ -358,6 +358,7 @@ const runtime = {
   currentDirection: "tr-de",
   currentOptions: [],
   answered: false,
+  typoRetryUsed: false,
   selectedArticle: null,
   lastWordId: null,
   dictFilter: "all",
@@ -1776,6 +1777,7 @@ function showNextCard({ preserveWord = false } = {}) {
   runtime.currentCloze = clozeData;
   runtime.lastWordId = word.id;
   runtime.answered = false;
+  runtime.typoRetryUsed = false;
   runtime.selectedArticle = null;
   runtime.currentQuestionType = questionType;
   runtime.currentDirection = direction;
@@ -2081,7 +2083,79 @@ function checkNounCapitalization(candidate, expected) {
   return { hasLowercaseIssue: false, isAllCaps: false };
 }
 
-function evaluateGermanWord(rawInput, expectedValue, expectedArticle) {
+function normalizeTypoCompare(str) {
+  return normalizeApostrophes(collapseSpaces(String(str || "")))
+    .replace(/[.!?]+$/g, "")
+    .replace(/,\s*/g, " ")
+    .replace(/'/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function isWithinOneEdit(a, b) {
+  if (!a || !b || a === b || b.length < 4) {
+    return false;
+  }
+  const diff = a.length - b.length;
+  if (Math.abs(diff) > 1) {
+    return false;
+  }
+  if (diff === 0) {
+    let i = 0;
+    while (i < a.length && a[i] === b[i]) {
+      i += 1;
+    }
+    if (a.slice(i + 1) === b.slice(i + 1)) {
+      return true;
+    }
+    return (
+      i + 1 < a.length &&
+      a[i] === b[i + 1] &&
+      a[i + 1] === b[i] &&
+      a.slice(i + 2) === b.slice(i + 2)
+    );
+  }
+  if (diff === -1) {
+    let i = 0;
+    while (i < a.length && a[i] === b[i]) {
+      i += 1;
+    }
+    return a.slice(i) === b.slice(i + 1);
+  }
+  let i = 0;
+  while (i < b.length && a[i] === b[i]) {
+    i += 1;
+  }
+  return a.slice(i + 1) === b.slice(i);
+}
+
+function isNearTypoMatch(candidate, expectedList, forbiddenList = []) {
+  const cand = normalizeTypoCompare(candidate);
+  if (!cand) {
+    return false;
+  }
+  const forbiddenSet = new Set(
+    toArray(forbiddenList).map(normalizeTypoCompare).filter(Boolean)
+  );
+  if (forbiddenSet.has(cand)) {
+    return false;
+  }
+  for (const expected of toArray(expectedList)) {
+    const exp = normalizeTypoCompare(expected);
+    if (isWithinOneEdit(cand, exp)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function evaluateGermanWord(
+  rawInput,
+  expectedValue,
+  expectedArticle,
+  forbiddenValues = []
+) {
   const expectedList = toArray(expectedValue);
   const trimmed = collapseSpaces(rawInput);
 
@@ -2095,7 +2169,8 @@ function evaluateGermanWord(rawInput, expectedValue, expectedArticle) {
       strippedArticleTip: false,
       conflictingArticle: null,
       umlautTip: false,
-      eszettTip: false
+      eszettTip: false,
+      nearTypo: false
     };
   }
 
@@ -2116,7 +2191,8 @@ function evaluateGermanWord(rawInput, expectedValue, expectedArticle) {
       strippedArticleTip: false,
       conflictingArticle: articleInfo.conflictingArticle,
       umlautTip: false,
-      eszettTip: false
+      eszettTip: false,
+      nearTypo: false
     };
   }
 
@@ -2131,7 +2207,8 @@ function evaluateGermanWord(rawInput, expectedValue, expectedArticle) {
         strippedArticleTip: articleInfo.strippedArticleTip,
         conflictingArticle: null,
         umlautTip: false,
-        eszettTip: false
+        eszettTip: false,
+        nearTypo: false
       };
     }
   }
@@ -2148,7 +2225,8 @@ function evaluateGermanWord(rawInput, expectedValue, expectedArticle) {
         strippedArticleTip: articleInfo.strippedArticleTip,
         conflictingArticle: null,
         umlautTip: false,
-        eszettTip: false
+        eszettTip: false,
+        nearTypo: false
       };
     }
   }
@@ -2163,7 +2241,8 @@ function evaluateGermanWord(rawInput, expectedValue, expectedArticle) {
     strippedArticleTip: articleInfo.strippedArticleTip,
     conflictingArticle: null,
     umlautTip: charTips.needsUmlaut,
-    eszettTip: charTips.needsEszett
+    eszettTip: charTips.needsEszett,
+    nearTypo: isNearTypoMatch(candidate, expectedList, forbiddenValues)
   };
 }
 
@@ -2206,13 +2285,25 @@ function evaluatePhrase(rawInput, word) {
 
   const candidate = clean(rawInput);
   if (!candidate) {
-    return { ok: false, caseTip: null, eszettTip: false, umlautTip: false };
+    return {
+      ok: false,
+      caseTip: null,
+      eszettTip: false,
+      umlautTip: false,
+      nearTypo: false
+    };
   }
 
   for (const expected of expectedList) {
     const cleanExpected = clean(expected);
     if (candidate === cleanExpected) {
-      return { ok: true, caseTip: null, eszettTip: false, umlautTip: false };
+      return {
+        ok: true,
+        caseTip: null,
+        eszettTip: false,
+        umlautTip: false,
+        nearTypo: false
+      };
     }
   }
 
@@ -2223,7 +2314,8 @@ function evaluatePhrase(rawInput, word) {
         ok: true,
         caseTip: classifyPhraseCaseTip(candidate, cleanExpected, word),
         eszettTip: false,
-        umlautTip: false
+        umlautTip: false,
+        nearTypo: false
       };
     }
     if (
@@ -2234,7 +2326,8 @@ function evaluatePhrase(rawInput, word) {
         ok: true,
         caseTip: classifyPhraseCaseTip(candidate, cleanExpected, word),
         eszettTip: false,
-        umlautTip: false
+        umlautTip: false,
+        nearTypo: false
       };
     }
   }
@@ -2245,7 +2338,8 @@ function evaluatePhrase(rawInput, word) {
     ok: false,
     caseTip: null,
     eszettTip: charTips.needsEszett,
-    umlautTip: charTips.needsEszett ? false : charTips.needsUmlaut
+    umlautTip: charTips.needsEszett ? false : charTips.needsUmlaut,
+    nearTypo: isNearTypoMatch(candidate, cleanExpectedList)
   };
 }
 
@@ -2262,7 +2356,8 @@ function evaluateClozeAnswer(rawInput, targetOrList, word, isSentenceStart = fal
       matchedTarget: null,
       caseTip: null,
       eszettTip: false,
-      umlautTip: false
+      umlautTip: false,
+      nearTypo: false
     };
   }
 
@@ -2273,7 +2368,8 @@ function evaluateClozeAnswer(rawInput, targetOrList, word, isSentenceStart = fal
         matchedTarget: cleanTarget,
         caseTip: null,
         eszettTip: false,
-        umlautTip: false
+        umlautTip: false,
+        nearTypo: false
       };
     }
   }
@@ -2308,7 +2404,8 @@ function evaluateClozeAnswer(rawInput, targetOrList, word, isSentenceStart = fal
         matchedTarget: cleanTarget,
         caseTip,
         eszettTip: false,
-        umlautTip: false
+        umlautTip: false,
+        nearTypo: false
       };
     }
   }
@@ -2319,7 +2416,8 @@ function evaluateClozeAnswer(rawInput, targetOrList, word, isSentenceStart = fal
     matchedTarget: null,
     caseTip: null,
     eszettTip: charTips.needsEszett,
-    umlautTip: charTips.needsEszett ? false : charTips.needsUmlaut
+    umlautTip: charTips.needsEszett ? false : charTips.needsUmlaut,
+    nearTypo: isNearTypoMatch(candidate, cleanTargets)
   };
 }
 
@@ -2351,6 +2449,14 @@ function handleTypingSubmit() {
       word,
       runtime.currentCloze.isSentenceStart
     );
+    if (!res.ok && !runtime.typoRetryUsed && res.nearTypo) {
+      runtime.typoRetryUsed = true;
+      els.inputGuidance.textContent =
+        "Ufak bir yazım hatası var gibi görünüyor — kontrol edip tekrar deneyin.";
+      els.inputGuidance.hidden = false;
+      els.inputPhrase.focus();
+      return;
+    }
     const tips = [];
     if (res.caseTip) {
       tips.push(res.caseTip);
@@ -2401,6 +2507,15 @@ function handleTypingSubmit() {
       articleOk = runtime.selectedArticle === word.article;
     }
 
+    const singularNorms = new Set(toArray(word.singular).map(normalizeTypoCompare));
+    const pluralNorms = new Set(toArray(word.plural).map(normalizeTypoCompare));
+    const forbiddenForSingular = toArray(word.plural).filter(
+      (p) => !singularNorms.has(normalizeTypoCompare(p))
+    );
+    const forbiddenForPlural = toArray(word.singular).filter(
+      (s) => !pluralNorms.has(normalizeTypoCompare(s))
+    );
+
     let singularResult;
     let extraOnlyPluralTip = false;
     if (word.onlyPlural) {
@@ -2424,7 +2539,12 @@ function handleTypingSubmit() {
     } else {
       singularResult = {
         na: false,
-        ...evaluateGermanWord(els.inputSingular.value, word.singular, word.article)
+        ...evaluateGermanWord(
+          els.inputSingular.value,
+          word.singular,
+          word.article,
+          forbiddenForSingular
+        )
       };
     }
 
@@ -2451,11 +2571,45 @@ function handleTypingSubmit() {
     } else {
       pluralResult = {
         na: false,
-        ...evaluateGermanWord(els.inputPlural.value, word.plural, "die")
+        ...evaluateGermanWord(
+          els.inputPlural.value,
+          word.plural,
+          "die",
+          forbiddenForPlural
+        )
       };
     }
 
     const allCorrect = articleOk && singularResult.ok && pluralResult.ok;
+
+    if (
+      !allCorrect &&
+      !runtime.typoRetryUsed &&
+      articleOk &&
+      !extraOnlyPluralTip &&
+      !extraOnlySingularTip &&
+      !singularResult.conflictingArticle &&
+      !pluralResult.conflictingArticle &&
+      (singularResult.ok || singularResult.nearTypo) &&
+      (pluralResult.ok || pluralResult.nearTypo)
+    ) {
+      runtime.typoRetryUsed = true;
+      if (!singularResult.ok && !pluralResult.ok) {
+        els.inputGuidance.textContent =
+          "Tekil ve çoğul yazılışında ufak yazım hatası var gibi — kontrol edip tekrar deneyin.";
+        els.inputSingular.focus();
+      } else if (!singularResult.ok) {
+        els.inputGuidance.textContent =
+          "Tekil yazılışında ufak bir yazım hatası var gibi — kontrol edip tekrar deneyin.";
+        els.inputSingular.focus();
+      } else {
+        els.inputGuidance.textContent =
+          "Çoğul yazılışında ufak bir yazım hatası var gibi — kontrol edip tekrar deneyin.";
+        els.inputPlural.focus();
+      }
+      els.inputGuidance.hidden = false;
+      return;
+    }
 
     const tips = [];
     if (extraOnlyPluralTip) {
@@ -2535,6 +2689,14 @@ function handleTypingSubmit() {
     }
 
     const res = evaluatePhrase(raw, word);
+    if (!res.ok && !runtime.typoRetryUsed && res.nearTypo) {
+      runtime.typoRetryUsed = true;
+      els.inputGuidance.textContent =
+        "Ufak bir yazım hatası var gibi görünüyor — kontrol edip tekrar deneyin.";
+      els.inputGuidance.hidden = false;
+      els.inputPhrase.focus();
+      return;
+    }
     const tips = [];
     if (res.caseTip) {
       tips.push(res.caseTip);

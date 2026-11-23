@@ -33,7 +33,7 @@
 - `ai-tutor.js`: Floating **Almanca Asistan** BYOK Gemini Flash drawer (`deutschkarte_ai_tutor_v1` in `localStorage` or `sessionStorage`, `x-goog-api-key`, fallback chain `gemini-3.8-flash` -> `gemini-3.6-flash` -> `gemini-3.5-flash-lite`, 15s timeout, 1500-char prompt cap, safe DOM markdown-lite, `Ekran bağlamını kopyala`), Structured JSON endpoints (`evaluateUserSentence` & session-cached `generateArticleMnemonic`), and session-cached Gemini Natural TTS (`synthesizeGermanSpeech` via `gemini-2.5-flash-preview-tts`, 120-item cache).
 - `sync.js`: Offline-first GitHub Gist sync (`deutschkarte_gist_sync_v1`, `deutschkarte-sync.json`, Gist ID/token/origin/schema validation, `speechEngine` + `debt` + `dailyHistory` + `mistakeClearedAt`/`hiddenWords`/`hiddenRestoredAt` tombstones, `resetAt` dominance).
 - `manifest.json`: PWA web app manifest (`icons/icon-192.png`, `icons/icon-512.png`).
-- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v35"`.
+- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v36"`.
 - `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png` (maskable safe-zone compliant).
 - `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`).
 - `data/lesson_01.js`: A1 Lesson 1 (71 Duden-verified items + `example: { de, tr }`).
@@ -128,7 +128,7 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
-- **`v32`:** Replaced `Kesintisiz` label in `#session-round-group` with `∞` (`∞ | 10 | 20`) and removed duplicate `Tur özeti` toggle from Settings (`sw.js` `deutschkarte-v32`).
 - **`v33`:** Added cross-lesson `Tekrar` due-review mode (`[data-mode="due"]` with neutral monochrome `#due-badge`), enforced hybrid SRS cooldown gate (Box 1→3 same-day; Box 3→4 after 1d + production; Box 4→5 after 7d), and bumped `sw.js` to `deutschkarte-v33`.
 - **`v34`:** Elevated `Günün Kartları` (1st hero position with `--accent-due` plum/violet palette, `#due-banner`, countdown progress bar, and smart startup), collapsed the 5 practice modes into a horizontally-expanding `#practice-mode-shelf`, hid `Doğru` outside `∞` round mode, and bumped `sw.js` to `deutschkarte-v34`.
 - **`v35`:** Made the `Günün Kartları` button keep its subtle plum tint even at 0 due cards, added pre-answer plum `.card-accent-bar` + `.card-due-tag` (`• Günün Kartları · X kaldı`) inside `#study-card`, and bumped `sw.js` to `deutschkarte-v35`.
+- **`v36`:** Added 1 free typo retry in Typing and Cloze modes (`isWithinOneEdit`, 1 Damerau-Levenshtein edit on words `>=4` chars without revealing the answer or dropping SRS box, guarded by correct noun article and non-opposite singular/plural form), and bumped `sw.js` to `deutschkarte-v36`.
