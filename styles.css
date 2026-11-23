@@ -904,14 +904,14 @@ button {
 .speak-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 40px;
-  padding: 7px 13px;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
   border-radius: var(--radius-control);
   border: 1px solid var(--rule-strong);
   background-color: var(--card);
-  font-size: 0.875rem;
-  font-weight: 600;
   color: var(--ink);
   flex-shrink: 0;
 }
@@ -922,9 +922,10 @@ button {
 }
 
 .speak-btn-sm {
+  width: 34px;
+  height: 34px;
   min-height: 34px;
-  padding: 4px 10px;
-  font-size: 0.8125rem;
+  padding: 0;
 }
 
 /* Form & Article Controls */

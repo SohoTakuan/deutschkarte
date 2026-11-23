@@ -953,17 +953,38 @@ function buildClozeForWord(word) {
     return null;
   }
 
-  const rawCandidates =
-    word.category === "noun"
-      ? [...toArray(word.singular), ...toArray(word.plural)]
-      : [word.de, ...toArray(word.alt)];
+  const candidateMap = new Map();
+  const registerGroup = (rawForms) => {
+    const group = [...new Set(toArray(rawForms).map(stripSentencePunct).filter(Boolean))];
+    for (const cand of group) {
+      const key = cand.toLowerCase();
+      const existing = candidateMap.get(key);
+      if (existing) {
+        for (const form of group) {
+          if (!existing.group.some((g) => g.toLowerCase() === form.toLowerCase())) {
+            existing.group.push(form);
+          }
+        }
+      } else {
+        candidateMap.set(key, { cand, group: [...group] });
+      }
+    }
+  };
 
-  const cleanCandidates = [...new Set(rawCandidates.map(stripSentencePunct).filter(Boolean))]
-    .sort((a, b) => b.length - a.length);
+  if (word.category === "noun") {
+    registerGroup(word.singular);
+    registerGroup(word.plural);
+  } else {
+    registerGroup([word.de, ...toArray(word.alt)]);
+  }
 
-  for (const cand of cleanCandidates) {
+  const sortedEntries = [...candidateMap.values()].sort(
+    (a, b) => b.cand.length - a.cand.length
+  );
+
+  for (const entry of sortedEntries) {
     const rx = new RegExp(
-      `(?<![\\p{L}\\p{N}_])${escapeRegex(cand)}(?![\\p{L}\\p{N}_])`,
+      `(?<![\\p{L}\\p{N}_])${escapeRegex(entry.cand)}(?![\\p{L}\\p{N}_])`,
       "iu"
     );
     const match = fullSentence.match(rx);
@@ -973,11 +994,16 @@ function buildClozeForWord(word) {
       const after = fullSentence.slice(match.index + target.length);
       const blank = "_____";
       const maskedSentence = `${before}${blank}${after}`;
+      const acceptedTargets = [
+        target,
+        ...entry.group.filter((item) => item.toLowerCase() !== target.toLowerCase())
+      ];
       return {
         before,
         after,
         maskedSentence,
         target,
+        acceptedTargets,
         isSentenceStart: match.index === 0,
         trCue: word.example.tr || word.tr,
         fullSentence
@@ -1957,43 +1983,68 @@ function evaluatePhrase(rawInput, word) {
   };
 }
 
-function evaluateClozeAnswer(rawInput, target, word, isSentenceStart = false) {
+function evaluateClozeAnswer(rawInput, targetOrList, word, isSentenceStart = false) {
   const candidate = stripSentencePunct(rawInput);
-  const cleanTarget = stripSentencePunct(target);
-  if (!candidate || !cleanTarget) {
-    return { ok: false, caseTip: null, eszettTip: false, umlautTip: false };
+  const cleanTargets = [
+    ...new Set(toArray(targetOrList).map(stripSentencePunct).filter(Boolean))
+  ];
+  if (!candidate || cleanTargets.length === 0) {
+    return {
+      ok: false,
+      matchedTarget: null,
+      caseTip: null,
+      eszettTip: false,
+      umlautTip: false
+    };
   }
 
-  if (candidate === cleanTarget) {
-    return { ok: true, caseTip: null, eszettTip: false, umlautTip: false };
-  }
-
-  if (candidate.toLowerCase() === cleanTarget.toLowerCase()) {
-    let caseTip = null;
-    if (word.category === "noun") {
-      const cap = checkNounCapitalization(candidate, cleanTarget);
-      if (cap.hasLowercaseIssue) {
-        caseTip = "İpucu: Almanca isimler büyük harfle başlar.";
-      } else if (cap.isAllCaps) {
-        caseTip = "İpucu: Yalnızca kelimenin baş harfini büyük yazın.";
-      }
-    } else if (
-      isSentenceStart &&
-      cleanTarget[0] !== cleanTarget[0].toLowerCase() &&
-      candidate[0] === cleanTarget[0].toLowerCase()
-    ) {
-      caseTip = /\bSie\b/.test(word.de || "")
-        ? "İpucu: Resmi hitapta \"Sie\" zamiri daima büyük harfle yazılır."
-        : "İpucu: Cümle başı büyük harfle başlar.";
-    } else {
-      caseTip = classifyPhraseCaseTip(candidate, cleanTarget, word);
+  for (const cleanTarget of cleanTargets) {
+    if (candidate === cleanTarget) {
+      return {
+        ok: true,
+        matchedTarget: cleanTarget,
+        caseTip: null,
+        eszettTip: false,
+        umlautTip: false
+      };
     }
-    return { ok: true, caseTip, eszettTip: false, umlautTip: false };
   }
 
-  const charTips = detectSpecialCharTips(candidate, [cleanTarget]);
+  for (const cleanTarget of cleanTargets) {
+    if (candidate.toLowerCase() === cleanTarget.toLowerCase()) {
+      let caseTip = null;
+      if (word.category === "noun") {
+        const cap = checkNounCapitalization(candidate, cleanTarget);
+        if (cap.hasLowercaseIssue) {
+          caseTip = "İpucu: Almanca isimler büyük harfle başlar.";
+        } else if (cap.isAllCaps) {
+          caseTip = "İpucu: Yalnızca kelimenin baş harfini büyük yazın.";
+        }
+      } else if (
+        isSentenceStart &&
+        cleanTarget[0] !== cleanTarget[0].toLowerCase() &&
+        candidate[0] === cleanTarget[0].toLowerCase()
+      ) {
+        caseTip = /\bSie\b/.test(word.de || "")
+          ? "İpucu: Resmi hitapta \"Sie\" zamiri daima büyük harfle yazılır."
+          : "İpucu: Cümle başı büyük harfle başlar.";
+      } else {
+        caseTip = classifyPhraseCaseTip(candidate, cleanTarget, word);
+      }
+      return {
+        ok: true,
+        matchedTarget: cleanTarget,
+        caseTip,
+        eszettTip: false,
+        umlautTip: false
+      };
+    }
+  }
+
+  const charTips = detectSpecialCharTips(candidate, cleanTargets);
   return {
     ok: false,
+    matchedTarget: null,
     caseTip: null,
     eszettTip: charTips.needsEszett,
     umlautTip: charTips.needsEszett ? false : charTips.needsUmlaut
@@ -2020,9 +2071,11 @@ function handleTypingSubmit() {
       return;
     }
 
+    const acceptedList =
+      runtime.currentCloze.acceptedTargets || [runtime.currentCloze.target];
     const res = evaluateClozeAnswer(
       raw,
-      runtime.currentCloze.target,
+      acceptedList,
       word,
       runtime.currentCloze.isSentenceStart
     );
@@ -2037,8 +2090,12 @@ function handleTypingSubmit() {
       tips.push("İpucu: Umlaut ve aksan işaretlerine dikkat edin (ä, ö, ü, é).");
     }
 
+    const clozeDisplay = res.ok
+      ? res.matchedTarget || runtime.currentCloze.target
+      : acceptedList.join(" / ");
+
     finalizeTurn(word, res.ok, {
-      clozeTarget: runtime.currentCloze.target,
+      clozeTarget: clozeDisplay,
       tip: tips.join(" ")
     });
     return;
@@ -2405,7 +2462,10 @@ function finalizeTurn(word, isCorrect, details) {
   ) {
     const blankEl = els.promptTr?.querySelector(".cloze-blank");
     if (blankEl) {
-      blankEl.textContent = runtime.currentCloze.target;
+      blankEl.textContent =
+        isCorrect && finalDetails.clozeTarget
+          ? finalDetails.clozeTarget
+          : runtime.currentCloze.target;
       blankEl.classList.add("is-resolved", isCorrect ? "is-correct" : "is-wrong");
       blankEl.removeAttribute("role");
       blankEl.removeAttribute("aria-label");
@@ -2601,11 +2661,9 @@ async function handleSentenceCoachSubmit() {
       const speakBtn = document.createElement("button");
       speakBtn.type = "button";
       speakBtn.className = "speak-btn speak-btn-sm";
+      speakBtn.title = "Düzeltilmiş cümleyi dinle";
       speakBtn.setAttribute("aria-label", "Düzeltilmiş cümleyi dinle");
       speakBtn.appendChild(createSpeakerSvg());
-      const label = document.createElement("span");
-      label.textContent = "Dinle";
-      speakBtn.appendChild(label);
       speakBtn.addEventListener("click", () => speakGerman(result.corrected));
       head.appendChild(speakBtn);
     }
@@ -4236,11 +4294,9 @@ function renderGrammarNotes() {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "speak-btn speak-btn-sm";
+        btn.title = "Örneği dinle";
         btn.setAttribute("aria-label", `${note.example.de} örneğini dinle`);
         btn.appendChild(createSpeakerSvg());
-        const label = document.createElement("span");
-        label.textContent = "Dinle";
-        btn.appendChild(label);
         btn.addEventListener("click", () => speakGerman(note.example.de));
         ex.appendChild(btn);
       }
