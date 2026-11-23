@@ -31,12 +31,12 @@ import { createCustomSelect } from "./custom-select.js";
 
 const STORAGE_KEY = "deutschkarte_state_v1";
 const THEME_STORAGE_KEY = "deutschkarte_theme";
-const VALID_MODES = ["mixed", "choice", "typing", "articles", "cloze", "mistakes"];
+const VALID_MODES = ["mixed", "choice", "typing", "articles", "cloze", "due", "mistakes"];
 const VALID_THEMES = ["light", "dark"];
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const VALID_ROUND_SIZES = ["off", "10", "20"];
 const VALID_SPEECH_ENGINES = ["browser", "gemini"];
-const SRS_INTERVAL_DAYS = { 1: 0, 2: 1, 3: 3, 4: 7, 5: 21 };
+const SRS_INTERVAL_DAYS = { 1: 0, 2: 1, 3: 1, 4: 7, 5: 21 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HEATMAP_DAYS = 28;
 const TR_SHORT_MONTHS = [
@@ -417,6 +417,7 @@ const els = {
   conjSpeak: document.getElementById("conj-speak"),
   grammarNotesList: document.getElementById("grammar-notes-list"),
   modeBtns: Array.from(document.querySelectorAll(".mode-btn")),
+  dueBadge: document.getElementById("due-badge"),
   mistakesBadge: document.getElementById("mistakes-badge"),
   lessonSelect: document.getElementById("lesson-select"),
   dailyProgress: document.getElementById("daily-progress"),
@@ -1048,8 +1049,21 @@ function populateLessonSelects() {
   }
 }
 
+function getDueWords(now = Date.now()) {
+  return getActiveWords().filter((word) => {
+    const card = appState.cards[word.id];
+    return Boolean(card && card.seen > 0 && card.nextReviewAt <= now);
+  });
+}
+
 function updateTopControls() {
   appState.daily = normalizeDailyState(appState.daily);
+
+  if (els.dueBadge) {
+    const dueCount = getDueWords().length;
+    els.dueBadge.textContent = String(dueCount);
+    els.dueBadge.hidden = dueCount === 0;
+  }
 
   const mistakeCount = getActiveMistakeCount();
   els.mistakesBadge.textContent = String(mistakeCount);
@@ -1168,6 +1182,9 @@ function buildClozeForWord(word) {
 }
 
 function getActiveStudyPool() {
+  if (appState.settings.mode === "due") {
+    return getDueWords();
+  }
   const lessonWords = getWordsForLesson(appState.settings.lesson).filter(
     (word) => !isWordHidden(word.id)
   );
@@ -1194,10 +1211,15 @@ function pickNextWord(pool) {
   const now = Date.now();
   const candidates = pool.filter((word) => word.id !== runtime.lastWordId);
   const weightedList = candidates.length > 0 ? candidates : pool;
+  const isDueMode = appState.settings.mode === "due";
 
   const weights = weightedList.map((word) => {
     const card = appState.cards[word.id];
     const debtMultiplier = 1 + Math.abs(sanitizeDebt(card?.debt));
+    if (isDueMode && card) {
+      const overdueDays = Math.max(0, (now - card.nextReviewAt) / DAY_MS);
+      return (6 + Math.min(10, overdueDays * 2)) * debtMultiplier;
+    }
     const mistake = appState.mistakes[word.id];
     if (mistake) {
       return (8 + Math.min(4, mistake.misses)) * debtMultiplier;
@@ -1589,7 +1611,13 @@ function showNextCard({ preserveWord = false } = {}) {
     els.studyCard.dataset.gender = "neutral";
     els.emptyOpenHidden.hidden = true;
 
-    if (appState.settings.mode === "mistakes") {
+    if (appState.settings.mode === "due") {
+      els.emptyTitle.textContent = "Bugünün tekrarları tamamlandı";
+      els.emptyDesc.textContent =
+        "Vakti gelmiş tüm kartları bitirdiniz. Yeni kelimeler çalışmak için Karma moda geçebilirsiniz.";
+      els.emptySwitchMixed.hidden = false;
+      els.emptyAllLessons.hidden = true;
+    } else if (appState.settings.mode === "mistakes") {
       els.emptyTitle.textContent = "Zorlandığınız kelime yok";
       els.emptyDesc.textContent =
         appState.settings.lesson === "all"
@@ -2497,28 +2525,43 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
     nextReviewAt: 0
   };
   const prevDebt = sanitizeDebt(prev.debt);
+  const prevIsDue = !prev.seen || prev.nextReviewAt <= now;
 
   let nextBox = 1;
   let nextDebt = 0;
   let heldAtBox3 = false;
+  let heldByCooldown = false;
+  let nextReviewAt = now;
+
   if (isCorrect) {
     if (prevDebt < 0) {
       nextBox = 1;
       nextDebt = prevDebt + 1;
+      nextReviewAt = now;
     } else if (prev.box === 3 && !isProduction) {
       nextBox = 3;
       heldAtBox3 = true;
+      nextReviewAt = prev.nextReviewAt || now;
+    } else if (prev.box >= 3 && !prevIsDue) {
+      nextBox = prev.box;
+      heldByCooldown = true;
+      nextReviewAt = prev.nextReviewAt;
     } else {
       nextBox = Math.min(5, prev.box + 1);
+      const intervalDays = SRS_INTERVAL_DAYS[nextBox] ?? 0;
+      nextReviewAt = now + intervalDays * DAY_MS;
     }
-  } else if (prev.box === 1) {
-    nextBox = 1;
-    nextDebt = Math.max(-3, prevDebt - 1);
   } else {
-    nextBox = Math.max(1, prev.box - 2);
-    nextDebt = 0;
+    if (prev.box === 1) {
+      nextBox = 1;
+      nextDebt = Math.max(-3, prevDebt - 1);
+    } else {
+      nextBox = Math.max(1, prev.box - 2);
+      nextDebt = 0;
+    }
+    const intervalDays = SRS_INTERVAL_DAYS[nextBox] ?? 0;
+    nextReviewAt = now + intervalDays * DAY_MS;
   }
-  const intervalDays = SRS_INTERVAL_DAYS[nextBox] ?? 0;
 
   appState.cards[wordId] = {
     box: nextBox,
@@ -2526,7 +2569,7 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
     seen: prev.seen + 1,
     correct: prev.correct + (isCorrect ? 1 : 0),
     lastSeenAt: now,
-    nextReviewAt: now + intervalDays * DAY_MS
+    nextReviewAt
   };
 
   appState.daily = normalizeDailyState(appState.daily);
@@ -2552,6 +2595,7 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
     prevBox: prev.box,
     nextBox,
     heldAtBox3,
+    heldByCooldown,
     graduatedToLearned: isCorrect && prev.box < 4 && nextBox >= 4
   };
 }
@@ -2589,6 +2633,12 @@ function finalizeTurn(word, isCorrect, details) {
     finalDetails.tip = finalDetails.tip
       ? `${finalDetails.tip} ${gateTip}`
       : gateTip;
+  } else if (reviewResult.heldByCooldown && reviewResult.prevBox === 3) {
+    const cooldownTip =
+      "Bu kelime yarın \"Tekrar\" modunda doğru yazıldığında \"Öğrenildi\" seviyesine yükselecek.";
+    finalDetails.tip = finalDetails.tip
+      ? `${finalDetails.tip} ${cooldownTip}`
+      : cooldownTip;
   }
 
   let mistakeStatusText = "";
@@ -5314,8 +5364,9 @@ function buildAiScreenContext() {
   const solutionText =
     word.category === "noun" ? formatNounSummary(word) : word.de;
 
+  const modeTag = appState.settings.mode === "due" ? "Günün Tekrarı · " : "";
   const lines = [
-    `Sekme: Çalış (${dirLabel} · ${qLabel})`,
+    `Sekme: Çalış (${modeTag}${dirLabel} · ${qLabel})`,
     `Ders: ${word.lesson} | Tür: ${word.category}`,
     `Ekrandaki soru: ${promptText}`,
     `Cevaplandı: ${runtime.answered ? "Evet" : "Hayır"}`

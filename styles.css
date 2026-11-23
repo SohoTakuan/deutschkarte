@@ -460,6 +460,18 @@ button {
   border-color: var(--article-pl-fill);
 }
 
+.count-badge-due {
+  background-color: var(--desk-subtle);
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+
+.mode-btn.is-active .count-badge-due {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  border-color: var(--btn-primary-bg);
+}
+
 .custom-select {
   position: relative;
   display: inline-block;

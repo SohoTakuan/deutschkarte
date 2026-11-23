@@ -29,11 +29,11 @@
 - `custom-select.js`: Reusable accessible custom `<div role="listbox">` dropdown (`createCustomSelect`, `closeAllCustomSelects`) with flat/grouped options, monochrome styling, keyboard navigation (`ArrowUp`/`ArrowDown`/`Home`/`End`/`Enter`/`Space`/`Escape`/`Tab`), and outside-click close.
 - `tts-cache.js`: Standalone persistent IndexedDB audio clip cache (`deutschkarte_tts_cache_v1`, `clips` store, capped at `600` entries / `100 MB` with oldest-entry pruning; `getCachedTtsAudio`, `putCachedTtsAudio`, `getTtsCacheStats`, `clearTtsCache`).
 - `styles.css`: Light/Dark design tokens, responsive layout (`760px`, `640px`), monochrome controls/switches (`zero accent-color`), tactile Leitner card + `.cloze-blank` + post-answer `.ai-coach-bar` / `.coach-panel`, 4-week neutral heatmap with edge-clamped `[data-tooltip]`, grammar/dictionary views, AI drawer, and `prefers-reduced-motion` support.
-- `app.js`: Study engine (`Karma`, `Şıklı`, `Yazmalı`, `Artikel`, `Boşluk`, `Zorlandıklarım`; `TR -> DE` active production; preserves unanswered word across mode switches), 5-box Leitner SRS with soft demotion (`Math.max(1, prev.box - 2)`), invisible `debt` (`-3..0`, `1x`–`4x` draw weight), Box 3→4 production gate, Karma Box 3–5 35% Cloze, 4-week (28-day) heatmap (`dailyHistory` pruned to 60 days), segmented rounds (`off`/`10`/`20`), post-answer **Cümle Kur** & **Artikel İpucu** coach panels, verb conjugation drill & notes, hybrid `de-DE` TTS (scored natural browser voice + Web Audio API playback for cached Gemini TTS via `speechEngine` setting, `Alt+S`), word hide/restore, `deutschkarte_state_v1` `localStorage`, 1 MB JSON backup, and `buildAiScreenContext` provider.
+- `app.js`: Study engine (`Karma`, `Şıklı`, `Yazmalı`, `Artikel`, `Boşluk`, `Tekrar`, `Zorlandıklarım`; `TR -> DE` active production; preserves unanswered word across mode switches), 5-box Leitner SRS with soft demotion (`Math.max(1, prev.box - 2)`), invisible `debt` (`-3..0`, `1x`–`4x` draw weight), Box 3→4 production gate + 1d/7d cooldown gate (`heldByCooldown`), cross-lesson `Tekrar` due queue (`getDueWords`), Karma Box 3–5 35% Cloze, 4-week (28-day) heatmap (`dailyHistory` pruned to 60 days), segmented rounds (`off`/`10`/`20`), post-answer **Cümle Kur** & **Artikel İpucu** coach panels, verb conjugation drill & notes, hybrid `de-DE` TTS (scored natural browser voice + Web Audio API playback for cached Gemini TTS via `speechEngine` setting, `Alt+S`), word hide/restore, `deutschkarte_state_v1` `localStorage`, 1 MB JSON backup, and `buildAiScreenContext` provider.
 - `ai-tutor.js`: Floating **Almanca Asistan** BYOK Gemini Flash drawer (`deutschkarte_ai_tutor_v1` in `localStorage` or `sessionStorage`, `x-goog-api-key`, fallback chain `gemini-3.8-flash` -> `gemini-3.6-flash` -> `gemini-3.5-flash-lite`, 15s timeout, 1500-char prompt cap, safe DOM markdown-lite, `Ekran bağlamını kopyala`), Structured JSON endpoints (`evaluateUserSentence` & session-cached `generateArticleMnemonic`), and session-cached Gemini Natural TTS (`synthesizeGermanSpeech` via `gemini-2.5-flash-preview-tts`, 120-item cache).
 - `sync.js`: Offline-first GitHub Gist sync (`deutschkarte_gist_sync_v1`, `deutschkarte-sync.json`, Gist ID/token/origin/schema validation, `speechEngine` + `debt` + `dailyHistory` + `mistakeClearedAt`/`hiddenWords`/`hiddenRestoredAt` tombstones, `resetAt` dominance).
 - `manifest.json`: PWA web app manifest (`icons/icon-192.png`, `icons/icon-512.png`).
-- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v32"`.
+- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v33"`.
 - `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png` (maskable safe-zone compliant).
 - `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`).
 - `data/lesson_01.js`: A1 Lesson 1 (71 Duden-verified items + `example: { de, tr }`).
@@ -119,7 +119,7 @@ export default {
 
 ## 5. Feature Backlog (Roadmap to A2–C1 / 300+ Words)
 
-- **Long-term SRS:** Add `60 / 120 day` intervals and pure Due Review mode (`Tekrar Zamanı`).
+- **Long-term SRS:** Add `60 / 120 day` intervals for Box 5+ mastery.
 - **Grammar Expansion:** Add verb `Perfekt` (`hat/ist` + `Partizip II`) and `Präposition + Kasus` fields.
 
 ---
@@ -128,7 +128,7 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
-- **`v29`:** Tolerated omitted commas/apostrophes in `evaluateClozeAnswer()` and fixed multi-sentence `isSentenceStart` detection in `buildClozeForWord()` (`sw.js` `deutschkarte-v29`).
 - **`v30`:** Added Hybrid TTS (`speechEngine`: `Tarayıcı` with scored Natural/Online `de-DE` voice selection + `Gemini Doğal` via `gemini-2.5-flash-preview-tts`, 120-item session cache, Web Audio API playback, and `sync.js` support; `sw.js` `deutschkarte-v30`).
 - **`v31`:** Extracted persistent IndexedDB TTS audio cache into standalone `tts-cache.js` (600-item / 100 MB cap, offline playback) and added Settings cache stats & clear control (`sw.js` `deutschkarte-v31`).
 - **`v32`:** Replaced `Kesintisiz` label in `#session-round-group` with `∞` (`∞ | 10 | 20`) and removed duplicate `Tur özeti` toggle from Settings (`sw.js` `deutschkarte-v32`).
+- **`v33`:** Added cross-lesson `Tekrar` due-review mode (`[data-mode="due"]` with neutral monochrome `#due-badge`), enforced hybrid SRS cooldown gate (Box 1→3 same-day; Box 3→4 after 1d + production; Box 4→5 after 7d), and bumped `sw.js` to `deutschkarte-v33`.
