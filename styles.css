@@ -1748,6 +1748,82 @@ button {
   transition: width 180ms ease;
 }
 
+.level-bar-track.is-compact {
+  height: 6px;
+}
+
+.level-accordion {
+  padding: 0;
+}
+
+.level-accordion-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+}
+
+.level-accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.level-accordion-summary:focus-visible {
+  outline: 2px solid var(--accent-der);
+  outline-offset: 2px;
+}
+
+.level-name-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.level-chevron {
+  color: var(--ink-muted);
+  flex-shrink: 0;
+  transition: transform 160ms ease;
+}
+
+.level-accordion[open] > .level-accordion-summary .level-chevron {
+  transform: rotate(90deg);
+}
+
+.level-lessons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--rule);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.lesson-subrow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background-color: var(--card);
+  border: 1px solid var(--rule);
+}
+
+.lesson-subrow-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.lesson-subrow-title {
+  color: var(--ink);
+  font-weight: 700;
+}
+
 .lesson-row-foot {
   display: flex;
   align-items: center;
@@ -2663,6 +2739,7 @@ button {
   .choice-btn,
   .drill-btn,
   .level-bar-fill,
+  .level-chevron,
   .ai-fab {
     transition: none;
   }

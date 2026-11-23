@@ -435,7 +435,6 @@ const els = {
   statMistakes: document.getElementById("stat-mistakes"),
   srsSummary: document.getElementById("srs-summary"),
   levelProgressList: document.getElementById("level-progress-list"),
-  lessonProgressList: document.getElementById("lesson-progress-list"),
   dailyGoalSelect: document.getElementById("daily-goal-select"),
   autoSpeakToggle: document.getElementById("auto-speak-toggle"),
   keepAiOpenToggle: document.getElementById("keep-ai-open-toggle"),
@@ -2438,6 +2437,17 @@ function refreshBackupModal() {
 
   // Level progress & Leitner SRS summary
   const summaries = getLevelSummary(appState.cards, appState.hiddenWords);
+  const lessonSummaries = getLessonSummary(
+    appState.cards,
+    appState.hiddenWords
+  );
+  const lessonsByLevel = new Map();
+  for (const lessonItem of lessonSummaries) {
+    const arr = lessonsByLevel.get(lessonItem.level) || [];
+    arr.push(lessonItem);
+    lessonsByLevel.set(lessonItem.level, arr);
+  }
+
   const now = Date.now();
   let dueCount = 0;
   let learningCount = 0;
@@ -2463,15 +2473,39 @@ function refreshBackupModal() {
 
   for (const item of summaries) {
     const pct = item.total > 0 ? Math.round((item.learned / item.total) * 100) : 0;
-    const row = document.createElement("div");
-    row.className = "level-row";
+    const details = document.createElement("details");
+    details.className = "level-row level-accordion";
+    details.open = item.learned < item.total || summaries.length === 1;
+
+    const summary = document.createElement("summary");
+    summary.className = "level-accordion-summary";
 
     const head = document.createElement("div");
     head.className = "level-row-head";
 
+    const nameWrap = document.createElement("span");
+    nameWrap.className = "level-name-wrap";
+
+    const chevron = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    chevron.setAttribute("width", "14");
+    chevron.setAttribute("height", "14");
+    chevron.setAttribute("viewBox", "0 0 24 24");
+    chevron.setAttribute("fill", "none");
+    chevron.setAttribute("stroke", "currentColor");
+    chevron.setAttribute("stroke-width", "2.4");
+    chevron.setAttribute("stroke-linecap", "round");
+    chevron.setAttribute("stroke-linejoin", "round");
+    chevron.setAttribute("aria-hidden", "true");
+    chevron.setAttribute("class", "level-chevron");
+    const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    poly.setAttribute("points", "9 18 15 12 9 6");
+    chevron.appendChild(poly);
+
     const name = document.createElement("span");
     name.className = "level-name";
     name.textContent = `${item.level} Seviyesi`;
+    nameWrap.appendChild(chevron);
+    nameWrap.appendChild(name);
 
     const counts = document.createElement("span");
     counts.className = "level-counts";
@@ -2484,86 +2518,89 @@ function refreshBackupModal() {
     fill.style.width = `${pct}%`;
     track.appendChild(fill);
 
-    head.appendChild(name);
+    head.appendChild(nameWrap);
     head.appendChild(counts);
-    row.appendChild(head);
-    row.appendChild(track);
-    els.levelProgressList.appendChild(row);
-  }
+    summary.appendChild(head);
+    summary.appendChild(track);
+    details.appendChild(summary);
 
-  if (els.lessonProgressList) {
-    const lessonSummaries = getLessonSummary(
-      appState.cards,
-      appState.hiddenWords
-    );
-    els.lessonProgressList.innerHTML = "";
+    const levelLessons = lessonsByLevel.get(item.level) || [];
+    if (levelLessons.length > 0) {
+      const lessonsList = document.createElement("div");
+      lessonsList.className = "level-lessons-list";
 
-    for (const item of lessonSummaries) {
-      const row = document.createElement("div");
-      row.className = "level-row";
+      for (const lessonItem of levelLessons) {
+        const subrow = document.createElement("div");
+        subrow.className = "lesson-subrow";
 
-      const head = document.createElement("div");
-      head.className = "level-row-head";
+        const subHead = document.createElement("div");
+        subHead.className = "lesson-subrow-head";
 
-      const name = document.createElement("span");
-      name.className = "level-name";
-      name.textContent = `${item.level} · ${item.title}`;
+        const subTitle = document.createElement("span");
+        subTitle.className = "lesson-subrow-title";
+        subTitle.textContent = lessonItem.title;
 
-      const counts = document.createElement("span");
-      counts.className = "level-counts";
-      counts.textContent = `${item.learned} / ${item.total} öğrenildi (%${item.percent})`;
+        const subCounts = document.createElement("span");
+        subCounts.className = "level-counts";
+        subCounts.textContent = `${lessonItem.learned} / ${lessonItem.total} (%${lessonItem.percent})`;
 
-      const track = document.createElement("div");
-      track.className = "level-bar-track";
-      const fill = document.createElement("div");
-      fill.className = "level-bar-fill";
-      fill.style.width = `${item.percent}%`;
-      track.appendChild(fill);
+        subHead.appendChild(subTitle);
+        subHead.appendChild(subCounts);
 
-      const foot = document.createElement("div");
-      foot.className = "lesson-row-foot";
+        const subTrack = document.createElement("div");
+        subTrack.className = "level-bar-track is-compact";
+        const subFill = document.createElement("div");
+        subFill.className = "level-bar-fill";
+        subFill.style.width = `${lessonItem.percent}%`;
+        subTrack.appendChild(subFill);
 
-      const hiddenText = item.hidden > 0 ? `, ${item.hidden} gizli` : "";
-      const detail = document.createElement("span");
-      detail.textContent = `${item.remaining} kalan (${item.inProgress} öğreniliyor, ${item.unseen} yeni${hiddenText})`;
-      foot.appendChild(detail);
+        const foot = document.createElement("div");
+        foot.className = "lesson-row-foot";
 
-      if (item.remaining > 0) {
-        const jumpBtn = document.createElement("button");
-        jumpBtn.type = "button";
-        jumpBtn.className = "lesson-jump-btn";
-        jumpBtn.textContent = "Kalanları gör";
-        jumpBtn.addEventListener("click", () => {
-          els.backupDialog?.close();
-          runtime.dictLesson = item.title;
-          if (els.dictLessonSelect) {
-            els.dictLessonSelect.value = item.title;
-          }
-          runtime.dictFilter = "unlearned";
-          runtime.dictQuery = "";
-          if (els.dictSearch) {
-            els.dictSearch.value = "";
-          }
-          for (const chip of els.dictFilterChips) {
-            chip.classList.toggle("is-active", chip.dataset.filter === "unlearned");
-          }
-          switchTab("dictionary");
-        });
-        foot.appendChild(jumpBtn);
-      } else {
-        const doneTag = document.createElement("span");
-        doneTag.className = "lesson-done-tag";
-        doneTag.textContent = "Tamamlandı";
-        foot.appendChild(doneTag);
+        const hiddenText = lessonItem.hidden > 0 ? `, ${lessonItem.hidden} gizli` : "";
+        const detail = document.createElement("span");
+        detail.textContent = `${lessonItem.remaining} kalan (${lessonItem.inProgress} öğreniliyor, ${lessonItem.unseen} yeni${hiddenText})`;
+        foot.appendChild(detail);
+
+        if (lessonItem.remaining > 0) {
+          const jumpBtn = document.createElement("button");
+          jumpBtn.type = "button";
+          jumpBtn.className = "lesson-jump-btn";
+          jumpBtn.textContent = "Kalanları gör";
+          jumpBtn.addEventListener("click", () => {
+            els.backupDialog?.close();
+            runtime.dictLesson = lessonItem.title;
+            if (els.dictLessonSelect) {
+              els.dictLessonSelect.value = lessonItem.title;
+            }
+            runtime.dictFilter = "unlearned";
+            runtime.dictQuery = "";
+            if (els.dictSearch) {
+              els.dictSearch.value = "";
+            }
+            for (const chip of els.dictFilterChips) {
+              chip.classList.toggle("is-active", chip.dataset.filter === "unlearned");
+            }
+            switchTab("dictionary");
+          });
+          foot.appendChild(jumpBtn);
+        } else {
+          const doneTag = document.createElement("span");
+          doneTag.className = "lesson-done-tag";
+          doneTag.textContent = "Tamamlandı";
+          foot.appendChild(doneTag);
+        }
+
+        subrow.appendChild(subHead);
+        subrow.appendChild(subTrack);
+        subrow.appendChild(foot);
+        lessonsList.appendChild(subrow);
       }
 
-      head.appendChild(name);
-      head.appendChild(counts);
-      row.appendChild(head);
-      row.appendChild(track);
-      row.appendChild(foot);
-      els.lessonProgressList.appendChild(row);
+      details.appendChild(lessonsList);
     }
+
+    els.levelProgressList.appendChild(details);
   }
 
   refreshSyncUI();
