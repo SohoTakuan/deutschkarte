@@ -21,7 +21,9 @@ import {
 import {
   evaluateUserSentence,
   generateArticleMnemonic,
-  initAiTutor
+  hasConfiguredGeminiKey,
+  initAiTutor,
+  synthesizeGermanSpeech
 } from "./ai-tutor.js";
 import { createCustomSelect } from "./custom-select.js";
 
@@ -31,6 +33,7 @@ const VALID_MODES = ["mixed", "choice", "typing", "articles", "cloze", "mistakes
 const VALID_THEMES = ["light", "dark"];
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const VALID_ROUND_SIZES = ["off", "10", "20"];
+const VALID_SPEECH_ENGINES = ["browser", "gemini"];
 const SRS_INTERVAL_DAYS = { 1: 0, 2: 1, 3: 3, 4: 7, 5: 21 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HEATMAP_DAYS = 28;
@@ -141,6 +144,7 @@ function createDefaultState() {
       direction: "tr-de",
       dailyGoal: 20,
       roundSize: "off",
+      speechEngine: "browser",
       autoSpeak: false,
       keepAiOpen: false
     },
@@ -254,6 +258,11 @@ function loadState() {
     const roundSize = VALID_ROUND_SIZES.includes(parsed.settings?.roundSize)
       ? parsed.settings.roundSize
       : "off";
+    const speechEngine = VALID_SPEECH_ENGINES.includes(
+      parsed.settings?.speechEngine
+    )
+      ? parsed.settings.speechEngine
+      : "browser";
     const autoSpeak = Boolean(parsed.settings?.autoSpeak);
     const keepAiOpen = Boolean(parsed.settings?.keepAiOpen);
 
@@ -279,7 +288,16 @@ function loadState() {
     }
 
     return {
-      settings: { mode, lesson, direction, dailyGoal, roundSize, autoSpeak, keepAiOpen },
+      settings: {
+        mode,
+        lesson,
+        direction,
+        dailyGoal,
+        roundSize,
+        speechEngine,
+        autoSpeak,
+        keepAiOpen
+      },
       progress: { totalAnswered, totalCorrect, bestStreak },
       daily: normalizedDaily,
       dailyHistory,
@@ -514,6 +532,10 @@ const els = {
   settingsRoundBtns: Array.from(
     document.querySelectorAll("#settings-round-group .round-toggle-btn")
   ),
+  settingsTtsBtns: Array.from(
+    document.querySelectorAll("#settings-tts-group .round-toggle-btn")
+  ),
+  ttsEngineNote: document.getElementById("tts-engine-note"),
   autoSpeakToggle: document.getElementById("auto-speak-toggle"),
   keepAiOpenToggle: document.getElementById("keep-ai-open-toggle"),
   btnExportJson: document.getElementById("btn-export-json"),
@@ -541,15 +563,40 @@ const els = {
   srAnnouncer: document.getElementById("sr-announcer")
 };
 
-/* Speech Synthesis (de-DE) */
+/* Speech Synthesis (Smart Browser Voice + Cached Gemini Natural TTS) */
 
 let cachedGermanVoice = null;
+let sharedAudioCtx = null;
+let activeAudioSource = null;
+let speechRequestId = 0;
 
 function isSpeechSupported() {
   return (
     "speechSynthesis" in window &&
     typeof window.SpeechSynthesisUtterance === "function"
   );
+}
+
+function scoreGermanVoice(voice) {
+  const lang = String(voice.lang || "").toLowerCase();
+  if (!lang.startsWith("de")) {
+    return -1;
+  }
+  const name = String(voice.name || "");
+  let score = lang === "de-de" ? 50 : 20;
+  if (/(natural|neural)/i.test(name)) {
+    score += 40;
+  }
+  if (/(online|enhanced|premium)/i.test(name)) {
+    score += 25;
+  }
+  if (/google deutsch/i.test(name)) {
+    score += 20;
+  }
+  if (/(hedda|stefan)/i.test(name) && !/(natural|online)/i.test(name)) {
+    score -= 10;
+  }
+  return score;
 }
 
 function resolveGermanVoice() {
@@ -560,14 +607,88 @@ function resolveGermanVoice() {
   if (!voices || voices.length === 0) {
     return null;
   }
-  cachedGermanVoice =
-    voices.find((v) => v.lang === "de-DE") ||
-    voices.find((v) => v.lang.toLowerCase().startsWith("de")) ||
-    null;
+  let best = null;
+  let bestScore = -1;
+  for (const voice of voices) {
+    const score = scoreGermanVoice(voice);
+    if (score > bestScore) {
+      bestScore = score;
+      best = voice;
+    }
+  }
+  cachedGermanVoice = best;
   return cachedGermanVoice;
 }
 
-function speakGerman(text) {
+function getAudioContext() {
+  if (sharedAudioCtx) {
+    return sharedAudioCtx;
+  }
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (typeof AudioCtx !== "function") {
+    return null;
+  }
+  sharedAudioCtx = new AudioCtx();
+  return sharedAudioCtx;
+}
+
+function stopCurrentAudio() {
+  if (activeAudioSource) {
+    try {
+      activeAudioSource.stop();
+    } catch {
+      // Ignore already-stopped source
+    }
+    activeAudioSource = null;
+  }
+  if (isSpeechSupported()) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {
+      // Ignore cancel errors
+    }
+  }
+}
+
+async function playSynthesizedAudio({ bytes, sampleRate, mimeType }) {
+  const ctx = getAudioContext();
+  if (!ctx || !bytes || bytes.length === 0) {
+    throw new Error("AudioContext unavailable");
+  }
+  if (ctx.state === "suspended") {
+    await ctx.resume();
+  }
+
+  let audioBuffer;
+  if (/audio\/(l16|pcm)/i.test(mimeType)) {
+    const sampleCount = Math.floor(bytes.byteLength / 2);
+    audioBuffer = ctx.createBuffer(1, sampleCount, sampleRate || 24000);
+    const channelData = audioBuffer.getChannelData(0);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    for (let i = 0; i < sampleCount; i += 1) {
+      channelData[i] = view.getInt16(i * 2, true) / 32768;
+    }
+  } else {
+    const copy = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength
+    );
+    audioBuffer = await ctx.decodeAudioData(copy);
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(ctx.destination);
+  activeAudioSource = source;
+  source.onended = () => {
+    if (activeAudioSource === source) {
+      activeAudioSource = null;
+    }
+  };
+  source.start(0);
+}
+
+function speakWithBrowserVoice(text) {
   if (!isSpeechSupported() || !text) {
     return;
   }
@@ -575,7 +696,7 @@ function speakGerman(text) {
     window.speechSynthesis.cancel();
     const utterance = new window.SpeechSynthesisUtterance(text);
     utterance.lang = "de-DE";
-    utterance.rate = 0.92;
+    utterance.rate = 0.94;
     const voice = cachedGermanVoice || resolveGermanVoice();
     if (voice) {
       utterance.voice = voice;
@@ -584,6 +705,41 @@ function speakGerman(text) {
   } catch {
     // Ignore speech synthesis errors on restricted browsers
   }
+}
+
+async function speakGerman(text, triggerBtn = null) {
+  if (!text) {
+    return;
+  }
+  speechRequestId += 1;
+  const myReqId = speechRequestId;
+  stopCurrentAudio();
+
+  if (appState?.settings?.speechEngine === "gemini") {
+    if (triggerBtn) {
+      triggerBtn.classList.add("is-loading");
+    }
+    try {
+      const audio = await synthesizeGermanSpeech(text);
+      if (myReqId !== speechRequestId) {
+        return;
+      }
+      if (audio) {
+        await playSynthesizedAudio(audio);
+        return;
+      }
+    } catch {
+      if (myReqId !== speechRequestId) {
+        return;
+      }
+    } finally {
+      if (triggerBtn) {
+        triggerBtn.classList.remove("is-loading");
+      }
+    }
+  }
+
+  speakWithBrowserVoice(text);
 }
 
 function getSpokenGermanForWord(word, includeArticle = true) {
@@ -2703,7 +2859,7 @@ async function handleSentenceCoachSubmit() {
       speakBtn.title = "Düzeltilmiş cümleyi dinle";
       speakBtn.setAttribute("aria-label", "Düzeltilmiş cümleyi dinle");
       speakBtn.appendChild(createSpeakerSvg());
-      speakBtn.addEventListener("click", () => speakGerman(result.corrected));
+      speakBtn.addEventListener("click", () => speakGerman(result.corrected, speakBtn));
       head.appendChild(speakBtn);
     }
 
@@ -3247,8 +3403,29 @@ function refreshBackupModal() {
     btn.classList.toggle("is-active", active);
     btn.setAttribute("aria-pressed", String(active));
   }
+  const activeSpeechEngine = VALID_SPEECH_ENGINES.includes(
+    appState.settings.speechEngine
+  )
+    ? appState.settings.speechEngine
+    : "browser";
+  for (const btn of els.settingsTtsBtns) {
+    const active = btn.dataset.tts === activeSpeechEngine;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  }
+  if (els.ttsEngineNote) {
+    if (activeSpeechEngine === "gemini") {
+      els.ttsEngineNote.textContent = hasConfiguredGeminiKey()
+        ? "Doğal insan tonlaması aktif. Aynı kelime/cümle tekrarında API kotası harcamaz; çevrimdışıyken tarayıcı sesine döner."
+        : "Gemini Doğal ses için sağ alttaki Almanca Asistan ayarlarına API anahtarı ekleyin; anahtar yokken tarayıcı sesi çalar.";
+      els.ttsEngineNote.hidden = false;
+    } else {
+      els.ttsEngineNote.hidden = true;
+    }
+  }
   els.autoSpeakToggle.checked = Boolean(appState.settings.autoSpeak);
-  els.autoSpeakToggle.disabled = !isSpeechSupported();
+  els.autoSpeakToggle.disabled =
+    !isSpeechSupported() && activeSpeechEngine !== "gemini";
   if (els.keepAiOpenToggle) {
     els.keepAiOpenToggle.checked = Boolean(appState.settings.keepAiOpen);
   }
@@ -3689,6 +3866,11 @@ async function importBackupJson(file) {
         roundSize: VALID_ROUND_SIZES.includes(parsed.settings?.roundSize)
           ? parsed.settings.roundSize
           : "off",
+        speechEngine: VALID_SPEECH_ENGINES.includes(
+          parsed.settings?.speechEngine
+        )
+          ? parsed.settings.speechEngine
+          : "browser",
         autoSpeak: Boolean(parsed.settings?.autoSpeak),
         keepAiOpen:
           typeof parsed.settings?.keepAiOpen === "boolean"
@@ -4443,12 +4625,12 @@ function bindEvents() {
   });
   els.conjSpeakPrompt?.addEventListener("click", () => {
     if (runtime.conjCurrent?.verb?.infinitive) {
-      speakGerman(runtime.conjCurrent.verb.infinitive);
+      speakGerman(runtime.conjCurrent.verb.infinitive, els.conjSpeakPrompt);
     }
   });
   els.conjSpeakExample?.addEventListener("click", () => {
     if (runtime.conjCurrent?.verb?.example?.de) {
-      speakGerman(runtime.conjCurrent.verb.example.de);
+      speakGerman(runtime.conjCurrent.verb.example.de, els.conjSpeakExample);
     }
   });
   els.conjSpeak?.addEventListener("click", () => {
@@ -4457,7 +4639,8 @@ function bindEvents() {
         getConjugationSpokenText(
           runtime.conjCurrent.verb,
           runtime.conjCurrent.slot
-        )
+        ),
+        els.conjSpeak
       );
     }
   });
@@ -4584,18 +4767,24 @@ function bindEvents() {
       return;
     }
     const includeArt = runtime.currentQuestionType !== "articles";
-    speakGerman(getSpokenGermanForWord(runtime.currentWord, includeArt));
+    speakGerman(
+      getSpokenGermanForWord(runtime.currentWord, includeArt),
+      els.btnSpeakPrompt
+    );
   });
 
   els.btnSpeakAnswer?.addEventListener("click", () => {
     if (runtime.currentWord) {
-      speakGerman(getSpokenGermanForWord(runtime.currentWord, true));
+      speakGerman(
+        getSpokenGermanForWord(runtime.currentWord, true),
+        els.btnSpeakAnswer
+      );
     }
   });
 
   els.btnSpeakExample?.addEventListener("click", () => {
     if (runtime.currentWord?.example?.de) {
-      speakGerman(runtime.currentWord.example.de);
+      speakGerman(runtime.currentWord.example.de, els.btnSpeakExample);
     }
   });
 
@@ -4707,6 +4896,18 @@ function bindEvents() {
   for (const btn of els.settingsRoundBtns) {
     btn.addEventListener("click", () => {
       handleRoundSizeChange(btn.dataset.round);
+    });
+  }
+
+  for (const btn of els.settingsTtsBtns) {
+    btn.addEventListener("click", () => {
+      const nextEngine = btn.dataset.tts;
+      if (!VALID_SPEECH_ENGINES.includes(nextEngine)) {
+        return;
+      }
+      appState.settings.speechEngine = nextEngine;
+      saveState({ sync: true });
+      refreshBackupModal();
     });
   }
 

@@ -5,6 +5,7 @@ const GIST_API_BASE = "https://api.github.com/gists";
 const GIST_RAW_ORIGIN = "https://gist.githubusercontent.com";
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const VALID_ROUND_SIZES = ["off", "10", "20"];
+const VALID_SPEECH_ENGINES = ["browser", "gemini"];
 const SYNC_TIMEOUT_MS = 20000;
 const MAX_GIST_BYTES = 1024 * 1024;
 const TOKEN_PATTERN = /^[\x21-\x7E]{20,256}$/;
@@ -164,6 +165,9 @@ function pickSharedSnapshot(state) {
     roundSize: VALID_ROUND_SIZES.includes(state.settings?.roundSize)
       ? state.settings.roundSize
       : "off",
+    speechEngine: VALID_SPEECH_ENGINES.includes(state.settings?.speechEngine)
+      ? state.settings.speechEngine
+      : "browser",
     autoSpeak: Boolean(state.settings?.autoSpeak),
     progress: state.progress,
     daily: {
@@ -274,6 +278,11 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
   const safeRemoteRoundSize = VALID_ROUND_SIZES.includes(remoteState.settings?.roundSize)
     ? remoteState.settings.roundSize
     : null;
+  const safeRemoteSpeechEngine = VALID_SPEECH_ENGINES.includes(
+    remoteState.settings?.speechEngine
+  )
+    ? remoteState.settings.speechEngine
+    : null;
 
   // Explicit reset dominance: if one side reset more recently than the other side's last edit
   if (remoteResetAt > localUpdatedAt && remoteResetAt >= localResetAt) {
@@ -293,6 +302,8 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
         ...localState.settings,
         dailyGoal: safeRemoteGoal ?? localState.settings.dailyGoal,
         roundSize: safeRemoteRoundSize ?? localState.settings.roundSize ?? "off",
+        speechEngine:
+          safeRemoteSpeechEngine ?? localState.settings.speechEngine ?? "browser",
         autoSpeak:
           typeof remoteState.settings?.autoSpeak === "boolean"
             ? remoteState.settings.autoSpeak
@@ -454,6 +465,9 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
     roundSize: preferRemotePrefs
       ? safeRemoteRoundSize ?? localState.settings.roundSize ?? "off"
       : localState.settings.roundSize ?? "off",
+    speechEngine: preferRemotePrefs
+      ? safeRemoteSpeechEngine ?? localState.settings.speechEngine ?? "browser"
+      : localState.settings.speechEngine ?? "browser",
     autoSpeak:
       preferRemotePrefs && typeof remoteState.settings?.autoSpeak === "boolean"
         ? remoteState.settings.autoSpeak
@@ -658,6 +672,9 @@ function buildRemotePayload(state) {
       roundSize: VALID_ROUND_SIZES.includes(state.settings?.roundSize)
         ? state.settings.roundSize
         : "off",
+      speechEngine: VALID_SPEECH_ENGINES.includes(state.settings?.speechEngine)
+        ? state.settings.speechEngine
+        : "browser",
       autoSpeak: Boolean(state.settings.autoSpeak)
     },
     progress: state.progress,

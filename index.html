@@ -591,6 +591,14 @@
               <button type="button" class="round-toggle-btn" data-round="20" aria-pressed="false">20 kart</button>
             </div>
           </div>
+          <div class="prefs-row">
+            <span class="pref-label" id="settings-tts-label">Ses motoru</span>
+            <div id="settings-tts-group" class="round-toggle-group" role="group" aria-labelledby="settings-tts-label">
+              <button type="button" class="round-toggle-btn is-active" data-tts="browser" aria-pressed="true">Tarayıcı</button>
+              <button type="button" class="round-toggle-btn" data-tts="gemini" aria-pressed="false">Gemini Doğal</button>
+            </div>
+          </div>
+          <p id="tts-engine-note" class="pref-note" hidden></p>
           <label class="pref-check">
             <input type="checkbox" id="auto-speak-toggle">
             <span>Cevaptan sonra Almanca telaffuzu otomatik seslendir</span>

@@ -17,6 +17,10 @@ const MAX_PROMPT_LENGTH = 1500;
 const REQUEST_TIMEOUT_MS = 15000;
 const CREDENTIAL_PATTERN = /^[\x21-\x7E]{20,256}$/;
 const MAX_COACH_SENTENCE_LENGTH = 300;
+const GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts";
+const DEFAULT_TTS_VOICE = "Kore";
+const MAX_TTS_CACHE_ITEMS = 120;
+const MAX_TTS_TEXT_LENGTH = 500;
 const VALID_ERROR_TYPES = [
   "Doğru",
   "Artikel",
@@ -27,6 +31,7 @@ const VALID_ERROR_TYPES = [
   "Kelime kullanımı"
 ];
 const mnemonicCache = new Map();
+const ttsAudioCache = new Map();
 let preferredModelIndex = 0;
 
 function isValidApiKeyFormat(key) {
@@ -594,6 +599,115 @@ export async function generateArticleMnemonic({ word }) {
   }
   mnemonicCache.set(word.id, result);
   return result;
+}
+
+function decodeBase64ToBytes(b64) {
+  const binStr = window.atob(b64);
+  const bytes = new Uint8Array(binStr.length);
+  for (let i = 0; i < binStr.length; i += 1) {
+    bytes[i] = binStr.charCodeAt(i);
+  }
+  return bytes;
+}
+
+export function hasConfiguredGeminiKey() {
+  return isValidApiKeyFormat(loadAiConfig().apiKey);
+}
+
+export async function synthesizeGermanSpeech(
+  text,
+  { voiceName = DEFAULT_TTS_VOICE } = {}
+) {
+  const cleanText = String(text || "").trim().slice(0, MAX_TTS_TEXT_LENGTH);
+  if (!cleanText) {
+    return null;
+  }
+
+  const cacheKey = `${voiceName}::${cleanText}`;
+  if (ttsAudioCache.has(cacheKey)) {
+    return ttsAudioCache.get(cacheKey);
+  }
+
+  if (!navigator.onLine) {
+    const err = new Error("Çevrimdışı");
+    err.code = "OFFLINE";
+    throw err;
+  }
+
+  const apiKey = requireCoachApiKey();
+  const controller = new AbortController();
+  const timerId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response;
+  try {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_TTS_MODEL)}:generateContent`,
+      {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        referrerPolicy: "no-referrer",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `Lies den folgenden deutschen Text natürlich, deutlich und mit passender Satzmelodie vor:\n${cleanText}`
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName }
+              }
+            }
+          }
+        }),
+        signal: controller.signal
+      }
+    );
+  } finally {
+    window.clearTimeout(timerId);
+  }
+
+  if (!response.ok) {
+    const err = new Error(`TTS HTTP ${response.status}`);
+    err.status = response.status;
+    throw err;
+  }
+
+  const data = await response.json();
+  const parts = data?.candidates?.[0]?.content?.parts;
+  const audioPart = Array.isArray(parts)
+    ? parts.find((p) => (p?.inlineData || p?.inline_data)?.data)
+    : null;
+  const inlineData = audioPart?.inlineData || audioPart?.inline_data;
+  if (!inlineData?.data) {
+    throw new Error("TTS audio missing");
+  }
+
+  const mimeType = String(inlineData.mimeType || inlineData.mime_type || "audio/L16;rate=24000");
+  const rateMatch = mimeType.match(/rate=(\d+)/i);
+  const sampleRate = rateMatch ? Number(rateMatch[1]) || 24000 : 24000;
+  const bytes = decodeBase64ToBytes(inlineData.data);
+  const payload = { bytes, sampleRate, mimeType };
+
+  if (ttsAudioCache.size >= MAX_TTS_CACHE_ITEMS) {
+    const oldestKey = ttsAudioCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      ttsAudioCache.delete(oldestKey);
+    }
+  }
+  ttsAudioCache.set(cacheKey, payload);
+  return payload;
 }
 
 export function initAiTutor({ getScreenContext, announce }) {
