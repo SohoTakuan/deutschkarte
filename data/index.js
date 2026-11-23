@@ -75,3 +75,47 @@ export function getLevelSummary(cardsMap = {}, hiddenMap = {}) {
     };
   });
 }
+
+export function getLessonSummary(cardsMap = {}, hiddenMap = {}) {
+  return LESSONS.map(({ id, level, title, subtitle }) => {
+    const lessonWords = ALL_WORDS.filter((item) => item.lessonId === id);
+    let total = 0;
+    let learned = 0;
+    let inProgress = 0;
+    let unseen = 0;
+    let hidden = 0;
+
+    for (const word of lessonWords) {
+      if (hiddenMap[word.id]) {
+        hidden += 1;
+        continue;
+      }
+      total += 1;
+      const card = cardsMap[word.id];
+      if (!card || !card.seen) {
+        unseen += 1;
+      } else if (card.box >= 4) {
+        learned += 1;
+      } else {
+        inProgress += 1;
+      }
+    }
+
+    const remaining = total - learned;
+    const percent = total > 0 ? Math.round((learned / total) * 100) : 0;
+
+    return {
+      id,
+      level: level || "A1",
+      title,
+      subtitle,
+      total,
+      learned,
+      remaining,
+      inProgress,
+      unseen,
+      hidden,
+      percent
+    };
+  });
+}

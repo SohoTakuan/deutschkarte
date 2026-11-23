@@ -1,6 +1,7 @@
 import {
   ALL_WORDS,
   getLessonList,
+  getLessonSummary,
   getLevelSummary,
   getWordsForLesson
 } from "./data/index.js";
@@ -434,6 +435,7 @@ const els = {
   statMistakes: document.getElementById("stat-mistakes"),
   srsSummary: document.getElementById("srs-summary"),
   levelProgressList: document.getElementById("level-progress-list"),
+  lessonProgressList: document.getElementById("lesson-progress-list"),
   dailyGoalSelect: document.getElementById("daily-goal-select"),
   autoSpeakToggle: document.getElementById("auto-speak-toggle"),
   keepAiOpenToggle: document.getElementById("keep-ai-open-toggle"),
@@ -816,10 +818,18 @@ function updateTopControls() {
     btn.disabled = isArticlesMode;
   }
 
-  const activeWords = getActiveWords();
+  const scopedWords = getWordsForLesson(appState.settings.lesson).filter(
+    (word) => !isWordHidden(word.id)
+  );
+  const scopedLearned = countMasteredWords(scopedWords);
+  const scopedTotal = scopedWords.length;
+  const scopedRemaining = scopedTotal - scopedLearned;
+  const scopedPct =
+    scopedTotal > 0 ? Math.round((scopedLearned / scopedTotal) * 100) : 0;
+
   els.lessonSelect.value = appState.settings.lesson;
   els.dailyProgress.textContent = `${appState.daily.count} / ${appState.settings.dailyGoal}`;
-  els.masteredCount.textContent = `${countMasteredWords(activeWords)} / ${activeWords.length}`;
+  els.masteredCount.textContent = `${scopedLearned} / ${scopedTotal} (%${scopedPct} · ${scopedRemaining} kalan)`;
   els.sessionScore.textContent = `${runtime.sessionCorrect} / ${runtime.sessionAnswered}`;
   els.sessionStreak.textContent = String(runtime.sessionStreak);
 }
@@ -2157,6 +2167,12 @@ function getFilteredDictionaryWords() {
     if (runtime.dictFilter === "mistakes" && !appState.mistakes[word.id]) {
       return false;
     }
+    if (
+      runtime.dictFilter === "unlearned" &&
+      (appState.cards[word.id]?.box || 0) >= 4
+    ) {
+      return false;
+    }
 
     if (!query) {
       return true;
@@ -2223,12 +2239,20 @@ function renderDictionary() {
 
   if (items.length === 0) {
     if (els.dictEmptyText) {
-      els.dictEmptyText.textContent =
+      if (
         runtime.dictFilter === "hidden" &&
         runtime.dictQuery.trim() === "" &&
         runtime.dictLesson === "all"
-          ? "Gizlediğiniz kelime yok."
-          : "Arama ölçütünüze uygun kelime bulunamadı.";
+      ) {
+        els.dictEmptyText.textContent = "Gizlediğiniz kelime yok.";
+      } else if (
+        runtime.dictFilter === "unlearned" &&
+        runtime.dictQuery.trim() === ""
+      ) {
+        els.dictEmptyText.textContent = "Bu kapsamda öğrenilmemiş kelime kalmadı!";
+      } else {
+        els.dictEmptyText.textContent = "Arama ölçütünüze uygun kelime bulunamadı.";
+      }
     }
     els.dictList.hidden = true;
     els.dictEmpty.hidden = false;
@@ -2465,6 +2489,81 @@ function refreshBackupModal() {
     row.appendChild(head);
     row.appendChild(track);
     els.levelProgressList.appendChild(row);
+  }
+
+  if (els.lessonProgressList) {
+    const lessonSummaries = getLessonSummary(
+      appState.cards,
+      appState.hiddenWords
+    );
+    els.lessonProgressList.innerHTML = "";
+
+    for (const item of lessonSummaries) {
+      const row = document.createElement("div");
+      row.className = "level-row";
+
+      const head = document.createElement("div");
+      head.className = "level-row-head";
+
+      const name = document.createElement("span");
+      name.className = "level-name";
+      name.textContent = `${item.level} · ${item.title}`;
+
+      const counts = document.createElement("span");
+      counts.className = "level-counts";
+      counts.textContent = `${item.learned} / ${item.total} öğrenildi (%${item.percent})`;
+
+      const track = document.createElement("div");
+      track.className = "level-bar-track";
+      const fill = document.createElement("div");
+      fill.className = "level-bar-fill";
+      fill.style.width = `${item.percent}%`;
+      track.appendChild(fill);
+
+      const foot = document.createElement("div");
+      foot.className = "lesson-row-foot";
+
+      const hiddenText = item.hidden > 0 ? `, ${item.hidden} gizli` : "";
+      const detail = document.createElement("span");
+      detail.textContent = `${item.remaining} kalan (${item.inProgress} öğreniliyor, ${item.unseen} yeni${hiddenText})`;
+      foot.appendChild(detail);
+
+      if (item.remaining > 0) {
+        const jumpBtn = document.createElement("button");
+        jumpBtn.type = "button";
+        jumpBtn.className = "lesson-jump-btn";
+        jumpBtn.textContent = "Kalanları gör";
+        jumpBtn.addEventListener("click", () => {
+          els.backupDialog?.close();
+          runtime.dictLesson = item.title;
+          if (els.dictLessonSelect) {
+            els.dictLessonSelect.value = item.title;
+          }
+          runtime.dictFilter = "unlearned";
+          runtime.dictQuery = "";
+          if (els.dictSearch) {
+            els.dictSearch.value = "";
+          }
+          for (const chip of els.dictFilterChips) {
+            chip.classList.toggle("is-active", chip.dataset.filter === "unlearned");
+          }
+          switchTab("dictionary");
+        });
+        foot.appendChild(jumpBtn);
+      } else {
+        const doneTag = document.createElement("span");
+        doneTag.className = "lesson-done-tag";
+        doneTag.textContent = "Tamamlandı";
+        foot.appendChild(doneTag);
+      }
+
+      head.appendChild(name);
+      head.appendChild(counts);
+      row.appendChild(head);
+      row.appendChild(track);
+      row.appendChild(foot);
+      els.lessonProgressList.appendChild(row);
+    }
   }
 
   refreshSyncUI();

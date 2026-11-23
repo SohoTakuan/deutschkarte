@@ -1748,6 +1748,35 @@ button {
   transition: width 180ms ease;
 }
 
+.lesson-row-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+.lesson-jump-btn {
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--rule-strong);
+  background-color: var(--card);
+  color: var(--accent-der);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.lesson-jump-btn:hover {
+  border-color: var(--accent-der);
+}
+
+.lesson-done-tag {
+  color: var(--accent-das);
+  font-weight: 700;
+}
+
 .prefs-row {
   display: flex;
   align-items: center;
