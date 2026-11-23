@@ -758,24 +758,26 @@ export const lesson01 = {
       id: "l1_58",
       category: "phrase",
       lesson: "Ders 1",
-      tr: "Görüşmek üzere",
+      tr: "Hoşça kalın / Görüşmek üzere",
       de: "Auf Wiedersehen",
-      hint: "Resmi vedalaşma",
+      hint: "Resmi, yüz yüze vedalaşma",
+      note: "Yüz yüze resmi vedalaşmada kullanılır (sehen = görmek). Telefonda bunun yerine 'Auf Wiederhören' denir.",
       example: {
         de: "Auf Wiedersehen, Herr Becker!",
-        tr: "Görüşmek üzere, Bay Becker!"
+        tr: "Hoşça kalın, Bay Becker!"
       }
     },
     {
       id: "l1_59",
       category: "phrase",
       lesson: "Ders 1",
-      tr: "Telefonda görüşmek üzere",
+      tr: "Hoşça kalın (telefonda)",
       de: "Auf Wiederhören",
       hint: "Resmi, telefonda vedalaşma",
+      note: "Yalnızca telefon görüşmesini bitirirken kullanılır (hören = duymak). Yüz yüze vedalaşmada 'Auf Wiedersehen' kullanılır.",
       example: {
         de: "Vielen Dank für das Gespräch, auf Wiederhören!",
-        tr: "Görüşme için çok teşekkürler, telefonda görüşmek üzere!"
+        tr: "Görüşme için çok teşekkürler, hoşça kalın!"
       }
     },
     {

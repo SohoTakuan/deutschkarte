@@ -2016,19 +2016,35 @@ button {
   border-top: 1px solid var(--rule);
 }
 
+.heatmap-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
 .activity-heatmap {
   display: grid;
-  grid-template-columns: repeat(14, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 5px;
 }
 
 .heatmap-cell {
   display: block;
   width: 100%;
-  aspect-ratio: 1;
-  border-radius: 3px;
+  height: 20px;
+  border-radius: 4px;
   background-color: var(--desk-subtle);
   border: 1px solid var(--rule);
+}
+
+.heatmap-cell.is-future {
+  background-color: transparent;
+  border: 1px dashed var(--rule-strong);
+  opacity: 0.45;
 }
 
 .heatmap-cell[data-level="1"] {
@@ -2076,6 +2092,7 @@ button {
 .rhythm-legend .heatmap-cell {
   width: 11px;
   height: 11px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 

@@ -2753,7 +2753,15 @@ function renderActivityHeatmap() {
   let maxCount = 0;
   let activeDays = 0;
 
-  for (let daysAgo = HEATMAP_DAYS - 1; daysAgo >= 0; daysAgo -= 1) {
+  const mondayIndex = (new Date().getDay() + 6) % 7;
+  const startDaysAgo = 5 * 7 + mondayIndex;
+  const endDaysAgo = mondayIndex - 6;
+
+  for (let daysAgo = startDaysAgo; daysAgo >= endDaysAgo; daysAgo -= 1) {
+    if (daysAgo < 0) {
+      entries.push({ isFuture: true });
+      continue;
+    }
     const dateKey = getOffsetDateKey(daysAgo);
     const rawCount = toNonNegativeInt(history[dateKey]);
     const count =
@@ -2764,7 +2772,7 @@ function renderActivityHeatmap() {
     if (count > maxCount) {
       maxCount = count;
     }
-    entries.push({ dateKey, count, isToday: daysAgo === 0 });
+    entries.push({ dateKey, count, isToday: daysAgo === 0, isFuture: false });
   }
 
   const scaleMax = Math.max(120, maxCount);
@@ -2773,6 +2781,14 @@ function renderActivityHeatmap() {
 
   const fragment = document.createDocumentFragment();
   for (const entry of entries) {
+    const cell = document.createElement("span");
+    if (entry.isFuture) {
+      cell.className = "heatmap-cell is-future";
+      cell.setAttribute("aria-hidden", "true");
+      fragment.appendChild(cell);
+      continue;
+    }
+
     let level = "0";
     if (entry.count >= level3Min) {
       level = "3";
@@ -2782,7 +2798,6 @@ function renderActivityHeatmap() {
       level = "1";
     }
 
-    const cell = document.createElement("span");
     cell.className = entry.isToday ? "heatmap-cell is-today" : "heatmap-cell";
     cell.dataset.level = level;
     cell.title = `${entry.dateKey}: ${entry.count} kart`;
@@ -2792,7 +2807,7 @@ function renderActivityHeatmap() {
   els.activityHeatmap.appendChild(fragment);
   els.activityHeatmap.setAttribute(
     "aria-label",
-    `Son ${HEATMAP_DAYS} günlük çalışma ritmi: ${activeDays} aktif gün`
+    `Son 6 haftalık çalışma ritmi: ${activeDays} aktif gün`
   );
   if (els.rhythmActiveDays) {
     els.rhythmActiveDays.textContent = `${activeDays} aktif gün`;
