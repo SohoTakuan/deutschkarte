@@ -16,6 +16,17 @@ const MAX_HISTORY_TURNS = 10;
 const MAX_PROMPT_LENGTH = 1500;
 const REQUEST_TIMEOUT_MS = 15000;
 const CREDENTIAL_PATTERN = /^[\x21-\x7E]{20,256}$/;
+const MAX_COACH_SENTENCE_LENGTH = 300;
+const VALID_ERROR_TYPES = [
+  "Doğru",
+  "Artikel",
+  "Kasus",
+  "Fiil çekimi",
+  "Söz dizimi",
+  "Yazım",
+  "Kelime kullanımı"
+];
+const mnemonicCache = new Map();
 let preferredModelIndex = 0;
 
 function isValidApiKeyFormat(key) {
@@ -212,7 +223,13 @@ function getQuickChipsForContext(ctx) {
   ];
 }
 
-async function requestSingleModel({ model, apiKey, contents }) {
+async function requestSingleModel({
+  model,
+  apiKey,
+  contents,
+  systemInstruction = SYSTEM_INSTRUCTION,
+  generationConfig = null
+}) {
   const controller = new AbortController();
   const timerId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -231,12 +248,13 @@ async function requestSingleModel({ model, apiKey, contents }) {
         },
         body: JSON.stringify({
           system_instruction: {
-            parts: [{ text: SYSTEM_INSTRUCTION }]
+            parts: [{ text: systemInstruction }]
           },
           contents,
           generationConfig: {
             temperature: 0.4,
-            maxOutputTokens: 700
+            maxOutputTokens: 700,
+            ...(generationConfig || {})
           }
         }),
         signal: controller.signal
@@ -327,6 +345,44 @@ async function requestSingleModel({ model, apiKey, contents }) {
   return { ok: true, reply };
 }
 
+async function requestGeminiWithFallback({
+  apiKey,
+  contents,
+  systemInstruction = SYSTEM_INSTRUCTION,
+  generationConfig = null
+}) {
+  if (!navigator.onLine) {
+    throw new Error("İnternet bağlantısı yok. Çevrimiçi olduğunuzda tekrar deneyin.");
+  }
+
+  const orderedModels = [];
+  for (let i = 0; i < GEMINI_MODELS.length; i += 1) {
+    const idx = (preferredModelIndex + i) % GEMINI_MODELS.length;
+    orderedModels.push(GEMINI_MODELS[idx]);
+  }
+
+  let lastError = null;
+  for (const model of orderedModels) {
+    const result = await requestSingleModel({
+      model,
+      apiKey,
+      contents,
+      systemInstruction,
+      generationConfig
+    });
+    if (result.ok) {
+      preferredModelIndex = GEMINI_MODELS.indexOf(model);
+      return result.reply;
+    }
+    lastError = result.error;
+    if (!result.retryable) {
+      throw lastError;
+    }
+  }
+
+  throw lastError || new Error("Gemini yanıtı alınamadı.");
+}
+
 async function requestGeminiReply({ apiKey, history, screenContext }) {
   if (!navigator.onLine) {
     throw new Error("İnternet bağlantısı yok. Çevrimiçi olduğunuzda tekrar deneyin veya üstteki düğmeyle bağlamı kopyalayın.");
@@ -344,26 +400,185 @@ async function requestGeminiReply({ apiKey, history, screenContext }) {
     };
   });
 
-  const orderedModels = [];
-  for (let i = 0; i < GEMINI_MODELS.length; i += 1) {
-    const idx = (preferredModelIndex + i) % GEMINI_MODELS.length;
-    orderedModels.push(GEMINI_MODELS[idx]);
+  return requestGeminiWithFallback({ apiKey, contents });
+}
+
+function parseJsonReply(rawText) {
+  const cleaned = String(rawText || "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Invalid object");
+    }
+    return parsed;
+  } catch {
+    throw new Error("Yapılandırılmış yanıt okunamadı. Lütfen tekrar deneyin.");
+  }
+}
+
+function requireCoachApiKey() {
+  const cfg = loadAiConfig();
+  if (!isValidApiKeyFormat(cfg.apiKey)) {
+    const err = new Error("API anahtarı gerekli.");
+    err.code = "NO_API_KEY";
+    throw err;
+  }
+  const idx = GEMINI_MODELS.indexOf(cfg.model);
+  if (idx >= 0) {
+    preferredModelIndex = idx;
+  }
+  return cfg.apiKey;
+}
+
+function formatWordForCoachPrompt(word) {
+  if (!word) {
+    return "";
+  }
+  if (word.category === "noun") {
+    const art = word.onlyPlural ? "die (nur Pl.)" : word.article || "";
+    const sg = word.singular || "";
+    const pl = word.plural ? ` / Pl: ${word.plural}` : "";
+    return `${art} ${sg}${pl} — "${word.tr}" (${word.level || "A1"})`.trim();
+  }
+  return `${word.de || ""} — "${word.tr}" (${word.level || "A1"})`.trim();
+}
+
+export async function evaluateUserSentence({ word, userSentence }) {
+  const cleanSentence = String(userSentence || "").trim();
+  if (!cleanSentence) {
+    throw new Error("Lütfen kısa bir Almanca cümle yazın.");
+  }
+  if (cleanSentence.length > MAX_COACH_SENTENCE_LENGTH) {
+    throw new Error(`Cümle en fazla ${MAX_COACH_SENTENCE_LENGTH} karakter olabilir.`);
   }
 
-  let lastError = null;
-  for (const model of orderedModels) {
-    const result = await requestSingleModel({ model, apiKey, contents });
-    if (result.ok) {
-      preferredModelIndex = GEMINI_MODELS.indexOf(model);
-      return result.reply;
+  const apiKey = requireCoachApiKey();
+  const wordSummary = formatWordForCoachPrompt(word);
+  const systemInstruction = [
+    "Sen Türkçe konuşan öğrenciler için Duden kurallarına sıkı bağlı bir Almanca cümle değerlendiricisisin.",
+    "Sadece geçerli JSON döndür; emoji veya sohbet cümlesi ekleme.",
+    "Hedef kelimeyi cümlede doğal ve doğru kullanıp kullanmadığını kontrol et (büyük/küçük harf, ä/ö/ü/ß, artikel, çekim, söz dizimi).",
+    "errorType alanını şu değerlerden biri yap: Doğru, Artikel, Kasus, Fiil çekimi, Söz dizimi, Yazım, Kelime kullanımı.",
+    "explanationTr alanı en fazla 2 kısa, net Türkçe cümle olsun."
+  ].join(" ");
+
+  const contents = [
+    {
+      role: "user",
+      parts: [
+        {
+          text: `Hedef kelime: ${wordSummary}\nÖğrencinin cümlesi: ${cleanSentence}`
+        }
+      ]
     }
-    lastError = result.error;
-    if (!result.retryable) {
-      throw lastError;
+  ];
+
+  const rawReply = await requestGeminiWithFallback({
+    apiKey,
+    contents,
+    systemInstruction,
+    generationConfig: {
+      temperature: 0.25,
+      maxOutputTokens: 350,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          isCorrect: { type: "BOOLEAN" },
+          corrected: { type: "STRING" },
+          errorType: { type: "STRING" },
+          explanationTr: { type: "STRING" }
+        },
+        required: ["isCorrect", "corrected", "errorType", "explanationTr"]
+      }
     }
+  });
+
+  const parsed = parseJsonReply(rawReply);
+  const isCorrect = Boolean(parsed.isCorrect);
+  const rawType = String(parsed.errorType || "").trim();
+  const errorType = isCorrect
+    ? "Doğru"
+    : VALID_ERROR_TYPES.includes(rawType) && rawType !== "Doğru"
+      ? rawType
+      : "Yazım";
+  const corrected = String(parsed.corrected || cleanSentence).trim();
+  const explanationTr = String(
+    parsed.explanationTr ||
+      (isCorrect
+        ? "Cümle dil bilgisi ve kelime kullanımı açısından doğru."
+        : "Düzeltilmiş biçimi inceleyin.")
+  ).trim();
+
+  return { isCorrect, corrected, errorType, explanationTr };
+}
+
+export async function generateArticleMnemonic({ word }) {
+  if (
+    !word ||
+    word.category !== "noun" ||
+    !["der", "die", "das"].includes(word.article)
+  ) {
+    throw new Error("Artikel ipucu yalnızca der/die/das artikelli isimler için üretilir.");
   }
 
-  throw lastError || new Error("Gemini yanıtı alınamadı.");
+  if (mnemonicCache.has(word.id)) {
+    return mnemonicCache.get(word.id);
+  }
+
+  const apiKey = requireCoachApiKey();
+  const systemInstruction = [
+    "Verilen Almanca isim (article, singular, plural, Türkçe anlam) için artikel hatırlatma ipucu üret.",
+    "Sadece geçerli JSON döndür; emoji veya rol yapma yok.",
+    "Eğer gerçek ve güvenilir bir Duden son ek veya anlam grubu kuralı varsa (-ung/-heit/-keit/-schaft/-ion/-tät -> die; -chen/-lein/-ment/-um -> das; -er/-ig/-ling/-ismus veya gün/ay/mevsim -> der gibi) ruleTag alanına kısa Türkçe kuralı yaz (örn. '-ung son eki → die').",
+    "Böyle bir genel kural yoksa sahte kural uydurma; ruleTag alanına sadece 'Çağrışım ipucu' yaz.",
+    "mnemonicTr alanı 1–2 kısa, akılda kalıcı Türkçe cümle olsun."
+  ].join(" ");
+
+  const contents = [
+    {
+      role: "user",
+      parts: [
+        {
+          text: `Artikel: ${word.article}\nTekil: ${word.singular || ""}\nÇoğul: ${word.plural || "-"}\nTürkçe: ${word.tr || ""}`
+        }
+      ]
+    }
+  ];
+
+  const rawReply = await requestGeminiWithFallback({
+    apiKey,
+    contents,
+    systemInstruction,
+    generationConfig: {
+      temperature: 0.35,
+      maxOutputTokens: 280,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          ruleTag: { type: "STRING" },
+          mnemonicTr: { type: "STRING" }
+        },
+        required: ["ruleTag", "mnemonicTr"]
+      }
+    }
+  });
+
+  const parsed = parseJsonReply(rawReply);
+  const result = {
+    ruleTag: String(parsed.ruleTag || "Çağrışım ipucu").trim() || "Çağrışım ipucu",
+    mnemonicTr: String(parsed.mnemonicTr || "").trim()
+  };
+  if (!result.mnemonicTr) {
+    throw new Error("Artikel ipucu üretilemedi. Lütfen tekrar deneyin.");
+  }
+  mnemonicCache.set(word.id, result);
+  return result;
 }
 
 export function initAiTutor({ getScreenContext, announce }) {
@@ -804,8 +1019,29 @@ export function initAiTutor({ getScreenContext, announce }) {
   syncSettingsUI();
   refreshContext();
 
+  function openSettings() {
+    settingsOpen = true;
+    if (!isDrawerOpen) {
+      isDrawerOpen = true;
+      refreshContext();
+      dom.drawer.hidden = false;
+      if (dom.backdrop) {
+        dom.backdrop.hidden = false;
+      }
+      dom.fab.setAttribute("aria-expanded", "true");
+      dom.fab.classList.add("is-open");
+    }
+    syncSettingsUI();
+    window.setTimeout(() => {
+      if (isDrawerOpen && settingsOpen) {
+        dom.apiKeyInput?.focus();
+      }
+    }, 20);
+  }
+
   return {
     open,
+    openSettings,
     close,
     isOpen: () => isDrawerOpen,
     refreshContext

@@ -18,7 +18,11 @@ import {
   SyncHttpError,
   syncWithGitHubGist
 } from "./sync.js";
-import { initAiTutor } from "./ai-tutor.js";
+import {
+  evaluateUserSentence,
+  generateArticleMnemonic,
+  initAiTutor
+} from "./ai-tutor.js";
 import { createCustomSelect } from "./custom-select.js";
 
 const STORAGE_KEY = "deutschkarte_state_v1";
@@ -466,6 +470,13 @@ const els = {
   feedbackExampleTr: document.getElementById("feedback-example-tr"),
   btnSpeakExample: document.getElementById("btn-speak-example"),
   feedbackMistakeStatus: document.getElementById("feedback-mistake-status"),
+  btnSentenceCoach: document.getElementById("btn-sentence-coach"),
+  btnArticleMnemonic: document.getElementById("btn-article-mnemonic"),
+  mnemonicCard: document.getElementById("mnemonic-card"),
+  sentenceCoachPanel: document.getElementById("sentence-coach-panel"),
+  sentenceCoachInput: document.getElementById("sentence-coach-input"),
+  btnSentenceCheck: document.getElementById("btn-sentence-check"),
+  sentenceCoachResult: document.getElementById("sentence-coach-result"),
   btnNext: document.getElementById("btn-next"),
   btnSpeakAnswer: document.getElementById("btn-speak-answer"),
 
@@ -1522,6 +1533,7 @@ function showNextCard({ preserveWord = false } = {}) {
     els.btnSpeakPrompt.hidden = true;
   }
 
+  resetAiCoachUI(null);
   els.feedbackArea.hidden = true;
   els.inputGuidance.hidden = true;
   els.inputGuidance.textContent = "";
@@ -2416,7 +2428,229 @@ function finalizeTurn(word, isCorrect, details) {
   aiTutor?.refreshContext();
 }
 
+function resetAiCoachUI(word = null) {
+  if (els.mnemonicCard) {
+    els.mnemonicCard.innerHTML = "";
+    els.mnemonicCard.hidden = true;
+  }
+  if (els.sentenceCoachPanel) {
+    els.sentenceCoachPanel.hidden = true;
+  }
+  if (els.sentenceCoachResult) {
+    els.sentenceCoachResult.innerHTML = "";
+    els.sentenceCoachResult.hidden = true;
+  }
+  if (els.sentenceCoachInput) {
+    els.sentenceCoachInput.value = "";
+  }
+  if (els.btnSentenceCoach) {
+    els.btnSentenceCoach.classList.remove("is-active");
+    els.btnSentenceCoach.setAttribute("aria-expanded", "false");
+  }
+  if (els.btnArticleMnemonic) {
+    const canMnemonic = Boolean(
+      word &&
+        word.category === "noun" &&
+        ["der", "die", "das"].includes(word.article)
+    );
+    els.btnArticleMnemonic.hidden = !canMnemonic;
+    els.btnArticleMnemonic.disabled = false;
+    els.btnArticleMnemonic.textContent = "Artikel ipucu";
+  }
+  if (els.btnSentenceCheck) {
+    els.btnSentenceCheck.disabled = false;
+    els.btnSentenceCheck.textContent = "Kontrol et";
+  }
+}
+
+function renderNoApiKeyNotice(container, featureLabel) {
+  if (!container) {
+    return;
+  }
+  container.innerHTML = "";
+  const row = document.createElement("div");
+  row.className = "coach-key-row";
+
+  const msg = document.createElement("span");
+  msg.className = "coach-copy";
+  msg.textContent = `${featureLabel} için Almanca Asistan'a ücretsiz Gemini API anahtarı ekleyin.`;
+
+  const keyBtn = document.createElement("button");
+  keyBtn.type = "button";
+  keyBtn.className = "coach-key-btn";
+  keyBtn.textContent = "Anahtar ekle";
+  keyBtn.addEventListener("click", () => {
+    aiTutor?.openSettings();
+  });
+
+  row.appendChild(msg);
+  row.appendChild(keyBtn);
+  container.appendChild(row);
+  container.hidden = false;
+}
+
+async function handleArticleMnemonicClick() {
+  if (!runtime.currentWord || !runtime.answered || !els.mnemonicCard) {
+    return;
+  }
+  const word = runtime.currentWord;
+  const reqWordId = word.id;
+
+  els.mnemonicCard.innerHTML = "";
+  const loading = document.createElement("p");
+  loading.className = "coach-loading";
+  loading.textContent = "İpucu hazırlanıyor...";
+  els.mnemonicCard.appendChild(loading);
+  els.mnemonicCard.hidden = false;
+
+  if (els.btnArticleMnemonic) {
+    els.btnArticleMnemonic.disabled = true;
+    els.btnArticleMnemonic.textContent = "Hazırlanıyor...";
+  }
+
+  try {
+    const result = await generateArticleMnemonic({ word });
+    if (runtime.currentWord?.id !== reqWordId || !runtime.answered) {
+      return;
+    }
+    els.mnemonicCard.innerHTML = "";
+    const head = document.createElement("div");
+    head.className = "coach-result-head";
+    const tag = document.createElement("span");
+    tag.className = "coach-tag";
+    tag.textContent = result.ruleTag;
+    head.appendChild(tag);
+
+    const body = document.createElement("p");
+    body.className = "coach-copy";
+    body.textContent = result.mnemonicTr;
+
+    els.mnemonicCard.appendChild(head);
+    els.mnemonicCard.appendChild(body);
+    els.mnemonicCard.hidden = false;
+  } catch (err) {
+    if (runtime.currentWord?.id !== reqWordId || !runtime.answered) {
+      return;
+    }
+    if (err?.code === "NO_API_KEY") {
+      renderNoApiKeyNotice(els.mnemonicCard, "Artikel ipucu");
+    } else {
+      els.mnemonicCard.innerHTML = "";
+      const errEl = document.createElement("p");
+      errEl.className = "coach-error";
+      errEl.textContent = err?.message || "Artikel ipucu alınamadı.";
+      els.mnemonicCard.appendChild(errEl);
+      els.mnemonicCard.hidden = false;
+    }
+  } finally {
+    if (runtime.currentWord?.id === reqWordId && els.btnArticleMnemonic) {
+      els.btnArticleMnemonic.disabled = false;
+      els.btnArticleMnemonic.textContent = "Artikel ipucu";
+    }
+  }
+}
+
+async function handleSentenceCoachSubmit() {
+  if (!runtime.currentWord || !runtime.answered || !els.sentenceCoachResult) {
+    return;
+  }
+  const sentence = collapseSpaces(els.sentenceCoachInput?.value || "");
+  if (!sentence) {
+    els.sentenceCoachResult.innerHTML = "";
+    const errEl = document.createElement("p");
+    errEl.className = "coach-error";
+    errEl.textContent = "Lütfen kısa bir Almanca cümle yazın.";
+    els.sentenceCoachResult.appendChild(errEl);
+    els.sentenceCoachResult.hidden = false;
+    els.sentenceCoachInput?.focus();
+    return;
+  }
+
+  const word = runtime.currentWord;
+  const reqWordId = word.id;
+
+  els.sentenceCoachResult.innerHTML = "";
+  const loading = document.createElement("p");
+  loading.className = "coach-loading";
+  loading.textContent = "Değerlendiriliyor...";
+  els.sentenceCoachResult.appendChild(loading);
+  els.sentenceCoachResult.hidden = false;
+
+  if (els.btnSentenceCheck) {
+    els.btnSentenceCheck.disabled = true;
+    els.btnSentenceCheck.textContent = "Kontrol ediliyor...";
+  }
+
+  try {
+    const result = await evaluateUserSentence({ word, userSentence: sentence });
+    if (runtime.currentWord?.id !== reqWordId || !runtime.answered) {
+      return;
+    }
+    els.sentenceCoachResult.innerHTML = "";
+
+    const head = document.createElement("div");
+    head.className = "coach-result-head";
+    const badge = document.createElement("span");
+    badge.className = result.isCorrect
+      ? "coach-badge is-ok"
+      : "coach-badge is-warn";
+    badge.textContent = result.isCorrect ? "Doğru" : result.errorType;
+    head.appendChild(badge);
+
+    if (isSpeechSupported() && result.corrected) {
+      const speakBtn = document.createElement("button");
+      speakBtn.type = "button";
+      speakBtn.className = "speak-btn speak-btn-sm";
+      speakBtn.setAttribute("aria-label", "Düzeltilmiş cümleyi dinle");
+      speakBtn.appendChild(createSpeakerSvg());
+      const label = document.createElement("span");
+      label.textContent = "Dinle";
+      speakBtn.appendChild(label);
+      speakBtn.addEventListener("click", () => speakGerman(result.corrected));
+      head.appendChild(speakBtn);
+    }
+
+    els.sentenceCoachResult.appendChild(head);
+
+    if (result.corrected) {
+      const correctedEl = document.createElement("p");
+      correctedEl.className = "coach-corrected";
+      correctedEl.textContent = result.corrected;
+      els.sentenceCoachResult.appendChild(correctedEl);
+    }
+
+    if (result.explanationTr) {
+      const copyEl = document.createElement("p");
+      copyEl.className = "coach-copy";
+      copyEl.textContent = result.explanationTr;
+      els.sentenceCoachResult.appendChild(copyEl);
+    }
+
+    els.sentenceCoachResult.hidden = false;
+  } catch (err) {
+    if (runtime.currentWord?.id !== reqWordId || !runtime.answered) {
+      return;
+    }
+    if (err?.code === "NO_API_KEY") {
+      renderNoApiKeyNotice(els.sentenceCoachResult, "Cümle koçu");
+    } else {
+      els.sentenceCoachResult.innerHTML = "";
+      const errEl = document.createElement("p");
+      errEl.className = "coach-error";
+      errEl.textContent = err?.message || "Cümle değerlendirilemedi.";
+      els.sentenceCoachResult.appendChild(errEl);
+      els.sentenceCoachResult.hidden = false;
+    }
+  } finally {
+    if (runtime.currentWord?.id === reqWordId && els.btnSentenceCheck) {
+      els.btnSentenceCheck.disabled = false;
+      els.btnSentenceCheck.textContent = "Kontrol et";
+    }
+  }
+}
+
 function renderFeedback(word, isCorrect, details, mistakeStatusText) {
+  resetAiCoachUI(word);
   els.feedbackArea.hidden = false;
   els.feedbackBanner.className = `feedback-banner ${isCorrect ? "is-correct" : "is-wrong"}`;
 
@@ -4227,6 +4461,29 @@ function bindEvents() {
   });
   els.btnNext?.addEventListener("click", advanceAfterAnswer);
 
+  els.btnSentenceCoach?.addEventListener("click", () => {
+    if (!els.sentenceCoachPanel) {
+      return;
+    }
+    const willOpen = els.sentenceCoachPanel.hidden;
+    els.sentenceCoachPanel.hidden = !willOpen;
+    els.btnSentenceCoach.classList.toggle("is-active", willOpen);
+    els.btnSentenceCoach.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) {
+      els.sentenceCoachInput?.focus();
+    }
+  });
+
+  els.btnArticleMnemonic?.addEventListener("click", handleArticleMnemonicClick);
+  els.btnSentenceCheck?.addEventListener("click", handleSentenceCoachSubmit);
+  els.sentenceCoachInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSentenceCoachSubmit();
+    }
+  });
+
   els.btnSpeakPrompt?.addEventListener("click", () => {
     if (!runtime.currentWord) {
       return;
@@ -4560,6 +4817,9 @@ function bindEvents() {
     }
 
     if (e.key === "Enter") {
+      if (e.target === els.sentenceCoachInput) {
+        return;
+      }
       const targetTag = e.target?.tagName;
       if (targetTag === "SELECT") {
         return;

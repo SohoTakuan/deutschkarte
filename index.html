@@ -274,6 +274,33 @@
                 </button>
               </div>
               <p id="feedback-mistake-status" class="feedback-mistake-status" hidden></p>
+              <div id="ai-coach-bar" class="ai-coach-bar">
+                <button type="button" id="btn-sentence-coach" class="coach-action-btn" aria-expanded="false" aria-controls="sentence-coach-panel">
+                  Bu kelimeyle cümle kur
+                </button>
+                <button type="button" id="btn-article-mnemonic" class="coach-action-btn" hidden>
+                  Artikel ipucu
+                </button>
+              </div>
+              <div id="mnemonic-card" class="coach-panel" hidden></div>
+              <div id="sentence-coach-panel" class="coach-panel" hidden>
+                <div class="coach-form">
+                  <label for="sentence-coach-input" class="sr-only">Bu kelimeyle Almanca cümle yazın</label>
+                  <input
+                    type="text"
+                    id="sentence-coach-input"
+                    class="text-input coach-input"
+                    maxlength="300"
+                    placeholder="Bu kelimeyle kısa bir Almanca cümle yazın..."
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                  >
+                  <button type="button" id="btn-sentence-check" class="btn-primary coach-submit-btn">Kontrol et</button>
+                </div>
+                <div id="sentence-coach-result" class="coach-result" hidden></div>
+              </div>
               <div class="card-actions">
                 <button type="button" id="btn-next" class="btn-primary">Sonraki kart</button>
                 <button type="button" id="btn-speak-answer" class="speak-btn" aria-label="Almanca cevabı dinle">

@@ -1433,6 +1433,174 @@ button {
   color: var(--ink-muted);
 }
 
+/* Post-Answer Gemini Coach & Mnemonic */
+
+.ai-coach-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.coach-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--rule-strong);
+  background-color: var(--desk);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.coach-action-btn:hover:not(:disabled) {
+  background-color: var(--desk-subtle);
+  border-color: var(--ink-muted);
+}
+
+.coach-action-btn.is-active {
+  background-color: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+}
+
+.coach-action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.coach-panel {
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  background-color: var(--desk);
+  border: 1px solid var(--rule-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coach-form {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.coach-input {
+  flex: 1 1 auto;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 0.9375rem;
+}
+
+.coach-submit-btn {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.coach-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coach-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.coach-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background-color: var(--desk-subtle);
+  border: 1px solid var(--rule-strong);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.coach-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.coach-badge.is-ok {
+  background-color: var(--ok-bg);
+  border-color: var(--ok-border);
+  color: var(--ok-text);
+}
+
+.coach-badge.is-warn {
+  background-color: var(--warn-bg);
+  border-color: var(--warn-border);
+  color: var(--warn-text);
+}
+
+.coach-corrected {
+  margin: 0;
+  font-size: 0.975rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.coach-copy {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.coach-loading {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.coach-error {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--bad-text);
+}
+
+.coach-key-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.coach-key-btn {
+  padding: 5px 11px;
+  min-height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--btn-primary-bg);
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.coach-key-btn:hover {
+  background-color: var(--btn-primary-hover);
+}
+
 /* Empty State */
 
 .card-empty-state {
@@ -3374,6 +3542,14 @@ button {
   .feedback-example {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .coach-form {
+    flex-direction: column;
+  }
+
+  .coach-submit-btn {
+    width: 100%;
   }
 }
 
