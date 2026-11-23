@@ -4,6 +4,7 @@ export const GIST_DESCRIPTION = "DeutschKarte ilerleme senkronizasyonu";
 const GIST_API_BASE = "https://api.github.com/gists";
 const GIST_RAW_ORIGIN = "https://gist.githubusercontent.com";
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
+const VALID_ROUND_SIZES = ["off", "10", "20", "goal"];
 const SYNC_TIMEOUT_MS = 20000;
 const MAX_GIST_BYTES = 1024 * 1024;
 const TOKEN_PATTERN = /^[\x21-\x7E]{20,256}$/;
@@ -151,6 +152,9 @@ function pickSharedSnapshot(state) {
   return {
     resetAt: Number(state.resetAt) || 0,
     dailyGoal: state.settings?.dailyGoal,
+    roundSize: VALID_ROUND_SIZES.includes(state.settings?.roundSize)
+      ? state.settings.roundSize
+      : "off",
     autoSpeak: Boolean(state.settings?.autoSpeak),
     progress: state.progress,
     daily: {
@@ -258,6 +262,9 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
   const remoteResetAt = toNonNegativeInt(remoteState.resetAt);
   const remoteGoalNum = Number(remoteState.settings?.dailyGoal);
   const safeRemoteGoal = VALID_DAILY_GOALS.includes(remoteGoalNum) ? remoteGoalNum : null;
+  const safeRemoteRoundSize = VALID_ROUND_SIZES.includes(remoteState.settings?.roundSize)
+    ? remoteState.settings.roundSize
+    : null;
 
   // Explicit reset dominance: if one side reset more recently than the other side's last edit
   if (remoteResetAt > localUpdatedAt && remoteResetAt >= localResetAt) {
@@ -276,6 +283,7 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
       settings: {
         ...localState.settings,
         dailyGoal: safeRemoteGoal ?? localState.settings.dailyGoal,
+        roundSize: safeRemoteRoundSize ?? localState.settings.roundSize ?? "off",
         autoSpeak:
           typeof remoteState.settings?.autoSpeak === "boolean"
             ? remoteState.settings.autoSpeak
@@ -311,8 +319,9 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
       }
     }
     for (const [id, ts] of Object.entries(remoteState.mistakeClearedAt || {})) {
-      if (validWordIds.has(id) && Number(ts) > 0) {
-        adopted.mistakeClearedAt[id] = Number(ts);
+      const tsNum = Number(ts);
+      if (validWordIds.has(id) && Number.isFinite(tsNum) && tsNum > 0) {
+        adopted.mistakeClearedAt[id] = tsNum;
       }
     }
     for (const [id, entry] of Object.entries(remoteState.mistakes || {})) {
@@ -405,7 +414,9 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
     date: localDaily.date,
     count: Math.max(localDaily.count, remoteDaily.count),
     streakDays: Math.max(localDaily.streakDays, remoteDaily.streakDays),
-    lastCompletedDate: latestCompleted || null
+    lastCompletedDate: latestCompleted || null,
+    goalCelebratedDate:
+      localDaily.goalCelebratedDate || remoteDaily.goalCelebratedDate || null
   };
 
   // Merge cumulative progress
@@ -431,6 +442,9 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
     dailyGoal: preferRemotePrefs
       ? safeRemoteGoal ?? localState.settings.dailyGoal
       : localState.settings.dailyGoal,
+    roundSize: preferRemotePrefs
+      ? safeRemoteRoundSize ?? localState.settings.roundSize ?? "off"
+      : localState.settings.roundSize ?? "off",
     autoSpeak:
       preferRemotePrefs && typeof remoteState.settings?.autoSpeak === "boolean"
         ? remoteState.settings.autoSpeak
@@ -632,6 +646,9 @@ function buildRemotePayload(state) {
     resetAt: Number(state.resetAt) || 0,
     settings: {
       dailyGoal: state.settings.dailyGoal,
+      roundSize: VALID_ROUND_SIZES.includes(state.settings?.roundSize)
+        ? state.settings.roundSize
+        : "off",
       autoSpeak: Boolean(state.settings.autoSpeak)
     },
     progress: state.progress,

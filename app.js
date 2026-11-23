@@ -26,9 +26,9 @@ const VALID_MODES = ["mixed", "choice", "typing", "articles", "cloze", "mistakes
 const VALID_DIRECTIONS = ["tr-de", "de-tr"];
 const VALID_THEMES = ["light", "dark"];
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
+const VALID_ROUND_SIZES = ["off", "10", "20", "goal"];
 const SRS_INTERVAL_DAYS = { 1: 0, 2: 1, 3: 3, 4: 7, 5: 21 };
 const DAY_MS = 24 * 60 * 60 * 1000;
-const ROUND_SIZE = 10;
 const HEATMAP_DAYS = 42;
 const WORD_BY_ID = new Map(ALL_WORDS.map((word) => [word.id, word]));
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -71,7 +71,8 @@ function normalizeDailyState(rawDaily) {
       date: today,
       count: 0,
       streakDays: 0,
-      lastCompletedDate: null
+      lastCompletedDate: null,
+      goalCelebratedDate: null
     };
   }
 
@@ -83,6 +84,11 @@ function normalizeDailyState(rawDaily) {
     typeof rawDaily.lastCompletedDate === "string" &&
     DATE_KEY_PATTERN.test(rawDaily.lastCompletedDate)
       ? rawDaily.lastCompletedDate
+      : null;
+  const goalCelebratedDate =
+    typeof rawDaily.goalCelebratedDate === "string" &&
+    rawDaily.goalCelebratedDate === today
+      ? rawDaily.goalCelebratedDate
       : null;
 
   const isSameDay = savedDate === today;
@@ -97,7 +103,8 @@ function normalizeDailyState(rawDaily) {
     date: today,
     count,
     streakDays,
-    lastCompletedDate
+    lastCompletedDate,
+    goalCelebratedDate
   };
 }
 
@@ -108,6 +115,7 @@ function createDefaultState() {
       lesson: "all",
       direction: "tr-de",
       dailyGoal: 20,
+      roundSize: "off",
       autoSpeak: false,
       keepAiOpen: false
     },
@@ -219,6 +227,9 @@ function loadState() {
       : "tr-de";
     const rawGoal = Number(parsed.settings?.dailyGoal);
     const dailyGoal = VALID_DAILY_GOALS.includes(rawGoal) ? rawGoal : 20;
+    const roundSize = VALID_ROUND_SIZES.includes(parsed.settings?.roundSize)
+      ? parsed.settings.roundSize
+      : "off";
     const autoSpeak = Boolean(parsed.settings?.autoSpeak);
     const keepAiOpen = Boolean(parsed.settings?.keepAiOpen);
 
@@ -244,7 +255,7 @@ function loadState() {
     }
 
     return {
-      settings: { mode, lesson, direction, dailyGoal, autoSpeak, keepAiOpen },
+      settings: { mode, lesson, direction, dailyGoal, roundSize, autoSpeak, keepAiOpen },
       progress: { totalAnswered, totalCorrect, bestStreak },
       daily: normalizedDaily,
       dailyHistory,
@@ -297,8 +308,6 @@ const runtime = {
   answered: false,
   selectedArticle: null,
   lastWordId: null,
-  umlautUpper: false,
-  lastFocusedInput: null,
   dictFilter: "all",
   dictLesson: "all",
   dictQuery: "",
@@ -347,8 +356,6 @@ const els = {
   conjSkipChoice: document.getElementById("conj-skip-choice"),
   conjTypingArea: document.getElementById("conj-typing-area"),
   conjInput: document.getElementById("conj-input"),
-  conjUmlautBar: document.getElementById("conj-umlaut-bar"),
-  conjUmlautBtns: Array.from(document.querySelectorAll(".conj-umlaut-btn")),
   conjInputGuidance: document.getElementById("conj-input-guidance"),
   conjTypingActions: document.getElementById("conj-typing-actions"),
   conjCheck: document.getElementById("conj-check"),
@@ -374,6 +381,7 @@ const els = {
   masteredCount: document.getElementById("mastered-count"),
   sessionScore: document.getElementById("session-score"),
   sessionStreak: document.getElementById("session-streak"),
+  sessionRoundSelect: document.getElementById("session-round-select"),
   resetSession: document.getElementById("reset-session"),
 
   studyCard: document.getElementById("study-card"),
@@ -382,8 +390,11 @@ const els = {
   cardActiveBody: document.getElementById("card-active-body"),
   cardEmptyState: document.getElementById("card-empty-state"),
   cardRoundSummary: document.getElementById("card-round-summary"),
+  roundSummaryKicker: document.getElementById("round-summary-kicker"),
+  roundSummaryGoalPill: document.getElementById("round-summary-goal-pill"),
+  roundSummaryHeroValue: document.getElementById("round-summary-hero-value"),
   roundSummaryTitle: document.getElementById("round-summary-title"),
-  roundSummaryStats: document.getElementById("round-summary-stats"),
+  roundSummaryDetail: document.getElementById("round-summary-detail"),
   roundSummaryMastered: document.getElementById("round-summary-mastered"),
   btnRoundContinue: document.getElementById("btn-round-continue"),
   btnRoundMistakes: document.getElementById("btn-round-mistakes"),
@@ -394,6 +405,7 @@ const els = {
   emptyOpenHidden: document.getElementById("empty-open-hidden"),
 
   cardLessonLabel: document.getElementById("card-lesson-label"),
+  cardBoxPips: document.getElementById("card-box-pips"),
   cardKindLabel: document.getElementById("card-kind-label"),
   btnHideWord: document.getElementById("btn-hide-word"),
   promptTr: document.getElementById("prompt-tr"),
@@ -410,9 +422,6 @@ const els = {
   inputPhrase: document.getElementById("input-phrase"),
   singularLockNote: document.getElementById("singular-lock-note"),
   pluralLockNote: document.getElementById("plural-lock-note"),
-  umlautBar: document.getElementById("umlaut-bar"),
-  umlautBtns: Array.from(document.querySelectorAll("#umlaut-bar .umlaut-btn")),
-  toggleUmlautCase: document.getElementById("toggle-umlaut-case"),
   inputGuidance: document.getElementById("input-guidance"),
   typingActions: document.getElementById("typing-actions"),
   btnCheck: document.getElementById("btn-check"),
@@ -473,6 +482,7 @@ const els = {
   srsSummary: document.getElementById("srs-summary"),
   levelProgressList: document.getElementById("level-progress-list"),
   dailyGoalSelect: document.getElementById("daily-goal-select"),
+  roundSizeSelect: document.getElementById("round-size-select"),
   autoSpeakToggle: document.getElementById("auto-speak-toggle"),
   keepAiOpenToggle: document.getElementById("keep-ai-open-toggle"),
   btnExportJson: document.getElementById("btn-export-json"),
@@ -842,7 +852,9 @@ function updateTopControls() {
   }
 
   for (const btn of els.modeBtns) {
-    btn.classList.toggle("is-active", btn.dataset.mode === appState.settings.mode);
+    const isActive = btn.dataset.mode === appState.settings.mode;
+    btn.classList.toggle("is-active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
   }
 
   const isDirectionLocked =
@@ -866,6 +878,13 @@ function updateTopControls() {
     scopedTotal > 0 ? Math.round((scopedLearned / scopedTotal) * 100) : 0;
 
   els.lessonSelect.value = appState.settings.lesson;
+  if (els.sessionRoundSelect) {
+    els.sessionRoundSelect.value = VALID_ROUND_SIZES.includes(
+      appState.settings.roundSize
+    )
+      ? appState.settings.roundSize
+      : "off";
+  }
   els.dailyProgress.textContent = `${appState.daily.count} / ${appState.settings.dailyGoal}`;
   els.masteredCount.textContent = `${scopedLearned} / ${scopedTotal} (%${scopedPct} · ${scopedRemaining} kalan)`;
   els.sessionScore.textContent = `${runtime.sessionCorrect} / ${runtime.sessionAnswered}`;
@@ -906,12 +925,13 @@ function buildClozeForWord(word) {
     const match = fullSentence.match(rx);
     if (match && typeof match.index === "number") {
       const target = match[0];
+      const before = fullSentence.slice(0, match.index);
+      const after = fullSentence.slice(match.index + target.length);
       const blank = "_____";
-      const maskedSentence =
-        fullSentence.slice(0, match.index) +
-        blank +
-        fullSentence.slice(match.index + target.length);
+      const maskedSentence = `${before}${blank}${after}`;
       return {
+        before,
+        after,
         maskedSentence,
         target,
         isSentenceStart: match.index === 0,
@@ -1173,14 +1193,52 @@ function buildChoiceOptions(word, direction) {
 
 /* Card Rendering & Round Progress */
 
+function getEffectiveRoundTarget() {
+  const setting = appState.settings.roundSize || "off";
+  if (setting === "10") return 10;
+  if (setting === "20") return 20;
+  if (setting === "goal") return appState.settings.dailyGoal || 20;
+  return 0;
+}
+
+function shouldTriggerRoundSummary() {
+  const setting = appState.settings.roundSize || "off";
+  if (setting === "off") {
+    return false;
+  }
+  if (setting === "goal") {
+    const today = getLocalDateKey();
+    return (
+      appState.daily.count >= appState.settings.dailyGoal &&
+      appState.daily.goalCelebratedDate !== today
+    );
+  }
+  const target = getEffectiveRoundTarget();
+  return target > 0 && runtime.roundAnswered >= target;
+}
+
 function updateRoundProgressBar() {
-  if (!els.roundProgressFill) {
+  if (!els.roundProgressTrack || !els.roundProgressFill) {
     return;
   }
-  const pct = Math.min(
-    100,
-    Math.round((runtime.roundAnswered / ROUND_SIZE) * 100)
-  );
+  const setting = appState.settings.roundSize || "off";
+  if (setting === "off" || (!runtime.currentWord && !runtime.showingRoundSummary)) {
+    els.roundProgressTrack.hidden = true;
+    els.roundProgressFill.style.width = "0%";
+    return;
+  }
+  els.roundProgressTrack.hidden = false;
+  if (setting === "goal") {
+    const goal = appState.settings.dailyGoal || 20;
+    const pct = Math.min(100, Math.round((appState.daily.count / goal) * 100));
+    els.roundProgressFill.style.width = `${pct}%`;
+    return;
+  }
+  const target = getEffectiveRoundTarget();
+  const pct =
+    target > 0
+      ? Math.min(100, Math.round((runtime.roundAnswered / target) * 100))
+      : 0;
   els.roundProgressFill.style.width = `${pct}%`;
 }
 
@@ -1190,11 +1248,44 @@ function getScopedMistakeCount(lesson = appState.settings.lesson) {
   ).length;
 }
 
+function renderCardBoxPips(wordId) {
+  if (!els.cardBoxPips) {
+    return;
+  }
+  els.cardBoxPips.innerHTML = "";
+  const card = appState.cards[wordId];
+  const rawBox = card && card.seen ? card.box : 0;
+  const activeCount = card && card.correct > 0 ? rawBox : 0;
+  const label =
+    activeCount === 0
+      ? "Yeni kelime"
+      : activeCount >= 4
+        ? `Öğrenildi (${activeCount} / 5)`
+        : activeCount === 3
+          ? "Pekiştirme aşaması: 3 / 5 (Yazmalı veya Boşluk ile Öğrenildi olur)"
+          : `Pekiştirme aşaması: ${activeCount} / 5`;
+
+  els.cardBoxPips.setAttribute("aria-label", label);
+  els.cardBoxPips.title = label;
+
+  for (let i = 1; i <= 5; i += 1) {
+    const pip = document.createElement("span");
+    let cls = "box-pip";
+    if (i <= activeCount) {
+      cls += activeCount >= 4 ? " is-active is-mastered" : " is-active";
+    }
+    pip.className = cls;
+    pip.setAttribute("aria-hidden", "true");
+    els.cardBoxPips.appendChild(pip);
+  }
+}
+
 function resetRoundTracker() {
   runtime.roundAnswered = 0;
   runtime.roundCorrect = 0;
   runtime.roundMastered = 0;
   runtime.showingRoundSummary = false;
+  els.studyCard?.classList.remove("is-round-summary");
   if (els.cardRoundSummary) {
     els.cardRoundSummary.hidden = true;
   }
@@ -1206,48 +1297,51 @@ function resetRoundTracker() {
 
 function showRoundSummary() {
   runtime.showingRoundSummary = true;
+  const isGoalMode = appState.settings.roundSize === "goal";
+  if (isGoalMode) {
+    appState.daily.goalCelebratedDate = getLocalDateKey();
+    saveState({ sync: false, preserveTimestamp: true });
+  }
+
   els.cardActiveBody.hidden = true;
   els.cardEmptyState.hidden = true;
-  if (els.roundProgressTrack) {
-    els.roundProgressTrack.hidden = false;
-  }
-  updateRoundProgressBar();
-
+  els.studyCard.classList.add("is-round-summary");
   els.studyCard.dataset.gender = "resolved";
   els.studyCard.classList.remove("is-advancing");
   void els.studyCard.offsetWidth;
   els.studyCard.classList.add("is-advancing");
+  updateRoundProgressBar();
 
-  if (els.roundSummaryTitle) {
-    els.roundSummaryTitle.textContent = `${ROUND_SIZE} kartlık tur tamamlandı`;
+  const accuracy =
+    runtime.roundAnswered > 0
+      ? Math.round((runtime.roundCorrect / runtime.roundAnswered) * 100)
+      : 0;
+  const wrongCount = Math.max(0, runtime.roundAnswered - runtime.roundCorrect);
+
+  if (els.roundSummaryKicker) {
+    els.roundSummaryKicker.textContent = isGoalMode
+      ? "Günlük hedef"
+      : "Tur özeti";
   }
-
-  if (els.roundSummaryStats) {
-    els.roundSummaryStats.innerHTML = "";
-    const accuracy =
-      runtime.roundAnswered > 0
-        ? Math.round((runtime.roundCorrect / runtime.roundAnswered) * 100)
-        : 0;
-    const summaryItems = [
-      { label: "Bu tur doğru", value: `${runtime.roundCorrect} / ${runtime.roundAnswered}` },
-      { label: "Tur doğruluğu", value: `%${accuracy}` },
-      { label: "Günlük hedef", value: `${appState.daily.count} / ${appState.settings.dailyGoal}` }
-    ];
-    for (const item of summaryItems) {
-      const box = document.createElement("div");
-      box.className = "round-summary-stat";
-
-      const labelEl = document.createElement("span");
-      labelEl.className = "stat-label";
-      labelEl.textContent = item.label;
-
-      const valueEl = document.createElement("strong");
-      valueEl.className = "stat-value";
-      valueEl.textContent = item.value;
-
-      box.appendChild(labelEl);
-      box.appendChild(valueEl);
-      els.roundSummaryStats.appendChild(box);
+  if (els.roundSummaryGoalPill) {
+    els.roundSummaryGoalPill.textContent = `Bugün ${appState.daily.count} / ${appState.settings.dailyGoal}`;
+  }
+  if (els.roundSummaryHeroValue) {
+    els.roundSummaryHeroValue.textContent =
+      isGoalMode && runtime.roundAnswered === 0
+        ? `${appState.daily.count}/${appState.settings.dailyGoal}`
+        : `%${accuracy}`;
+  }
+  if (els.roundSummaryTitle) {
+    els.roundSummaryTitle.textContent = isGoalMode
+      ? "Bugünkü hedefiniz tamamlandı"
+      : `${runtime.roundAnswered} kartlık tur tamamlandı`;
+  }
+  if (els.roundSummaryDetail) {
+    if (isGoalMode && runtime.roundAnswered === 0) {
+      els.roundSummaryDetail.textContent = `Günlük seriniz: ${appState.daily.streakDays} gün`;
+    } else {
+      els.roundSummaryDetail.textContent = `${runtime.roundCorrect} doğru, ${wrongCount} yanlış — Oturum serisi: ${runtime.sessionStreak}`;
     }
   }
 
@@ -1261,6 +1355,12 @@ function showRoundSummary() {
     }
   }
 
+  if (els.btnRoundContinue) {
+    els.btnRoundContinue.textContent = isGoalMode
+      ? "Çalışmaya devam et"
+      : "Yeni tura devam et";
+  }
+
   if (els.btnRoundMistakes) {
     const scopedMistakeCount = getScopedMistakeCount();
     els.btnRoundMistakes.hidden =
@@ -1271,7 +1371,9 @@ function showRoundSummary() {
     els.cardRoundSummary.hidden = false;
   }
 
-  announce("10 kartlık tur tamamlandı.");
+  announce(
+    isGoalMode ? "Günlük çalışma hedefiniz tamamlandı." : "Tur tamamlandı."
+  );
   aiTutor?.refreshContext();
 
   if (!els.backupDialog.open && runtime.activeTab === "study") {
@@ -1290,7 +1392,7 @@ function continueFromRoundSummary() {
 }
 
 function advanceAfterAnswer() {
-  if (runtime.roundAnswered >= ROUND_SIZE) {
+  if (shouldTriggerRoundSummary()) {
     showRoundSummary();
     return;
   }
@@ -1299,17 +1401,23 @@ function advanceAfterAnswer() {
 }
 
 function showNextCard() {
-  if (runtime.roundAnswered >= ROUND_SIZE) {
+  const target = getEffectiveRoundTarget();
+  if (
+    appState.settings.roundSize !== "off" &&
+    appState.settings.roundSize !== "goal" &&
+    target > 0 &&
+    runtime.roundAnswered >= target
+  ) {
     resetRoundTracker();
   } else {
     runtime.showingRoundSummary = false;
+    els.studyCard?.classList.remove("is-round-summary");
     if (els.cardRoundSummary) {
       els.cardRoundSummary.hidden = true;
     }
     if (els.btnNext) {
       els.btnNext.textContent = "Sonraki kart";
     }
-    updateRoundProgressBar();
   }
   const pool = getActiveStudyPool();
   updateTopControls();
@@ -1321,9 +1429,7 @@ function showNextCard() {
     runtime.currentWord = null;
     runtime.currentCloze = null;
     els.promptTr.classList.remove("is-cloze-prompt");
-    if (els.roundProgressTrack) {
-      els.roundProgressTrack.hidden = true;
-    }
+    updateRoundProgressBar();
     els.cardActiveBody.hidden = true;
     els.cardEmptyState.hidden = false;
     els.studyCard.dataset.gender = "neutral";
@@ -1344,7 +1450,7 @@ function showNextCard() {
       els.emptyTitle.textContent = "Artikel sorusu bulunamadı";
       els.emptyDesc.textContent = hasAnyNounInLesson
         ? "Bu dersteki tüm isimler gizlenmiş. Gizlenenler bölümünden tekrar çalışmaya alabilirsiniz."
-        : "Bu derste artikel pratiği için isim kaydı yer almıyor.";
+        : "Bu derste artikel çalışılacak isim bulunmuyor.";
       els.emptySwitchMixed.hidden = false;
       els.emptyAllLessons.hidden = appState.settings.lesson === "all";
       els.emptyOpenHidden.hidden = !hasAnyNounInLesson;
@@ -1378,9 +1484,6 @@ function showNextCard() {
     return;
   }
 
-  if (els.roundProgressTrack) {
-    els.roundProgressTrack.hidden = false;
-  }
   els.cardEmptyState.hidden = true;
   els.cardActiveBody.hidden = false;
 
@@ -1403,12 +1506,14 @@ function showNextCard() {
   runtime.currentDirection = direction;
   runtime.currentOptions =
     questionType === "choice" ? buildChoiceOptions(word, direction) : [];
+  updateRoundProgressBar();
 
   els.studyCard.classList.remove("is-advancing");
   void els.studyCard.offsetWidth;
   els.studyCard.classList.add("is-advancing");
 
   els.cardLessonLabel.textContent = `${word.level}, ${word.lesson}`;
+  renderCardBoxPips(word.id);
   els.cardKindLabel.textContent =
     questionType === "cloze" ? "Cümle İçi Boşluk" : getKindLabel(word);
   els.promptTr.classList.toggle("is-cloze-prompt", questionType === "cloze");
@@ -1417,7 +1522,19 @@ function showNextCard() {
 
   if (questionType === "cloze" && clozeData) {
     els.studyCard.dataset.gender = "neutral";
-    els.promptTr.textContent = clozeData.maskedSentence;
+    els.promptTr.textContent = "";
+    if (clozeData.before) {
+      els.promptTr.appendChild(document.createTextNode(clozeData.before));
+    }
+    const blankSpan = document.createElement("span");
+    blankSpan.className = "cloze-blank";
+    blankSpan.setAttribute("role", "img");
+    blankSpan.setAttribute("aria-label", "boşluk");
+    blankSpan.textContent = "…";
+    els.promptTr.appendChild(blankSpan);
+    if (clozeData.after) {
+      els.promptTr.appendChild(document.createTextNode(clozeData.after));
+    }
     els.promptHint.textContent = clozeData.trCue;
     els.promptHint.hidden = !clozeData.trCue;
     els.btnSpeakPrompt.hidden = true;
@@ -1476,13 +1593,11 @@ function renderClozeView() {
   els.typingActions.hidden = false;
   els.nounFields.hidden = true;
   els.phraseFields.hidden = false;
-  els.umlautBar.hidden = false;
 
   els.inputPhrase.value = "";
   els.inputPhrase.disabled = false;
   els.inputPhraseLabel.textContent = "Boşluğa gelecek Almanca kelime / ifade";
   els.inputPhrase.placeholder = "Eksik kelimeyi yazın";
-  runtime.lastFocusedInput = els.inputPhrase;
 
   if (!els.backupDialog.open && runtime.activeTab === "study") {
     window.setTimeout(() => {
@@ -1554,10 +1669,8 @@ function renderTypingView(word, direction) {
   if (direction === "de-tr") {
     els.nounFields.hidden = true;
     els.phraseFields.hidden = false;
-    els.umlautBar.hidden = true;
     els.inputPhraseLabel.textContent = "Türkçe anlamı";
     els.inputPhrase.placeholder = "Türkçe karşılığını yazın";
-    runtime.lastFocusedInput = els.inputPhrase;
     if (!els.backupDialog.open && runtime.activeTab === "study") {
       window.setTimeout(() => {
         if (!els.backupDialog.open && runtime.activeTab === "study") {
@@ -1568,7 +1681,6 @@ function renderTypingView(word, direction) {
     return;
   }
 
-  els.umlautBar.hidden = false;
   els.inputPhraseLabel.textContent = "Almanca karşılığı";
   els.inputPhrase.placeholder = "Almanca ifadeyi yazın";
 
@@ -1576,9 +1688,6 @@ function renderTypingView(word, direction) {
     els.nounFields.hidden = false;
     els.phraseFields.hidden = true;
     applyNounFieldLocks();
-    runtime.lastFocusedInput = !els.inputSingular.disabled
-      ? els.inputSingular
-      : els.inputPlural;
     if (!els.backupDialog.open && runtime.activeTab === "study") {
       window.setTimeout(() => {
         if (!els.backupDialog.open && runtime.activeTab === "study") {
@@ -1592,7 +1701,6 @@ function renderTypingView(word, direction) {
   } else {
     els.nounFields.hidden = true;
     els.phraseFields.hidden = false;
-    runtime.lastFocusedInput = els.inputPhrase;
     if (!els.backupDialog.open && runtime.activeTab === "study") {
       window.setTimeout(() => {
         if (!els.backupDialog.open && runtime.activeTab === "study") {
@@ -2314,7 +2422,7 @@ function finalizeTurn(word, isCorrect, details) {
   const finalDetails = { ...details };
   if (reviewResult.heldAtBox3) {
     const gateTip =
-      "Bu kelime \"Öğrenildi\" seviyesine geçmek için Yazmalı veya Boşluk modunda en az bir kez doğru yazılmalıdır.";
+      "Bu kelimeyi \"Öğrenildi\" seviyesine geçirmek için Yazmalı veya Boşluk modunda en az bir kez doğru yazın.";
     finalDetails.tip = finalDetails.tip
       ? `${finalDetails.tip} ${gateTip}`
       : gateTip;
@@ -2352,6 +2460,7 @@ function finalizeTurn(word, isCorrect, details) {
   saveState({ sync: true });
   updateTopControls();
   updateRoundProgressBar();
+  renderCardBoxPips(word.id);
 
   if (
     runtime.currentQuestionType === "typing" ||
@@ -2363,7 +2472,6 @@ function finalizeTurn(word, isCorrect, details) {
     els.inputSingular.disabled = true;
     els.inputPlural.disabled = true;
     els.inputPhrase.disabled = true;
-    els.umlautBar.hidden = true;
     els.typingActions.hidden = true;
   } else if (runtime.currentQuestionType === "articles") {
     els.articleDrillActions.hidden = true;
@@ -2377,9 +2485,25 @@ function finalizeTurn(word, isCorrect, details) {
     els.studyCard.dataset.gender = "resolved";
   }
 
+  if (
+    runtime.currentQuestionType === "cloze" &&
+    runtime.currentCloze
+  ) {
+    const blankEl = els.promptTr?.querySelector(".cloze-blank");
+    if (blankEl) {
+      blankEl.textContent = runtime.currentCloze.target;
+      blankEl.classList.add("is-resolved", isCorrect ? "is-correct" : "is-wrong");
+      blankEl.removeAttribute("role");
+      blankEl.removeAttribute("aria-label");
+    }
+  }
+
   if (els.btnNext) {
-    els.btnNext.textContent =
-      runtime.roundAnswered >= ROUND_SIZE ? "Tur özetini gör" : "Sonraki kart";
+    els.btnNext.textContent = shouldTriggerRoundSummary()
+      ? appState.settings.roundSize === "goal"
+        ? "Hedef özetini gör"
+        : "Tur özetini gör"
+      : "Sonraki kart";
   }
 
   renderFeedback(word, isCorrect, finalDetails, mistakeStatusText);
@@ -2497,63 +2621,6 @@ function renderFeedback(word, isCorrect, details, mistakeStatusText) {
         els.btnNext.focus();
       }
     }, 10);
-  }
-}
-
-/* Umlaut Insertion */
-
-function insertSpecialChar(char) {
-  const isTextEntryMode =
-    runtime.currentQuestionType === "typing" ||
-    runtime.currentQuestionType === "cloze";
-  if (
-    runtime.answered ||
-    !isTextEntryMode ||
-    runtime.currentDirection === "de-tr"
-  ) {
-    return;
-  }
-  const active = document.activeElement;
-  let target = null;
-  if (
-    active &&
-    (active === els.inputSingular ||
-      active === els.inputPlural ||
-      active === els.inputPhrase) &&
-    !active.disabled
-  ) {
-    target = active;
-  } else if (runtime.lastFocusedInput && !runtime.lastFocusedInput.disabled) {
-    target = runtime.lastFocusedInput;
-  } else if (!els.inputSingular.hidden && !els.inputSingular.disabled) {
-    target = els.inputSingular;
-  } else if (!els.inputPlural.hidden && !els.inputPlural.disabled) {
-    target = els.inputPlural;
-  } else if (!els.inputPhrase.hidden && !els.inputPhrase.disabled) {
-    target = els.inputPhrase;
-  }
-
-  if (!target) {
-    return;
-  }
-
-  const start = target.selectionStart ?? target.value.length;
-  const end = target.selectionEnd ?? target.value.length;
-  target.value =
-    target.value.slice(0, start) + char + target.value.slice(end);
-  const nextPos = start + char.length;
-  target.focus();
-  target.setSelectionRange(nextPos, nextPos);
-  runtime.lastFocusedInput = target;
-}
-
-function updateUmlautCaseLabels() {
-  els.toggleUmlautCase.setAttribute(
-    "aria-pressed",
-    String(runtime.umlautUpper)
-  );
-  for (const btn of els.umlautBtns) {
-    btn.textContent = runtime.umlautUpper ? btn.dataset.upper : btn.dataset.char;
   }
 }
 
@@ -2778,7 +2845,7 @@ function renderDictionary() {
         "aria-label",
         `${deEl.textContent} kelimesini tekrar çalışmaya al`
       );
-      restoreBtn.textContent = "Geri al";
+      restoreBtn.textContent = "Listeye al";
       restoreBtn.addEventListener("click", () => {
         unhideWord(word.id);
       });
@@ -2917,6 +2984,13 @@ function refreshBackupModal() {
   renderActivityHeatmap();
 
   els.dailyGoalSelect.value = String(appState.settings.dailyGoal);
+  if (els.roundSizeSelect) {
+    els.roundSizeSelect.value = VALID_ROUND_SIZES.includes(
+      appState.settings.roundSize
+    )
+      ? appState.settings.roundSize
+      : "off";
+  }
   els.autoSpeakToggle.checked = Boolean(appState.settings.autoSpeak);
   els.autoSpeakToggle.disabled = !isSpeechSupported();
   if (els.keepAiOpenToggle) {
@@ -3067,7 +3141,9 @@ function refreshBackupModal() {
               els.dictSearch.value = "";
             }
             for (const chip of els.dictFilterChips) {
-              chip.classList.toggle("is-active", chip.dataset.filter === "unlearned");
+              const isSelected = chip.dataset.filter === "unlearned";
+              chip.classList.toggle("is-active", isSelected);
+              chip.setAttribute("aria-pressed", String(isSelected));
             }
             switchTab("dictionary");
           });
@@ -3358,6 +3434,9 @@ async function importBackupJson(file) {
           ? parsed.settings.direction
           : "tr-de",
         dailyGoal: VALID_DAILY_GOALS.includes(rawGoal) ? rawGoal : 20,
+        roundSize: VALID_ROUND_SIZES.includes(parsed.settings?.roundSize)
+          ? parsed.settings.roundSize
+          : "off",
         autoSpeak: Boolean(parsed.settings?.autoSpeak),
         keepAiOpen:
           typeof parsed.settings?.keepAiOpen === "boolean"
@@ -3420,7 +3499,7 @@ function applyTheme(theme, persist = false) {
   if (themeMeta) {
     themeMeta.setAttribute(
       "content",
-      resolved === "dark" ? "#1B2738" : "#1E4DB7"
+      resolved === "dark" ? "#182538" : "#1A4BB8"
     );
   }
 
@@ -3602,6 +3681,7 @@ function showNextConjugation() {
   runtime.conjAnswered = false;
 
   if (els.conjCard) {
+    delete els.conjCard.dataset.outcome;
     els.conjCard.dataset.gender = "neutral";
     els.conjCard.classList.remove("is-advancing");
     void els.conjCard.offsetWidth;
@@ -3663,7 +3743,6 @@ function showNextConjugation() {
   } else {
     if (els.conjChoiceArea) els.conjChoiceArea.hidden = true;
     if (els.conjTypingArea) els.conjTypingArea.hidden = false;
-    if (els.conjUmlautBar) els.conjUmlautBar.hidden = false;
     if (els.conjTypingActions) els.conjTypingActions.hidden = false;
     if (els.conjInput) {
       els.conjInput.value = "";
@@ -3683,9 +3762,6 @@ function showNextConjugation() {
           }
         }, 10);
       }
-    }
-    for (const btn of els.conjUmlautBtns) {
-      btn.disabled = false;
     }
   }
   aiTutor?.refreshContext();
@@ -3776,12 +3852,6 @@ function handleConjugationTypingSubmit() {
     els.conjInputGuidance.hidden = true;
   }
   els.conjInput.disabled = true;
-  if (els.conjUmlautBar) {
-    els.conjUmlautBar.hidden = true;
-  }
-  for (const btn of els.conjUmlautBtns) {
-    btn.disabled = true;
-  }
   if (els.conjTypingActions) {
     els.conjTypingActions.hidden = true;
   }
@@ -3817,7 +3887,7 @@ function finalizeConjugation(isCorrect, customTip) {
   updateConjugationStrip();
 
   if (els.conjCard) {
-    els.conjCard.dataset.gender = isCorrect ? "das" : "die";
+    els.conjCard.dataset.outcome = isCorrect ? "correct" : "wrong";
   }
 
   if (els.conjFeedbackArea) {
@@ -3910,25 +3980,6 @@ function finalizeConjugation(isCorrect, customTip) {
       }
     }, 10);
   }
-}
-
-function insertConjChar(char) {
-  if (
-    runtime.conjAnswered ||
-    runtime.conjMode !== "typing" ||
-    !els.conjInput ||
-    els.conjInput.disabled
-  ) {
-    return;
-  }
-  const target = els.conjInput;
-  const start = target.selectionStart ?? target.value.length;
-  const end = target.selectionEnd ?? target.value.length;
-  target.value =
-    target.value.slice(0, start) + char + target.value.slice(end);
-  const nextPos = start + char.length;
-  target.focus();
-  target.setSelectionRange(nextPos, nextPos);
 }
 
 function renderGrammarNotes() {
@@ -4098,7 +4149,9 @@ function bindEvents() {
     chip.addEventListener("click", () => {
       runtime.conjGroup = chip.dataset.group || "all";
       for (const item of els.grammarGroupChips) {
-        item.classList.toggle("is-active", item === chip);
+        const active = item === chip;
+        item.classList.toggle("is-active", active);
+        item.setAttribute("aria-pressed", String(active));
       }
       showNextConjugation();
     });
@@ -4124,11 +4177,6 @@ function bindEvents() {
     updateConjugationStrip();
     announce("Çekim sayacı sıfırlandı.");
   });
-
-  for (const btn of els.conjUmlautBtns) {
-    btn.addEventListener("mousedown", (e) => e.preventDefault());
-    btn.addEventListener("click", () => insertConjChar(btn.dataset.char || ""));
-  }
 
   els.conjCheck?.addEventListener("click", handleConjugationTypingSubmit);
   els.conjSkipChoice?.addEventListener("click", () => {
@@ -4230,7 +4278,9 @@ function bindEvents() {
     runtime.dictLesson = appState.settings.lesson;
     els.dictLessonSelect.value = runtime.dictLesson;
     for (const chip of els.dictFilterChips) {
-      chip.classList.toggle("is-active", chip.dataset.filter === "hidden");
+      const isSelected = chip.dataset.filter === "hidden";
+      chip.classList.toggle("is-active", isSelected);
+      chip.setAttribute("aria-pressed", String(isSelected));
     }
     switchTab("dictionary");
   });
@@ -4269,30 +4319,6 @@ function bindEvents() {
       handleArticleDrillSelect(Number(btn.dataset.index));
     });
   }
-
-  for (const input of [els.inputSingular, els.inputPlural, els.inputPhrase]) {
-    input?.addEventListener("focus", () => {
-      runtime.lastFocusedInput = input;
-    });
-  }
-
-  for (const btn of els.umlautBtns) {
-    btn.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-    });
-    btn.addEventListener("click", () => {
-      const char = runtime.umlautUpper ? btn.dataset.upper : btn.dataset.char;
-      insertSpecialChar(char);
-    });
-  }
-
-  els.toggleUmlautCase?.addEventListener("mousedown", (e) => {
-    e.preventDefault();
-  });
-  els.toggleUmlautCase?.addEventListener("click", () => {
-    runtime.umlautUpper = !runtime.umlautUpper;
-    updateUmlautCaseLabels();
-  });
 
   els.btnCheck?.addEventListener("click", handleTypingSubmit);
   els.btnSkip?.addEventListener("click", () => {
@@ -4343,7 +4369,9 @@ function bindEvents() {
     chip.addEventListener("click", () => {
       runtime.dictFilter = chip.dataset.filter;
       for (const item of els.dictFilterChips) {
-        item.classList.toggle("is-active", item === chip);
+        const active = item === chip;
+        item.classList.toggle("is-active", active);
+        item.setAttribute("aria-pressed", String(active));
       }
       renderDictionary();
     });
@@ -4356,7 +4384,9 @@ function bindEvents() {
     els.dictSearch.value = "";
     els.dictLessonSelect.value = "all";
     for (const chip of els.dictFilterChips) {
-      chip.classList.toggle("is-active", chip.dataset.filter === "all");
+      const active = chip.dataset.filter === "all";
+      chip.classList.toggle("is-active", active);
+      chip.setAttribute("aria-pressed", String(active));
     }
     renderDictionary();
   });
@@ -4401,12 +4431,64 @@ function bindEvents() {
     }
   });
 
+  const handleRoundSizeChange = (nextVal) => {
+    if (!VALID_ROUND_SIZES.includes(nextVal)) {
+      return;
+    }
+    const prevVal = appState.settings.roundSize || "off";
+    appState.settings.roundSize = nextVal;
+    const keepingTimedProgress =
+      (prevVal === "10" || prevVal === "20") &&
+      (nextVal === "10" || nextVal === "20");
+    if (!keepingTimedProgress) {
+      runtime.roundAnswered = 0;
+      runtime.roundCorrect = 0;
+      runtime.roundMastered = 0;
+    }
+    saveState({ sync: true });
+    updateTopControls();
+    if (els.roundSizeSelect) {
+      els.roundSizeSelect.value = nextVal;
+    }
+    if (runtime.showingRoundSummary) {
+      showNextCard();
+    } else {
+      updateRoundProgressBar();
+      if (runtime.answered && els.btnNext) {
+        els.btnNext.textContent = shouldTriggerRoundSummary()
+          ? nextVal === "goal"
+            ? "Hedef özetini gör"
+            : "Tur özetini gör"
+          : "Sonraki kart";
+      }
+    }
+  };
+
+  els.sessionRoundSelect?.addEventListener("change", () => {
+    handleRoundSizeChange(els.sessionRoundSelect.value);
+  });
+
+  els.roundSizeSelect?.addEventListener("change", () => {
+    handleRoundSizeChange(els.roundSizeSelect.value);
+  });
+
   els.dailyGoalSelect?.addEventListener("change", () => {
     const val = Number(els.dailyGoalSelect.value);
     if (VALID_DAILY_GOALS.includes(val)) {
       appState.settings.dailyGoal = val;
+      if (val > appState.daily.count) {
+        appState.daily.goalCelebratedDate = null;
+      }
       saveState({ sync: true });
       updateTopControls();
+      updateRoundProgressBar();
+      if (runtime.answered && els.btnNext) {
+        els.btnNext.textContent = shouldTriggerRoundSummary()
+          ? appState.settings.roundSize === "goal"
+            ? "Hedef özetini gör"
+            : "Tur özetini gör"
+          : "Sonraki kart";
+      }
       refreshBackupModal();
     }
   });
@@ -4580,7 +4662,14 @@ function bindEvents() {
         runtime.currentDirection === "de-tr";
       if (runtime.answered) {
         e.preventDefault();
-        speakGerman(getSpokenGermanForWord(runtime.currentWord, true));
+        if (
+          runtime.currentQuestionType === "cloze" &&
+          runtime.currentCloze?.fullSentence
+        ) {
+          speakGerman(runtime.currentCloze.fullSentence);
+        } else {
+          speakGerman(getSpokenGermanForWord(runtime.currentWord, true));
+        }
       } else if (canSpeakPrompt) {
         e.preventDefault();
         speakGerman(
@@ -4636,10 +4725,18 @@ function bindEvents() {
       e.preventDefault();
       if (runtime.answered) {
         advanceAfterAnswer();
-      } else if (
-        runtime.currentQuestionType === "typing" ||
-        runtime.currentQuestionType === "cloze"
-      ) {
+      } else if (runtime.currentQuestionType === "typing") {
+        if (
+          runtime.currentWord.category === "noun" &&
+          document.activeElement === els.inputSingular &&
+          !els.inputPlural.disabled &&
+          !collapseSpaces(els.inputPlural.value)
+        ) {
+          els.inputPlural.focus();
+          return;
+        }
+        handleTypingSubmit();
+      } else if (runtime.currentQuestionType === "cloze") {
         handleTypingSubmit();
       }
     }
@@ -4757,7 +4854,7 @@ function buildAiScreenContext() {
       subTab: "study",
       answered: true,
       label: "Çalış · Tur Özeti",
-      summary: `Sekme: Çalış (${ROUND_SIZE} kartlık tur tamamlandı · Doğru: ${runtime.roundCorrect}/${runtime.roundAnswered})`
+      summary: `Sekme: Çalış (${runtime.roundAnswered} kartlık tur tamamlandı · Doğru: ${runtime.roundCorrect}/${runtime.roundAnswered})`
     };
   }
   if (!word) {
@@ -4786,7 +4883,10 @@ function buildAiScreenContext() {
         : runtime.currentQuestionType === "choice"
           ? "Çoktan seçmeli"
           : "Yazmalı";
-  const promptText = els.promptTr?.textContent?.trim() || word.tr;
+  const promptText =
+    runtime.currentQuestionType === "cloze" && runtime.currentCloze
+      ? runtime.currentCloze.maskedSentence
+      : els.promptTr?.textContent?.trim() || word.tr;
   const solutionText =
     word.category === "noun" ? formatNounSummary(word) : word.de;
 
@@ -4847,7 +4947,6 @@ function init() {
       }
     }
     populateLessonSelects();
-    updateUmlautCaseLabels();
     bindEvents();
     aiTutor = initAiTutor({
       getScreenContext: buildAiScreenContext,

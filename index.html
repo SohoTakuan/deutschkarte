@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="google" content="notranslate">
-  <meta name="theme-color" content="#1E4DB7">
+  <meta name="theme-color" content="#1A4BB8">
   <meta name="referrer" content="no-referrer">
   <meta
     http-equiv="Content-Security-Policy"
@@ -76,12 +76,12 @@
       <section id="study-view" class="view-section" aria-label="Çalışma alanı">
         <div class="control-deck">
           <div class="mode-group" role="group" aria-label="Çalışma modu">
-            <button type="button" class="mode-btn is-active" data-mode="mixed">Karma</button>
-            <button type="button" class="mode-btn" data-mode="choice">Şıklı</button>
-            <button type="button" class="mode-btn" data-mode="typing">Yazmalı</button>
-            <button type="button" class="mode-btn" data-mode="articles">Artikel</button>
-            <button type="button" class="mode-btn" data-mode="cloze">Boşluk</button>
-            <button type="button" class="mode-btn mode-btn-wide" data-mode="mistakes">
+            <button type="button" class="mode-btn is-active" data-mode="mixed" aria-pressed="true">Karma</button>
+            <button type="button" class="mode-btn" data-mode="choice" aria-pressed="false">Şıklı</button>
+            <button type="button" class="mode-btn" data-mode="typing" aria-pressed="false">Yazmalı</button>
+            <button type="button" class="mode-btn" data-mode="articles" aria-pressed="false">Artikel</button>
+            <button type="button" class="mode-btn" data-mode="cloze" aria-pressed="false">Boşluk</button>
+            <button type="button" class="mode-btn mode-btn-wide" data-mode="mistakes" aria-pressed="false">
               <span>Zorlandıklarım</span>
               <span id="mistakes-badge" class="count-badge" hidden>0</span>
             </button>
@@ -107,7 +107,16 @@
             <span class="metric-item">Doğru: <strong id="session-score">0 / 0</strong></span>
             <span class="metric-item">Seri: <strong id="session-streak">0</strong></span>
           </div>
-          <button type="button" id="reset-session" class="text-action">Oturumu sıfırla</button>
+          <div class="session-actions">
+            <label for="session-round-select" class="sr-only">Tur uzunluğu</label>
+            <select id="session-round-select" class="session-round-select" aria-label="Tur uzunluğu">
+              <option value="off">Kesintisiz</option>
+              <option value="10">10 kartlık tur</option>
+              <option value="20">20 kartlık tur</option>
+              <option value="goal">Günlük hedef</option>
+            </select>
+            <button type="button" id="reset-session" class="text-action">Oturumu sıfırla</button>
+          </div>
         </div>
 
         <article id="study-card" class="study-card" data-gender="neutral">
@@ -120,6 +129,7 @@
             <div class="card-meta">
               <span id="card-lesson-label" class="meta-lesson">A1, Ders 1</span>
               <div class="card-meta-right">
+                <span id="card-box-pips" class="box-pips" aria-label="Pekiştirme aşaması"></span>
                 <span id="card-kind-label" class="meta-kind">İsim</span>
                 <button
                   type="button"
@@ -216,17 +226,6 @@
                 </div>
               </div>
 
-              <div id="umlaut-bar" class="umlaut-bar" aria-label="Almanca özel harfler">
-                <span class="umlaut-caption">Özel harfler</span>
-                <div class="umlaut-keys">
-                  <button type="button" class="umlaut-btn" data-char="ä" data-upper="Ä">ä</button>
-                  <button type="button" class="umlaut-btn" data-char="ö" data-upper="Ö">ö</button>
-                  <button type="button" class="umlaut-btn" data-char="ü" data-upper="Ü">ü</button>
-                  <button type="button" class="umlaut-btn" data-char="ß" data-upper="ß">ß</button>
-                  <button type="button" id="toggle-umlaut-case" class="umlaut-case-btn" aria-pressed="false" title="Büyük veya küçük harf değiştir">Aa</button>
-                </div>
-              </div>
-
               <p id="input-guidance" class="input-guidance" hidden></p>
 
               <div id="typing-actions" class="card-actions">
@@ -313,13 +312,21 @@
           </div>
 
           <div id="card-round-summary" class="card-round-summary" hidden>
-            <span class="round-summary-kicker">Tur tamamlandı</span>
-            <h2 id="round-summary-title" class="empty-title">10 kartlık tur bitti</h2>
-            <div id="round-summary-stats" class="round-summary-stats"></div>
+            <div class="round-summary-top">
+              <span id="round-summary-kicker" class="round-summary-kicker">Tur özeti</span>
+              <span id="round-summary-goal-pill" class="round-summary-goal-pill"></span>
+            </div>
+            <div class="round-summary-hero">
+              <strong id="round-summary-hero-value" class="round-summary-hero-value">%0</strong>
+              <div class="round-summary-hero-copy">
+                <h2 id="round-summary-title" class="round-summary-title">Tur tamamlandı</h2>
+                <p id="round-summary-detail" class="round-summary-detail"></p>
+              </div>
+            </div>
             <p id="round-summary-mastered" class="round-summary-mastered" hidden></p>
-            <div class="empty-actions">
-              <button type="button" id="btn-round-continue" class="btn-primary">Yeni tura devam et</button>
-              <button type="button" id="btn-round-mistakes" class="btn-secondary" hidden>Zorlandıklarımı çalış</button>
+            <div class="round-summary-actions">
+              <button type="button" id="btn-round-continue" class="btn-summary-primary">Yeni tura devam et</button>
+              <button type="button" id="btn-round-mistakes" class="btn-summary-secondary" hidden>Zorlandıklarımı çalış</button>
             </div>
           </div>
         </article>
@@ -334,10 +341,10 @@
         <div id="grammar-drill-panel" class="grammar-panel">
           <div class="grammar-toolbar">
             <div id="grammar-group-filters" class="dict-filters" role="group" aria-label="Fiil grubu filtresi">
-              <button type="button" class="filter-chip is-active" data-group="all">Tümü</button>
-              <button type="button" class="filter-chip" data-group="regular">Düzenli</button>
-              <button type="button" class="filter-chip" data-group="td">-t / -d (-e- kuralı)</button>
-              <button type="button" class="filter-chip" data-group="irregular">Düzensiz</button>
+              <button type="button" class="filter-chip is-active" data-group="all" aria-pressed="true">Tümü</button>
+              <button type="button" class="filter-chip" data-group="regular" aria-pressed="false">Düzenli</button>
+              <button type="button" class="filter-chip" data-group="td" aria-pressed="false">-t / -d (-e- kuralı)</button>
+              <button type="button" class="filter-chip" data-group="irregular" aria-pressed="false">Düzensiz</button>
             </div>
 
             <div id="grammar-mode-group" class="direction-group" role="group" aria-label="Alıştırma türü">
@@ -402,16 +409,6 @@
                   >
                 </div>
 
-                <div id="conj-umlaut-bar" class="umlaut-bar">
-                  <span class="umlaut-caption">Özel harfler</span>
-                  <div class="umlaut-keys">
-                    <button type="button" class="umlaut-btn conj-umlaut-btn" data-char="ä">ä</button>
-                    <button type="button" class="umlaut-btn conj-umlaut-btn" data-char="ö">ö</button>
-                    <button type="button" class="umlaut-btn conj-umlaut-btn" data-char="ü">ü</button>
-                    <button type="button" class="umlaut-btn conj-umlaut-btn" data-char="ß">ß</button>
-                  </div>
-                </div>
-
                 <p id="conj-input-guidance" class="input-guidance" hidden></p>
 
                 <div id="conj-typing-actions" class="card-actions">
@@ -457,7 +454,7 @@
 
         <div id="grammar-notes-panel" class="grammar-panel" hidden>
           <div class="grammar-notes-header">
-            <p class="grammar-notes-subtitle">Defter notların, Duden kurallarıyla düzenlenmiş ve seslendirmeli.</p>
+            <p class="grammar-notes-subtitle">Defter notlarınız, Duden kurallarıyla düzenlenmiş ve seslendirmeli.</p>
           </div>
           <div id="grammar-notes-list" class="grammar-notes-list"></div>
         </div>
@@ -465,7 +462,7 @@
 
       <section id="dictionary-view" class="view-section" aria-label="Kelime Sözlüğü" hidden>
         <div class="dict-header">
-          <h1 class="dict-title sr-only">Kelime Sözlüğü</h1>
+          <h1 class="dict-title">Kelime Sözlüğü</h1>
           <span id="dict-count" class="dict-count">0 kelime</span>
         </div>
 
@@ -488,22 +485,22 @@
 
         <div class="dict-filters-stack">
           <div class="dict-filters" role="group" aria-label="Tür ve liste filtreleri">
-            <button type="button" class="filter-chip is-active" data-filter="all">Tümü</button>
-            <button type="button" class="filter-chip" data-filter="noun">İsimler</button>
-            <button type="button" class="filter-chip" data-filter="phrase">Kalıp ve Fiiller</button>
-            <button type="button" class="filter-chip" data-filter="mistakes">Zorlandıklarım</button>
-            <button type="button" class="filter-chip" data-filter="unlearned">Kalanlar</button>
-            <button type="button" class="filter-chip filter-chip-with-badge" data-filter="hidden">
+            <button type="button" class="filter-chip is-active" data-filter="all" aria-pressed="true">Tümü</button>
+            <button type="button" class="filter-chip" data-filter="noun" aria-pressed="false">İsimler</button>
+            <button type="button" class="filter-chip" data-filter="phrase" aria-pressed="false">Kalıp ve Fiiller</button>
+            <button type="button" class="filter-chip" data-filter="mistakes" aria-pressed="false">Zorlandıklarım</button>
+            <button type="button" class="filter-chip" data-filter="unlearned" aria-pressed="false">Kalanlar</button>
+            <button type="button" class="filter-chip filter-chip-with-badge" data-filter="hidden" aria-pressed="false">
               <span>Gizlenenler</span>
               <span id="dict-hidden-badge" class="chip-count-badge" hidden>0</span>
             </button>
           </div>
           <div class="dict-filters" role="group" aria-label="Artikel filtreleri">
-            <button type="button" class="filter-chip" data-filter="der">der</button>
-            <button type="button" class="filter-chip" data-filter="die">die</button>
-            <button type="button" class="filter-chip" data-filter="das">das</button>
-            <button type="button" class="filter-chip" data-filter="nur Pl.">nur Pl.</button>
-            <button type="button" class="filter-chip" data-filter="nur Sg.">nur Sg.</button>
+            <button type="button" class="filter-chip" data-filter="der" aria-pressed="false">der</button>
+            <button type="button" class="filter-chip" data-filter="die" aria-pressed="false">die</button>
+            <button type="button" class="filter-chip" data-filter="das" aria-pressed="false">das</button>
+            <button type="button" class="filter-chip" data-filter="nur Pl." aria-pressed="false">nur Pl.</button>
+            <button type="button" class="filter-chip" data-filter="nur Sg." aria-pressed="false">nur Sg.</button>
           </div>
         </div>
 
@@ -552,7 +549,7 @@
 
         <div class="rhythm-section">
           <div class="section-head-row">
-            <h3 class="backup-heading">Son 42 gün ritmi</h3>
+            <h3 class="backup-heading">Son 42 günlük çalışma ritmi</h3>
             <span id="rhythm-active-days" class="srs-summary">0 aktif gün</span>
           </div>
           <div id="activity-heatmap" class="activity-heatmap" role="img" aria-label="Son 42 günlük çalışma ritmi"></div>
@@ -585,6 +582,15 @@
               <option value="20">20 kart / gün</option>
               <option value="30">30 kart / gün</option>
               <option value="50">50 kart / gün</option>
+            </select>
+          </div>
+          <div class="prefs-row">
+            <label for="round-size-select" class="pref-label">Tur özeti</label>
+            <select id="round-size-select" class="lesson-select pref-select">
+              <option value="off">Kapalı (Kesintisiz)</option>
+              <option value="10">Her 10 kartta bir</option>
+              <option value="20">Her 20 kartta bir</option>
+              <option value="goal">Günlük hedef dolunca</option>
             </select>
           </div>
           <label class="pref-check">
