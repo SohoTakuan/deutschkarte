@@ -7,10 +7,49 @@ const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const SYNC_TIMEOUT_MS = 20000;
 const MAX_GIST_BYTES = 1024 * 1024;
 const TOKEN_PATTERN = /^[\x21-\x7E]{20,256}$/;
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DAILY_HISTORY_RETENTION_DAYS = 60;
 
 function toNonNegativeInt(val) {
   const num = Number(val);
   return Number.isFinite(num) && num > 0 ? Math.floor(num) : 0;
+}
+
+function getLocalDateKeyOffset(daysAgo = 0) {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo);
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, "0");
+  const d = String(target.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function sanitizeDailyHistory(rawHistory) {
+  const clean = {};
+  if (!rawHistory || typeof rawHistory !== "object" || Array.isArray(rawHistory)) {
+    return clean;
+  }
+  const cutoff = getLocalDateKeyOffset(DAILY_HISTORY_RETENTION_DAYS - 1);
+  for (const [dateKey, countVal] of Object.entries(rawHistory)) {
+    if (!DATE_KEY_PATTERN.test(dateKey) || dateKey < cutoff) {
+      continue;
+    }
+    const count = toNonNegativeInt(countVal);
+    if (count > 0) {
+      clean[dateKey] = count;
+    }
+  }
+  return clean;
+}
+
+function mergeDailyHistory(localHist, remoteHist) {
+  const merged = sanitizeDailyHistory(localHist);
+  for (const [dateKey, count] of Object.entries(sanitizeDailyHistory(remoteHist))) {
+    if (count > (merged[dateKey] || 0)) {
+      merged[dateKey] = count;
+    }
+  }
+  return merged;
 }
 
 export function isValidTokenFormat(token) {
@@ -120,6 +159,7 @@ function pickSharedSnapshot(state) {
       streakDays: Number(state.daily?.streakDays) || 0,
       lastCompletedDate: state.daily?.lastCompletedDate || null
     },
+    dailyHistory: sanitizeDailyHistory(state.dailyHistory),
     cards: state.cards || {},
     mistakes: state.mistakes || {},
     mistakeClearedAt: state.mistakeClearedAt || {},
@@ -254,6 +294,7 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
         bestStreak: toNonNegativeInt(remoteState.progress?.bestStreak)
       },
       daily: normalizeDaily(remoteState.daily),
+      dailyHistory: sanitizeDailyHistory(remoteState.dailyHistory),
       cards: {},
       mistakes: {},
       mistakeClearedAt: {},
@@ -408,6 +449,17 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
     validWordIds
   );
 
+  const mergedDailyHistory = mergeDailyHistory(
+    localState.dailyHistory,
+    remoteState.dailyHistory
+  );
+  if (mergedDaily.date && mergedDaily.count > 0) {
+    mergedDailyHistory[mergedDaily.date] = Math.max(
+      mergedDailyHistory[mergedDaily.date] || 0,
+      mergedDaily.count
+    );
+  }
+
   const mergedState = {
     settings: mergedSettings,
     progress: {
@@ -416,6 +468,7 @@ export function mergeStates(localState, remoteState, validWordIds, normalizeDail
       bestStreak: mergedBestStreak
     },
     daily: mergedDaily,
+    dailyHistory: mergedDailyHistory,
     cards: mergedCards,
     mistakes: mergedMistakes,
     mistakeClearedAt: mergedClearedAt,
@@ -583,6 +636,7 @@ function buildRemotePayload(state) {
     },
     progress: state.progress,
     daily: state.daily,
+    dailyHistory: sanitizeDailyHistory(state.dailyHistory),
     cards: state.cards,
     mistakes: state.mistakes,
     mistakeClearedAt: state.mistakeClearedAt || {},

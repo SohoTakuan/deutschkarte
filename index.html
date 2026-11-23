@@ -80,6 +80,7 @@
             <button type="button" class="mode-btn" data-mode="choice">Şıklı</button>
             <button type="button" class="mode-btn" data-mode="typing">Yazmalı</button>
             <button type="button" class="mode-btn" data-mode="articles">Artikel</button>
+            <button type="button" class="mode-btn" data-mode="cloze">Boşluk</button>
             <button type="button" class="mode-btn mode-btn-wide" data-mode="mistakes">
               <span>Zorlandıklarım</span>
               <span id="mistakes-badge" class="count-badge" hidden>0</span>
@@ -111,6 +112,9 @@
 
         <article id="study-card" class="study-card" data-gender="neutral">
           <div class="card-accent-bar" aria-hidden="true"></div>
+          <div id="round-progress-track" class="round-progress-track" aria-hidden="true">
+            <div id="round-progress-fill" class="round-progress-fill"></div>
+          </div>
 
           <div id="card-active-body" class="card-body">
             <div class="card-meta">
@@ -305,6 +309,17 @@
               <button type="button" id="empty-switch-mixed" class="btn-primary">Karma moda geç</button>
               <button type="button" id="empty-all-lessons" class="btn-secondary" hidden>Tüm dersleri göster</button>
               <button type="button" id="empty-open-hidden" class="btn-primary" hidden>Gizlenenleri aç</button>
+            </div>
+          </div>
+
+          <div id="card-round-summary" class="card-round-summary" hidden>
+            <span class="round-summary-kicker">Tur tamamlandı</span>
+            <h2 id="round-summary-title" class="empty-title">10 kartlık tur bitti</h2>
+            <div id="round-summary-stats" class="round-summary-stats"></div>
+            <p id="round-summary-mastered" class="round-summary-mastered" hidden></p>
+            <div class="empty-actions">
+              <button type="button" id="btn-round-continue" class="btn-primary">Yeni tura devam et</button>
+              <button type="button" id="btn-round-mistakes" class="btn-secondary" hidden>Zorlandıklarımı çalış</button>
             </div>
           </div>
         </article>
@@ -533,6 +548,22 @@
           <span>Toplam cevap: <strong id="stat-total">0</strong></span>
           <span>En uzun seri: <strong id="stat-best-streak">0</strong></span>
           <span>Zorlandıklarım: <strong id="stat-mistakes">0</strong></span>
+        </div>
+
+        <div class="rhythm-section">
+          <div class="section-head-row">
+            <h3 class="backup-heading">Son 42 gün ritmi</h3>
+            <span id="rhythm-active-days" class="srs-summary">0 aktif gün</span>
+          </div>
+          <div id="activity-heatmap" class="activity-heatmap" role="img" aria-label="Son 42 günlük çalışma ritmi"></div>
+          <div class="rhythm-legend" aria-hidden="true">
+            <span class="rhythm-legend-label">Az</span>
+            <span class="heatmap-cell" data-level="0"></span>
+            <span class="heatmap-cell" data-level="1"></span>
+            <span class="heatmap-cell" data-level="2"></span>
+            <span class="heatmap-cell" data-level="3"></span>
+            <span class="rhythm-legend-label">Çok</span>
+          </div>
         </div>
 
         <div class="level-progress-section">

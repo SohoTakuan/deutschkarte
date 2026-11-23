@@ -542,6 +542,20 @@ button {
   background-color: var(--accent-sg);
 }
 
+.round-progress-track {
+  width: 100%;
+  height: 3px;
+  background-color: var(--desk-subtle);
+  overflow: hidden;
+}
+
+.round-progress-fill {
+  width: 0%;
+  height: 100%;
+  background-color: var(--accent-der);
+  transition: width 200ms ease;
+}
+
 .card-body {
   padding: 26px 30px 30px;
 }
@@ -614,6 +628,12 @@ button {
   line-height: 1.18;
   letter-spacing: -0.02em;
   color: var(--ink);
+}
+
+.prompt-title.is-cloze-prompt {
+  font-size: clamp(1.25rem, 2.8vw, 1.65rem);
+  line-height: 1.38;
+  letter-spacing: -0.015em;
 }
 
 .prompt-hint {
@@ -1235,6 +1255,49 @@ button {
   gap: 10px;
 }
 
+/* 10-Card Round Summary */
+
+.card-round-summary {
+  padding: 32px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.round-summary-kicker {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--accent-der);
+}
+
+.card-round-summary .empty-title {
+  margin: 0;
+}
+
+.round-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.round-summary-stat {
+  padding: 11px 13px;
+  background-color: var(--desk);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-control);
+}
+
+.round-summary-mastered {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-control);
+  background-color: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  color: var(--ok-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
 /* Dictionary View — Compact Ledger Architecture */
 
 .dict-header {
@@ -1748,6 +1811,85 @@ button {
 .stats-substrip strong {
   color: var(--ink);
   font-weight: 700;
+}
+
+/* 42-Day Activity Rhythm Heatmap */
+
+.rhythm-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.activity-heatmap {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.heatmap-cell {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background-color: var(--desk-subtle);
+  border: 1px solid var(--rule);
+}
+
+.heatmap-cell[data-level="1"] {
+  background-color: #C7DBFA;
+  border-color: rgba(30, 77, 183, 0.18);
+}
+
+.heatmap-cell[data-level="2"] {
+  background-color: #6B9CE8;
+  border-color: rgba(30, 77, 183, 0.25);
+}
+
+.heatmap-cell[data-level="3"] {
+  background-color: var(--accent-der);
+  border-color: var(--accent-der);
+}
+
+[data-theme="dark"] .heatmap-cell[data-level="1"] {
+  background-color: #1F3558;
+  border-color: rgba(120, 165, 248, 0.2);
+}
+
+[data-theme="dark"] .heatmap-cell[data-level="2"] {
+  background-color: #2E5CA8;
+  border-color: rgba(120, 165, 248, 0.35);
+}
+
+[data-theme="dark"] .heatmap-cell[data-level="3"] {
+  background-color: var(--accent-der);
+  border-color: var(--accent-der);
+}
+
+.heatmap-cell.is-today {
+  outline: 1.5px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.rhythm-legend {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 4px;
+}
+
+.rhythm-legend .heatmap-cell {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+}
+
+.rhythm-legend-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-muted);
 }
 
 .level-progress-section {
@@ -2777,8 +2919,13 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .stats-grid-3 {
+  .stats-grid-3,
+  .round-summary-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card-round-summary {
+    padding: 22px 16px;
   }
 
   .umlaut-bar {
@@ -2850,6 +2997,7 @@ button {
   .drill-btn,
   .level-bar-fill,
   .level-chevron,
+  .round-progress-fill,
   .ai-fab {
     transition: none;
   }

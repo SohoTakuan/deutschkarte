@@ -13,6 +13,7 @@ import {
 import {
   clearSyncConfig,
   loadSyncConfig,
+  sanitizeDailyHistory,
   saveSyncConfig,
   SyncHttpError,
   syncWithGitHubGist
@@ -21,12 +22,14 @@ import { initAiTutor } from "./ai-tutor.js";
 
 const STORAGE_KEY = "deutschkarte_state_v1";
 const THEME_STORAGE_KEY = "deutschkarte_theme";
-const VALID_MODES = ["mixed", "choice", "typing", "articles", "mistakes"];
+const VALID_MODES = ["mixed", "choice", "typing", "articles", "cloze", "mistakes"];
 const VALID_DIRECTIONS = ["tr-de", "de-tr"];
 const VALID_THEMES = ["light", "dark"];
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const SRS_INTERVAL_DAYS = { 1: 0, 2: 1, 3: 3, 4: 7, 5: 21 };
 const DAY_MS = 24 * 60 * 60 * 1000;
+const ROUND_SIZE = 10;
+const HEATMAP_DAYS = 42;
 const WORD_BY_ID = new Map(ALL_WORDS.map((word) => [word.id, word]));
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_IMPORT_BYTES = 1024 * 1024;
@@ -50,10 +53,14 @@ function getLocalDateKey(date = new Date()) {
   return `${y}-${m}-${d}`;
 }
 
-function getYesterdayDateKey() {
+function getOffsetDateKey(daysAgo = 0) {
   const now = new Date();
-  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  return getLocalDateKey(yesterday);
+  const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo);
+  return getLocalDateKey(target);
+}
+
+function getYesterdayDateKey() {
+  return getOffsetDateKey(1);
 }
 
 function normalizeDailyState(rawDaily) {
@@ -110,6 +117,7 @@ function createDefaultState() {
       bestStreak: 0
     },
     daily: normalizeDailyState(null),
+    dailyHistory: {},
     cards: {},
     mistakes: {},
     mistakeClearedAt: {},
@@ -226,10 +234,20 @@ function loadState() {
       parsed.hiddenRestoredAt
     );
 
+    const normalizedDaily = normalizeDailyState(parsed.daily);
+    const dailyHistory = sanitizeDailyHistory(parsed.dailyHistory);
+    if (normalizedDaily.count > 0) {
+      dailyHistory[normalizedDaily.date] = Math.max(
+        dailyHistory[normalizedDaily.date] || 0,
+        normalizedDaily.count
+      );
+    }
+
     return {
       settings: { mode, lesson, direction, dailyGoal, autoSpeak, keepAiOpen },
       progress: { totalAnswered, totalCorrect, bestStreak },
-      daily: normalizeDailyState(parsed.daily),
+      daily: normalizedDaily,
+      dailyHistory,
       cards: sanitizeCards(parsed.cards),
       mistakes: sanitizeMistakes(parsed.mistakes),
       mistakeClearedAt: sanitizeClearedAt(parsed.mistakeClearedAt),
@@ -267,7 +285,12 @@ const runtime = {
   sessionAnswered: 0,
   sessionCorrect: 0,
   sessionStreak: 0,
+  roundAnswered: 0,
+  roundCorrect: 0,
+  roundMastered: 0,
+  showingRoundSummary: false,
   currentWord: null,
+  currentCloze: null,
   currentQuestionType: "typing",
   currentDirection: "tr-de",
   currentOptions: [],
@@ -354,8 +377,16 @@ const els = {
   resetSession: document.getElementById("reset-session"),
 
   studyCard: document.getElementById("study-card"),
+  roundProgressTrack: document.getElementById("round-progress-track"),
+  roundProgressFill: document.getElementById("round-progress-fill"),
   cardActiveBody: document.getElementById("card-active-body"),
   cardEmptyState: document.getElementById("card-empty-state"),
+  cardRoundSummary: document.getElementById("card-round-summary"),
+  roundSummaryTitle: document.getElementById("round-summary-title"),
+  roundSummaryStats: document.getElementById("round-summary-stats"),
+  roundSummaryMastered: document.getElementById("round-summary-mastered"),
+  btnRoundContinue: document.getElementById("btn-round-continue"),
+  btnRoundMistakes: document.getElementById("btn-round-mistakes"),
   emptyTitle: document.getElementById("empty-title"),
   emptyDesc: document.getElementById("empty-desc"),
   emptySwitchMixed: document.getElementById("empty-switch-mixed"),
@@ -437,6 +468,8 @@ const els = {
   statAccuracy: document.getElementById("stat-accuracy"),
   statBestStreak: document.getElementById("stat-best-streak"),
   statMistakes: document.getElementById("stat-mistakes"),
+  activityHeatmap: document.getElementById("activity-heatmap"),
+  rhythmActiveDays: document.getElementById("rhythm-active-days"),
   srsSummary: document.getElementById("srs-summary"),
   levelProgressList: document.getElementById("level-progress-list"),
   dailyGoalSelect: document.getElementById("daily-goal-select"),
@@ -812,13 +845,15 @@ function updateTopControls() {
     btn.classList.toggle("is-active", btn.dataset.mode === appState.settings.mode);
   }
 
-  const isArticlesMode = appState.settings.mode === "articles";
-  els.directionGroup.classList.toggle("is-locked", isArticlesMode);
+  const isDirectionLocked =
+    appState.settings.mode === "articles" ||
+    appState.settings.mode === "cloze";
+  els.directionGroup.classList.toggle("is-locked", isDirectionLocked);
   for (const btn of els.dirBtns) {
     const isActive = btn.dataset.dir === appState.settings.direction;
     btn.classList.toggle("is-active", isActive);
     btn.setAttribute("aria-pressed", String(isActive));
-    btn.disabled = isArticlesMode;
+    btn.disabled = isDirectionLocked;
   }
 
   const scopedWords = getWordsForLesson(appState.settings.lesson).filter(
@@ -839,6 +874,56 @@ function updateTopControls() {
 
 /* Pool & Leitner Weighted Scheduling */
 
+function escapeRegex(str) {
+  return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripSentencePunct(str) {
+  return normalizeApostrophes(collapseSpaces(str))
+    .replace(/[.!?]+$/g, "")
+    .trim();
+}
+
+function buildClozeForWord(word) {
+  const fullSentence = word?.example?.de;
+  if (!fullSentence) {
+    return null;
+  }
+
+  const rawCandidates =
+    word.category === "noun"
+      ? [...toArray(word.singular), ...toArray(word.plural)]
+      : [word.de, ...toArray(word.alt)];
+
+  const cleanCandidates = [...new Set(rawCandidates.map(stripSentencePunct).filter(Boolean))]
+    .sort((a, b) => b.length - a.length);
+
+  for (const cand of cleanCandidates) {
+    const rx = new RegExp(
+      `(?<![\\p{L}\\p{N}_])${escapeRegex(cand)}(?![\\p{L}\\p{N}_])`,
+      "iu"
+    );
+    const match = fullSentence.match(rx);
+    if (match && typeof match.index === "number") {
+      const target = match[0];
+      const blank = "_____";
+      const maskedSentence =
+        fullSentence.slice(0, match.index) +
+        blank +
+        fullSentence.slice(match.index + target.length);
+      return {
+        maskedSentence,
+        target,
+        isSentenceStart: match.index === 0,
+        trCue: word.example.tr || word.tr,
+        fullSentence
+      };
+    }
+  }
+
+  return null;
+}
+
 function getActiveStudyPool() {
   const lessonWords = getWordsForLesson(appState.settings.lesson).filter(
     (word) => !isWordHidden(word.id)
@@ -848,6 +933,9 @@ function getActiveStudyPool() {
   }
   if (appState.settings.mode === "articles") {
     return lessonWords.filter((word) => word.category === "noun");
+  }
+  if (appState.settings.mode === "cloze") {
+    return lessonWords.filter((word) => Boolean(buildClozeForWord(word)));
   }
   return lessonWords;
 }
@@ -893,14 +981,20 @@ function pickNextWord(pool) {
   return weightedList[weightedList.length - 1];
 }
 
-function decideQuestionType() {
+function decideQuestionType(word) {
   if (appState.settings.mode === "articles") {
     return "articles";
+  }
+  if (appState.settings.mode === "cloze") {
+    return "cloze";
   }
   if (appState.settings.mode === "choice") {
     return "choice";
   }
   if (appState.settings.mode === "typing") {
+    return "typing";
+  }
+  if ((appState.cards[word?.id]?.box || 1) >= 3) {
     return "typing";
   }
   return Math.random() < 0.45 ? "choice" : "typing";
@@ -1077,9 +1171,146 @@ function buildChoiceOptions(word, direction) {
   return shuffleArray(options.slice(0, 4));
 }
 
-/* Card Rendering */
+/* Card Rendering & Round Progress */
+
+function updateRoundProgressBar() {
+  if (!els.roundProgressFill) {
+    return;
+  }
+  const pct = Math.min(
+    100,
+    Math.round((runtime.roundAnswered / ROUND_SIZE) * 100)
+  );
+  els.roundProgressFill.style.width = `${pct}%`;
+}
+
+function getScopedMistakeCount(lesson = appState.settings.lesson) {
+  return getWordsForLesson(lesson).filter(
+    (word) => !isWordHidden(word.id) && Boolean(appState.mistakes[word.id])
+  ).length;
+}
+
+function resetRoundTracker() {
+  runtime.roundAnswered = 0;
+  runtime.roundCorrect = 0;
+  runtime.roundMastered = 0;
+  runtime.showingRoundSummary = false;
+  if (els.cardRoundSummary) {
+    els.cardRoundSummary.hidden = true;
+  }
+  if (els.btnNext) {
+    els.btnNext.textContent = "Sonraki kart";
+  }
+  updateRoundProgressBar();
+}
+
+function showRoundSummary() {
+  runtime.showingRoundSummary = true;
+  els.cardActiveBody.hidden = true;
+  els.cardEmptyState.hidden = true;
+  if (els.roundProgressTrack) {
+    els.roundProgressTrack.hidden = false;
+  }
+  updateRoundProgressBar();
+
+  els.studyCard.dataset.gender = "resolved";
+  els.studyCard.classList.remove("is-advancing");
+  void els.studyCard.offsetWidth;
+  els.studyCard.classList.add("is-advancing");
+
+  if (els.roundSummaryTitle) {
+    els.roundSummaryTitle.textContent = `${ROUND_SIZE} kartlık tur tamamlandı`;
+  }
+
+  if (els.roundSummaryStats) {
+    els.roundSummaryStats.innerHTML = "";
+    const accuracy =
+      runtime.roundAnswered > 0
+        ? Math.round((runtime.roundCorrect / runtime.roundAnswered) * 100)
+        : 0;
+    const summaryItems = [
+      { label: "Bu tur doğru", value: `${runtime.roundCorrect} / ${runtime.roundAnswered}` },
+      { label: "Tur doğruluğu", value: `%${accuracy}` },
+      { label: "Günlük hedef", value: `${appState.daily.count} / ${appState.settings.dailyGoal}` }
+    ];
+    for (const item of summaryItems) {
+      const box = document.createElement("div");
+      box.className = "round-summary-stat";
+
+      const labelEl = document.createElement("span");
+      labelEl.className = "stat-label";
+      labelEl.textContent = item.label;
+
+      const valueEl = document.createElement("strong");
+      valueEl.className = "stat-value";
+      valueEl.textContent = item.value;
+
+      box.appendChild(labelEl);
+      box.appendChild(valueEl);
+      els.roundSummaryStats.appendChild(box);
+    }
+  }
+
+  if (els.roundSummaryMastered) {
+    if (runtime.roundMastered > 0) {
+      els.roundSummaryMastered.textContent = `Bu turda ${runtime.roundMastered} kelime "Öğrenildi" seviyesine geçti.`;
+      els.roundSummaryMastered.hidden = false;
+    } else {
+      els.roundSummaryMastered.hidden = true;
+      els.roundSummaryMastered.textContent = "";
+    }
+  }
+
+  if (els.btnRoundMistakes) {
+    const scopedMistakeCount = getScopedMistakeCount();
+    els.btnRoundMistakes.hidden =
+      scopedMistakeCount === 0 || appState.settings.mode === "mistakes";
+  }
+
+  if (els.cardRoundSummary) {
+    els.cardRoundSummary.hidden = false;
+  }
+
+  announce("10 kartlık tur tamamlandı.");
+  aiTutor?.refreshContext();
+
+  if (!els.backupDialog.open && runtime.activeTab === "study") {
+    window.setTimeout(() => {
+      if (!els.backupDialog.open && runtime.activeTab === "study") {
+        els.btnRoundContinue?.focus();
+      }
+    }, 10);
+  }
+}
+
+function continueFromRoundSummary() {
+  resetRoundTracker();
+  maybeAutoCloseAi();
+  showNextCard();
+}
+
+function advanceAfterAnswer() {
+  if (runtime.roundAnswered >= ROUND_SIZE) {
+    showRoundSummary();
+    return;
+  }
+  maybeAutoCloseAi();
+  showNextCard();
+}
 
 function showNextCard() {
+  if (runtime.roundAnswered >= ROUND_SIZE) {
+    resetRoundTracker();
+  } else {
+    runtime.showingRoundSummary = false;
+    if (els.cardRoundSummary) {
+      els.cardRoundSummary.hidden = true;
+    }
+    if (els.btnNext) {
+      els.btnNext.textContent = "Sonraki kart";
+    }
+    updateRoundProgressBar();
+  }
   const pool = getActiveStudyPool();
   updateTopControls();
 
@@ -1088,6 +1319,11 @@ function showNextCard() {
     const hiddenInLesson = lessonAllWords.filter((w) => isWordHidden(w.id)).length;
 
     runtime.currentWord = null;
+    runtime.currentCloze = null;
+    els.promptTr.classList.remove("is-cloze-prompt");
+    if (els.roundProgressTrack) {
+      els.roundProgressTrack.hidden = true;
+    }
     els.cardActiveBody.hidden = true;
     els.cardEmptyState.hidden = false;
     els.studyCard.dataset.gender = "neutral";
@@ -1112,6 +1348,17 @@ function showNextCard() {
       els.emptySwitchMixed.hidden = false;
       els.emptyAllLessons.hidden = appState.settings.lesson === "all";
       els.emptyOpenHidden.hidden = !hasAnyNounInLesson;
+    } else if (appState.settings.mode === "cloze") {
+      const hasAnyClozeInLesson = lessonAllWords.some((w) =>
+        Boolean(buildClozeForWord(w))
+      );
+      els.emptyTitle.textContent = "Boşluk sorusu bulunamadı";
+      els.emptyDesc.textContent = hasAnyClozeInLesson
+        ? "Bu dersteki uygun kelimeler gizlenmiş. Gizlenenler bölümünden tekrar çalışmaya alabilirsiniz."
+        : "Bu derste cümle içi boşluk doldurma için uygun örnek bulunamadı.";
+      els.emptySwitchMixed.hidden = false;
+      els.emptyAllLessons.hidden = appState.settings.lesson === "all";
+      els.emptyOpenHidden.hidden = !hasAnyClozeInLesson;
     } else if (hiddenInLesson > 0 && hiddenInLesson === lessonAllWords.length) {
       els.emptyTitle.textContent =
         appState.settings.lesson === "all"
@@ -1131,15 +1378,24 @@ function showNextCard() {
     return;
   }
 
+  if (els.roundProgressTrack) {
+    els.roundProgressTrack.hidden = false;
+  }
   els.cardEmptyState.hidden = true;
   els.cardActiveBody.hidden = false;
 
   const word = pickNextWord(pool);
-  const questionType = decideQuestionType();
+  const questionType = decideQuestionType(word);
+  const clozeData = questionType === "cloze" ? buildClozeForWord(word) : null;
   const direction =
-    questionType === "articles" ? "de-tr" : appState.settings.direction;
+    questionType === "articles"
+      ? "de-tr"
+      : questionType === "cloze"
+        ? "tr-de"
+        : appState.settings.direction;
 
   runtime.currentWord = word;
+  runtime.currentCloze = clozeData;
   runtime.lastWordId = word.id;
   runtime.answered = false;
   runtime.selectedArticle = null;
@@ -1153,11 +1409,19 @@ function showNextCard() {
   els.studyCard.classList.add("is-advancing");
 
   els.cardLessonLabel.textContent = `${word.level}, ${word.lesson}`;
-  els.cardKindLabel.textContent = getKindLabel(word);
+  els.cardKindLabel.textContent =
+    questionType === "cloze" ? "Cümle İçi Boşluk" : getKindLabel(word);
+  els.promptTr.classList.toggle("is-cloze-prompt", questionType === "cloze");
 
   const speechReady = isSpeechSupported();
 
-  if (questionType === "articles") {
+  if (questionType === "cloze" && clozeData) {
+    els.studyCard.dataset.gender = "neutral";
+    els.promptTr.textContent = clozeData.maskedSentence;
+    els.promptHint.textContent = clozeData.trCue;
+    els.promptHint.hidden = !clozeData.trCue;
+    els.btnSpeakPrompt.hidden = true;
+  } else if (questionType === "articles") {
     els.studyCard.dataset.gender = "neutral";
     els.promptTr.textContent = getSpokenGermanForWord(word, false);
     els.promptHint.textContent = word.tr;
@@ -1193,7 +1457,9 @@ function showNextCard() {
   els.inputGuidance.hidden = true;
   els.inputGuidance.textContent = "";
 
-  if (questionType === "articles") {
+  if (questionType === "cloze") {
+    renderClozeView();
+  } else if (questionType === "articles") {
     renderArticleDrillView();
   } else if (questionType === "choice") {
     renderChoiceView();
@@ -1201,6 +1467,30 @@ function showNextCard() {
     renderTypingView(word, direction);
   }
   aiTutor?.refreshContext();
+}
+
+function renderClozeView() {
+  els.choiceArea.hidden = true;
+  els.articleDrillArea.hidden = true;
+  els.typingArea.hidden = false;
+  els.typingActions.hidden = false;
+  els.nounFields.hidden = true;
+  els.phraseFields.hidden = false;
+  els.umlautBar.hidden = false;
+
+  els.inputPhrase.value = "";
+  els.inputPhrase.disabled = false;
+  els.inputPhraseLabel.textContent = "Boşluğa gelecek Almanca kelime / ifade";
+  els.inputPhrase.placeholder = "Eksik kelimeyi yazın";
+  runtime.lastFocusedInput = els.inputPhrase;
+
+  if (!els.backupDialog.open && runtime.activeTab === "study") {
+    window.setTimeout(() => {
+      if (!els.backupDialog.open && runtime.activeTab === "study") {
+        els.inputPhrase.focus();
+      }
+    }, 10);
+  }
 }
 
 function renderChoiceView() {
@@ -1640,6 +1930,49 @@ function evaluateTurkishAnswer(rawInput, word) {
   return { ok: accepted.has(candidate) };
 }
 
+function evaluateClozeAnswer(rawInput, target, word, isSentenceStart = false) {
+  const candidate = stripSentencePunct(rawInput);
+  const cleanTarget = stripSentencePunct(target);
+  if (!candidate || !cleanTarget) {
+    return { ok: false, caseTip: null, eszettTip: false, umlautTip: false };
+  }
+
+  if (candidate === cleanTarget) {
+    return { ok: true, caseTip: null, eszettTip: false, umlautTip: false };
+  }
+
+  if (candidate.toLowerCase() === cleanTarget.toLowerCase()) {
+    let caseTip = null;
+    if (word.category === "noun") {
+      const cap = checkNounCapitalization(candidate, cleanTarget);
+      if (cap.hasLowercaseIssue) {
+        caseTip = "İpucu: Almanca isimler büyük harfle başlar.";
+      } else if (cap.isAllCaps) {
+        caseTip = "İpucu: Yalnızca kelimenin baş harfini büyük yazın.";
+      }
+    } else if (
+      isSentenceStart &&
+      cleanTarget[0] !== cleanTarget[0].toLowerCase() &&
+      candidate[0] === cleanTarget[0].toLowerCase()
+    ) {
+      caseTip = /\bSie\b/.test(word.de || "")
+        ? "İpucu: Resmi hitapta \"Sie\" zamiri daima büyük harfle yazılır."
+        : "İpucu: Cümle başı büyük harfle başlar.";
+    } else {
+      caseTip = classifyPhraseCaseTip(candidate, cleanTarget, word);
+    }
+    return { ok: true, caseTip, eszettTip: false, umlautTip: false };
+  }
+
+  const charTips = detectSpecialCharTips(candidate, [cleanTarget]);
+  return {
+    ok: false,
+    caseTip: null,
+    eszettTip: charTips.needsEszett,
+    umlautTip: charTips.needsEszett ? false : charTips.needsUmlaut
+  };
+}
+
 /* Submission Handlers */
 
 function handleTypingSubmit() {
@@ -1649,6 +1982,40 @@ function handleTypingSubmit() {
 
   const word = runtime.currentWord;
   els.inputGuidance.hidden = true;
+
+  if (runtime.currentQuestionType === "cloze" && runtime.currentCloze) {
+    const raw = collapseSpaces(els.inputPhrase.value);
+    if (!raw) {
+      els.inputGuidance.textContent =
+        "Boşluğa gelecek kelimeyi yazın veya \"Kartı atla\" ile sıradaki karta geçin.";
+      els.inputGuidance.hidden = false;
+      els.inputPhrase.focus();
+      return;
+    }
+
+    const res = evaluateClozeAnswer(
+      raw,
+      runtime.currentCloze.target,
+      word,
+      runtime.currentCloze.isSentenceStart
+    );
+    const tips = [];
+    if (res.caseTip) {
+      tips.push(res.caseTip);
+    }
+    if (res.eszettTip) {
+      tips.push("İpucu: Bu kelimede \"ss\" yerine \"ß\" harfi kullanılır.");
+    }
+    if (res.umlautTip) {
+      tips.push("İpucu: Umlaut ve aksan işaretlerine dikkat edin (ä, ö, ü, é).");
+    }
+
+    finalizeTurn(word, res.ok, {
+      clozeTarget: runtime.currentCloze.target,
+      tip: tips.join(" ")
+    });
+    return;
+  }
 
   if (runtime.currentDirection === "de-tr") {
     const raw = collapseSpaces(els.inputPhrase.value);
@@ -1858,7 +2225,7 @@ function handleArticleDrillSelect(index) {
   finalizeTurn(word, isCorrect, {});
 }
 
-function recordCardReview(wordId, isCorrect) {
+function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
   const now = Date.now();
   const prev = appState.cards[wordId] || {
     box: 1,
@@ -1868,7 +2235,16 @@ function recordCardReview(wordId, isCorrect) {
     nextReviewAt: 0
   };
 
-  const nextBox = isCorrect ? Math.min(5, prev.box + 1) : 1;
+  let nextBox = 1;
+  let heldAtBox3 = false;
+  if (isCorrect) {
+    if (prev.box === 3 && !isProduction) {
+      nextBox = 3;
+      heldAtBox3 = true;
+    } else {
+      nextBox = Math.min(5, prev.box + 1);
+    }
+  }
   const intervalDays = SRS_INTERVAL_DAYS[nextBox] ?? 0;
 
   appState.cards[wordId] = {
@@ -1884,6 +2260,12 @@ function recordCardReview(wordId, isCorrect) {
 
   const today = getLocalDateKey();
   const yesterday = getYesterdayDateKey();
+  appState.dailyHistory = sanitizeDailyHistory(appState.dailyHistory);
+  appState.dailyHistory[today] = Math.max(
+    (appState.dailyHistory[today] || 0) + 1,
+    appState.daily.count
+  );
+
   if (
     appState.daily.count >= appState.settings.dailyGoal &&
     appState.daily.lastCompletedDate !== today
@@ -1894,15 +2276,24 @@ function recordCardReview(wordId, isCorrect) {
         : 1;
     appState.daily.lastCompletedDate = today;
   }
+
+  return {
+    prevBox: prev.box,
+    nextBox,
+    heldAtBox3,
+    graduatedToLearned: isCorrect && prev.box < 4 && nextBox >= 4
+  };
 }
 
 function finalizeTurn(word, isCorrect, details) {
   runtime.answered = true;
   runtime.sessionAnswered += 1;
+  runtime.roundAnswered += 1;
   appState.progress.totalAnswered += 1;
 
   if (isCorrect) {
     runtime.sessionCorrect += 1;
+    runtime.roundCorrect += 1;
     runtime.sessionStreak += 1;
     appState.progress.totalCorrect += 1;
     if (runtime.sessionStreak > appState.progress.bestStreak) {
@@ -1912,7 +2303,22 @@ function finalizeTurn(word, isCorrect, details) {
     runtime.sessionStreak = 0;
   }
 
-  recordCardReview(word.id, isCorrect);
+  const isProduction =
+    runtime.currentQuestionType === "typing" ||
+    runtime.currentQuestionType === "cloze";
+  const reviewResult = recordCardReview(word.id, isCorrect, { isProduction });
+  if (reviewResult.graduatedToLearned) {
+    runtime.roundMastered += 1;
+  }
+
+  const finalDetails = { ...details };
+  if (reviewResult.heldAtBox3) {
+    const gateTip =
+      "Bu kelime \"Öğrenildi\" seviyesine geçmek için Yazmalı veya Boşluk modunda en az bir kez doğru yazılmalıdır.";
+    finalDetails.tip = finalDetails.tip
+      ? `${finalDetails.tip} ${gateTip}`
+      : gateTip;
+  }
 
   let mistakeStatusText = "";
   const existingMistake = appState.mistakes[word.id];
@@ -1945,8 +2351,12 @@ function finalizeTurn(word, isCorrect, details) {
 
   saveState({ sync: true });
   updateTopControls();
+  updateRoundProgressBar();
 
-  if (runtime.currentQuestionType === "typing") {
+  if (
+    runtime.currentQuestionType === "typing" ||
+    runtime.currentQuestionType === "cloze"
+  ) {
     for (const btn of els.articleBtns) {
       btn.disabled = true;
     }
@@ -1967,7 +2377,12 @@ function finalizeTurn(word, isCorrect, details) {
     els.studyCard.dataset.gender = "resolved";
   }
 
-  renderFeedback(word, isCorrect, details, mistakeStatusText);
+  if (els.btnNext) {
+    els.btnNext.textContent =
+      runtime.roundAnswered >= ROUND_SIZE ? "Tur özetini gör" : "Sonraki kart";
+  }
+
+  renderFeedback(word, isCorrect, finalDetails, mistakeStatusText);
   if (appState.settings.autoSpeak) {
     speakGerman(getSpokenGermanForWord(word, true));
   }
@@ -1981,7 +2396,14 @@ function renderFeedback(word, isCorrect, details, mistakeStatusText) {
   els.feedbackArea.hidden = false;
   els.feedbackBanner.className = `feedback-banner ${isCorrect ? "is-correct" : "is-wrong"}`;
 
-  if (runtime.currentDirection === "de-tr" && runtime.currentQuestionType !== "articles") {
+  if (runtime.currentQuestionType === "cloze" && details.clozeTarget) {
+    els.feedbackBanner.textContent = isCorrect
+      ? `Doğru: ${details.clozeTarget}`
+      : `Yanlış. Doğru cevap: ${details.clozeTarget}`;
+  } else if (
+    runtime.currentDirection === "de-tr" &&
+    runtime.currentQuestionType !== "articles"
+  ) {
     els.feedbackBanner.textContent = isCorrect
       ? `Doğru: ${word.tr}`
       : `Yanlış. Doğru cevap: ${word.tr}`;
@@ -2081,9 +2503,12 @@ function renderFeedback(word, isCorrect, details, mistakeStatusText) {
 /* Umlaut Insertion */
 
 function insertSpecialChar(char) {
+  const isTextEntryMode =
+    runtime.currentQuestionType === "typing" ||
+    runtime.currentQuestionType === "cloze";
   if (
     runtime.answered ||
-    runtime.currentQuestionType !== "typing" ||
+    !isTextEntryMode ||
     runtime.currentDirection === "de-tr"
   ) {
     return;
@@ -2428,6 +2853,53 @@ function switchBackupModalTab(tabName) {
   if (els.modalPanelSettings) els.modalPanelSettings.hidden = showProgress;
 }
 
+function renderActivityHeatmap() {
+  if (!els.activityHeatmap) {
+    return;
+  }
+  els.activityHeatmap.innerHTML = "";
+  const goal = appState.settings.dailyGoal || 20;
+  const halfGoal = Math.max(1, Math.ceil(goal * 0.5));
+  const history = appState.dailyHistory || {};
+  let activeDays = 0;
+
+  const fragment = document.createDocumentFragment();
+  for (let daysAgo = HEATMAP_DAYS - 1; daysAgo >= 0; daysAgo -= 1) {
+    const dateKey = getOffsetDateKey(daysAgo);
+    const rawCount = toNonNegativeInt(history[dateKey]);
+    const count =
+      daysAgo === 0 ? Math.max(rawCount, appState.daily.count) : rawCount;
+
+    if (count > 0) {
+      activeDays += 1;
+    }
+
+    let level = "0";
+    if (count >= goal) {
+      level = "3";
+    } else if (count >= halfGoal) {
+      level = "2";
+    } else if (count > 0) {
+      level = "1";
+    }
+
+    const cell = document.createElement("span");
+    cell.className = daysAgo === 0 ? "heatmap-cell is-today" : "heatmap-cell";
+    cell.dataset.level = level;
+    cell.title = `${dateKey}: ${count} kart`;
+    fragment.appendChild(cell);
+  }
+
+  els.activityHeatmap.appendChild(fragment);
+  els.activityHeatmap.setAttribute(
+    "aria-label",
+    `Son ${HEATMAP_DAYS} günlük çalışma ritmi: ${activeDays} aktif gün`
+  );
+  if (els.rhythmActiveDays) {
+    els.rhythmActiveDays.textContent = `${activeDays} aktif gün`;
+  }
+}
+
 function refreshBackupModal() {
   appState.daily = normalizeDailyState(appState.daily);
   const { totalAnswered, totalCorrect, bestStreak } = appState.progress;
@@ -2442,6 +2914,7 @@ function refreshBackupModal() {
   els.statAccuracy.textContent = `%${accuracy}`;
   els.statBestStreak.textContent = String(bestStreak);
   els.statMistakes.textContent = String(getActiveMistakeCount());
+  renderActivityHeatmap();
 
   els.dailyGoalSelect.value = String(appState.settings.dailyGoal);
   els.autoSpeakToggle.checked = Boolean(appState.settings.autoSpeak);
@@ -2799,6 +3272,7 @@ function exportBackupJson() {
     },
     progress: appState.progress,
     daily: appState.daily,
+    dailyHistory: sanitizeDailyHistory(appState.dailyHistory),
     cards: appState.cards,
     mistakes: appState.mistakes,
     mistakeClearedAt: appState.mistakeClearedAt,
@@ -2861,6 +3335,15 @@ async function importBackupJson(file) {
     const bestStreak = toNonNegativeInt(parsed.progress.bestStreak);
     const rawGoal = Number(parsed.settings?.dailyGoal);
 
+    const importedDaily = normalizeDailyState(parsed.daily);
+    const importedHistory = sanitizeDailyHistory(parsed.dailyHistory);
+    if (importedDaily.count > 0) {
+      importedHistory[importedDaily.date] = Math.max(
+        importedHistory[importedDaily.date] || 0,
+        importedDaily.count
+      );
+    }
+
     appState = {
       settings: {
         mode: VALID_MODES.includes(parsed.settings?.mode)
@@ -2882,7 +3365,8 @@ async function importBackupJson(file) {
             : Boolean(appState.settings.keepAiOpen)
       },
       progress: { totalAnswered, totalCorrect, bestStreak },
-      daily: normalizeDailyState(parsed.daily),
+      daily: importedDaily,
+      dailyHistory: importedHistory,
       cards: cleanCards,
       mistakes: cleanMistakes,
       mistakeClearedAt: sanitizeClearedAt(parsed.mistakeClearedAt),
@@ -3690,7 +4174,10 @@ function bindEvents() {
 
   for (const btn of els.dirBtns) {
     btn.addEventListener("click", () => {
-      if (appState.settings.mode === "articles") {
+      if (
+        appState.settings.mode === "articles" ||
+        appState.settings.mode === "cloze"
+      ) {
         return;
       }
       appState.settings.direction = btn.dataset.dir;
@@ -3709,8 +4196,21 @@ function bindEvents() {
     runtime.sessionAnswered = 0;
     runtime.sessionCorrect = 0;
     runtime.sessionStreak = 0;
+    resetRoundTracker();
     updateTopControls();
+    if (runtime.showingRoundSummary || els.cardActiveBody.hidden) {
+      showNextCard();
+    }
     announce("Oturum sayacı sıfırlandı.");
+  });
+
+  els.btnRoundContinue?.addEventListener("click", continueFromRoundSummary);
+  els.btnRoundMistakes?.addEventListener("click", () => {
+    resetRoundTracker();
+    appState.settings.mode = "mistakes";
+    saveState({ sync: false, preserveTimestamp: true });
+    maybeAutoCloseAi();
+    showNextCard();
   });
 
   els.emptySwitchMixed?.addEventListener("click", () => {
@@ -3807,10 +4307,7 @@ function bindEvents() {
     maybeAutoCloseAi();
     showNextCard();
   });
-  els.btnNext?.addEventListener("click", () => {
-    maybeAutoCloseAi();
-    showNextCard();
-  });
+  els.btnNext?.addEventListener("click", advanceAfterAnswer);
 
   els.btnSpeakPrompt?.addEventListener("click", () => {
     if (!runtime.currentWord) {
@@ -3982,6 +4479,7 @@ function bindEvents() {
     runtime.sessionAnswered = 0;
     runtime.sessionCorrect = 0;
     runtime.sessionStreak = 0;
+    resetRoundTracker();
     hideUndoToast();
     saveState({ sync: true, preserveTimestamp: true });
     if (VALID_THEMES.includes(keptTheme)) {
@@ -4120,6 +4618,14 @@ function bindEvents() {
       if (targetTag === "SELECT") {
         return;
       }
+      if (runtime.showingRoundSummary) {
+        if (targetTag === "BUTTON" && e.target !== els.btnRoundContinue) {
+          return;
+        }
+        e.preventDefault();
+        continueFromRoundSummary();
+        return;
+      }
       if (
         targetTag === "BUTTON" &&
         e.target !== els.btnNext &&
@@ -4129,9 +4635,11 @@ function bindEvents() {
       }
       e.preventDefault();
       if (runtime.answered) {
-        maybeAutoCloseAi();
-        showNextCard();
-      } else if (runtime.currentQuestionType === "typing") {
+        advanceAfterAnswer();
+      } else if (
+        runtime.currentQuestionType === "typing" ||
+        runtime.currentQuestionType === "cloze"
+      ) {
         handleTypingSubmit();
       }
     }
@@ -4243,6 +4751,15 @@ function buildAiScreenContext() {
   }
 
   const word = runtime.currentWord;
+  if (runtime.showingRoundSummary) {
+    return {
+      tab: "study",
+      subTab: "study",
+      answered: true,
+      label: "Çalış · Tur Özeti",
+      summary: `Sekme: Çalış (${ROUND_SIZE} kartlık tur tamamlandı · Doğru: ${runtime.roundCorrect}/${runtime.roundAnswered})`
+    };
+  }
   if (!word) {
     return {
       tab: "study",
@@ -4256,15 +4773,19 @@ function buildAiScreenContext() {
   const dirLabel =
     runtime.currentQuestionType === "articles"
       ? "Artikel Pratiği"
-      : runtime.currentDirection === "de-tr"
-        ? "DE -> TR"
-        : "TR -> DE";
+      : runtime.currentQuestionType === "cloze"
+        ? "Cümle İçi Boşluk"
+        : runtime.currentDirection === "de-tr"
+          ? "DE -> TR"
+          : "TR -> DE";
   const qLabel =
     runtime.currentQuestionType === "articles"
       ? "Artikel seçimi"
-      : runtime.currentQuestionType === "choice"
-        ? "Çoktan seçmeli"
-        : "Yazmalı";
+      : runtime.currentQuestionType === "cloze"
+        ? "Boşluk doldurma (Cloze)"
+        : runtime.currentQuestionType === "choice"
+          ? "Çoktan seçmeli"
+          : "Yazmalı";
   const promptText = els.promptTr?.textContent?.trim() || word.tr;
   const solutionText =
     word.category === "noun" ? formatNounSummary(word) : word.de;
@@ -4275,7 +4796,11 @@ function buildAiScreenContext() {
     `Ekrandaki soru: ${promptText}`,
     `Cevaplandı: ${runtime.answered ? "Evet" : "Hayır"}`
   ];
-  if (word.hint) lines.push(`İpucu: ${word.hint}`);
+  if (runtime.currentQuestionType === "cloze" && runtime.currentCloze) {
+    lines.push(`Türkçe cümle ipucu: ${runtime.currentCloze.trCue}`);
+  } else if (word.hint) {
+    lines.push(`İpucu: ${word.hint}`);
+  }
 
   if (runtime.answered) {
     if (els.feedbackBanner?.textContent) {
@@ -4289,6 +4814,10 @@ function buildAiScreenContext() {
     if (word.example?.de) {
       lines.push(`Örnek: ${word.example.de} (${word.example.tr || ""})`);
     }
+  } else if (runtime.currentQuestionType === "cloze" && runtime.currentCloze) {
+    lines.push(
+      `[Gizli Çözüm Bilgisi: Boşluk="${runtime.currentCloze.target}" | Tam cümle="${runtime.currentCloze.fullSentence}" | Kelime="${solutionText}"]`
+    );
   } else {
     lines.push(
       `[Gizli Çözüm Bilgisi: Türkçe="${word.tr}" | Almanca="${solutionText}"${word.note ? ` | Not="${word.note}"` : ""}]`
