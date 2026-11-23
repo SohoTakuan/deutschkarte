@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="google" content="notranslate">
-  <meta name="theme-color" content="#1A4BB8">
+  <meta name="theme-color" content="#132033">
   <meta name="referrer" content="no-referrer">
   <meta
     http-equiv="Content-Security-Policy"
@@ -88,11 +88,6 @@
           </div>
 
           <div class="deck-right">
-            <div id="direction-group" class="direction-group" role="group" aria-label="Çalışma yönü">
-              <button type="button" class="dir-btn is-active" data-dir="tr-de" aria-pressed="true" title="Türkçeden Almancaya">TR / DE</button>
-              <button type="button" class="dir-btn" data-dir="de-tr" aria-pressed="false" title="Almancadan Türkçeye">DE / TR</button>
-            </div>
-
             <div class="lesson-picker">
               <label for="lesson-select" class="sr-only">Ders seçin</label>
               <select id="lesson-select" class="lesson-select" aria-label="Ders seçimi"></select>
@@ -102,19 +97,17 @@
 
         <div class="session-strip">
           <div class="session-metrics">
-            <span class="metric-item">Bugün: <strong id="daily-progress">0 / 20</strong></span>
+            <span class="metric-item">Bugün: <strong id="daily-progress">0</strong></span>
             <span class="metric-item metric-secondary">Öğrenilen: <strong id="mastered-count">0 / 0</strong></span>
             <span class="metric-item">Doğru: <strong id="session-score">0 / 0</strong></span>
             <span class="metric-item">Seri: <strong id="session-streak">0</strong></span>
           </div>
           <div class="session-actions">
-            <label for="session-round-select" class="sr-only">Tur uzunluğu</label>
-            <select id="session-round-select" class="session-round-select" aria-label="Tur uzunluğu">
-              <option value="off">Kesintisiz</option>
-              <option value="10">10 kartlık tur</option>
-              <option value="20">20 kartlık tur</option>
-              <option value="goal">Günlük hedef</option>
-            </select>
+            <div id="session-round-group" class="round-toggle-group" role="group" aria-label="Tur uzunluğu">
+              <button type="button" class="round-toggle-btn is-active" data-round="off" aria-pressed="true">Kesintisiz</button>
+              <button type="button" class="round-toggle-btn" data-round="10" aria-pressed="false">10</button>
+              <button type="button" class="round-toggle-btn" data-round="20" aria-pressed="false">20</button>
+            </div>
             <button type="button" id="reset-session" class="text-action">Oturumu sıfırla</button>
           </div>
         </div>
@@ -237,7 +230,6 @@
             <div id="choice-area" class="answer-area" hidden>
               <div id="choice-list" class="choice-list" role="group" aria-label="Seçenekler"></div>
               <div id="choice-actions" class="card-actions card-actions-compact">
-                <span class="shortcut-hint">Kısayol: 1–4 ile seçin</span>
                 <button type="button" id="btn-skip-choice" class="btn-secondary">Kartı atla</button>
               </div>
             </div>
@@ -262,7 +254,6 @@
                 </button>
               </div>
               <div id="article-drill-actions" class="card-actions card-actions-compact">
-                <span class="shortcut-hint">Kısayol: 1–4 ile seçin</span>
                 <button type="button" id="btn-skip-article" class="btn-secondary">Kartı atla</button>
               </div>
             </div>
@@ -296,7 +287,6 @@
                   </svg>
                   <span>Dinle</span>
                 </button>
-                <span class="shortcut-hint">Enter ile geçin</span>
               </div>
             </div>
           </div>
@@ -325,7 +315,7 @@
             </div>
             <p id="round-summary-mastered" class="round-summary-mastered" hidden></p>
             <div class="round-summary-actions">
-              <button type="button" id="btn-round-continue" class="btn-summary-primary">Yeni tura devam et</button>
+              <button type="button" id="btn-round-continue" class="btn-summary-primary">Yeni tura başla</button>
               <button type="button" id="btn-round-mistakes" class="btn-summary-secondary" hidden>Zorlandıklarımı çalış</button>
             </div>
           </div>
@@ -347,9 +337,9 @@
               <button type="button" class="filter-chip" data-group="irregular" aria-pressed="false">Düzensiz</button>
             </div>
 
-            <div id="grammar-mode-group" class="direction-group" role="group" aria-label="Alıştırma türü">
-              <button type="button" class="dir-btn conj-mode-btn is-active" data-conj-mode="choice" aria-pressed="true">Şıklı</button>
-              <button type="button" class="dir-btn conj-mode-btn" data-conj-mode="typing" aria-pressed="false">Yazmalı</button>
+            <div id="grammar-mode-group" class="segmented-group" role="group" aria-label="Alıştırma türü">
+              <button type="button" class="segmented-btn conj-mode-btn is-active" data-conj-mode="choice" aria-pressed="true">Şıklı</button>
+              <button type="button" class="segmented-btn conj-mode-btn" data-conj-mode="typing" aria-pressed="false">Yazmalı</button>
             </div>
           </div>
 
@@ -389,7 +379,6 @@
               <div id="conj-choice-area" class="answer-area">
                 <div id="conj-choice-list" class="choice-list" role="group" aria-label="Çekim seçenekleri"></div>
                 <div id="conj-choice-actions" class="card-actions card-actions-compact">
-                  <span class="shortcut-hint">Kısayol: 1–4 ile seçin</span>
                   <button type="button" id="conj-skip-choice" class="btn-secondary">Kartı atla</button>
                 </div>
               </div>
@@ -445,7 +434,6 @@
                     </svg>
                     <span>Dinle</span>
                   </button>
-                  <span class="shortcut-hint">Enter ile geçin</span>
                 </div>
               </div>
             </div>
@@ -576,21 +564,11 @@
         <div class="prefs-section">
           <h3 class="backup-heading">Çalışma tercihleri</h3>
           <div class="prefs-row">
-            <label for="daily-goal-select" class="pref-label">Günlük hedef</label>
-            <select id="daily-goal-select" class="lesson-select pref-select">
-              <option value="10">10 kart / gün</option>
-              <option value="20">20 kart / gün</option>
-              <option value="30">30 kart / gün</option>
-              <option value="50">50 kart / gün</option>
-            </select>
-          </div>
-          <div class="prefs-row">
             <label for="round-size-select" class="pref-label">Tur özeti</label>
             <select id="round-size-select" class="lesson-select pref-select">
               <option value="off">Kapalı (Kesintisiz)</option>
               <option value="10">Her 10 kartta bir</option>
               <option value="20">Her 20 kartta bir</option>
-              <option value="goal">Günlük hedef dolunca</option>
             </select>
           </div>
           <label class="pref-check">

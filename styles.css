@@ -46,8 +46,9 @@
   --article-pl-fill: #9A5608;
   --article-sg-fill: #475569;
 
-  --btn-primary-bg: #1A4BB8;
-  --btn-primary-hover: #143C98;
+  --btn-primary-bg: #132033;
+  --btn-primary-hover: #1E314D;
+  --btn-primary-ink: #FDFCFA;
   --btn-danger-bg: #BC1E3C;
   --btn-danger-hover: #9A1730;
   --btn-danger-outline-border: #E3A7B2;
@@ -78,25 +79,25 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --desk: #0C131D;
-  --desk-subtle: #142030;
-  --card: #182538;
-  --rule: rgba(238, 243, 248, 0.08);
-  --rule-strong: rgba(238, 243, 248, 0.16);
-  --ink: #EEF3F8;
-  --ink-muted: #9CB0C9;
+  --desk: #111418;
+  --desk-subtle: #181D24;
+  --card: #1A1F26;
+  --rule: rgba(240, 242, 245, 0.08);
+  --rule-strong: rgba(240, 242, 245, 0.16);
+  --ink: #F0F2F5;
+  --ink-muted: #9AA3B0;
   --on-accent: #FFFFFF;
 
-  --card-stack-1: #080E16;
-  --card-stack-2: #121D2C;
-  --card-stack-3: #2B3D55;
+  --card-stack-1: #0B0D10;
+  --card-stack-2: #14181F;
+  --card-stack-3: #28303B;
 
   --accent-der: #78A5F8;
-  --accent-der-soft: #1C2E4A;
+  --accent-der-soft: #1A273B;
   --accent-die: #F2647D;
-  --accent-die-soft: #391924;
+  --accent-die-soft: #361A24;
   --accent-das: #3EC788;
-  --accent-das-soft: #133025;
+  --accent-das-soft: #142E25;
   --accent-pl: #EAA844;
   --accent-sg: #94A3B8;
 
@@ -105,8 +106,8 @@
   --wash-das: rgba(62, 199, 136, 0.1);
   --wash-pl: rgba(234, 168, 68, 0.1);
 
-  --summary-surface: #163770;
-  --summary-surface-edge: rgba(120, 165, 248, 0.45);
+  --summary-surface: #162A4A;
+  --summary-surface-edge: rgba(120, 165, 248, 0.42);
   --summary-ink: #F5F8FF;
   --summary-muted: #C2D4F2;
   --summary-rule: rgba(245, 248, 255, 0.18);
@@ -124,8 +125,9 @@
   --article-pl-fill: #9E590A;
   --article-sg-fill: #475569;
 
-  --btn-primary-bg: #2B62D9;
-  --btn-primary-hover: #3B73EE;
+  --btn-primary-bg: #E6ECF4;
+  --btn-primary-hover: #FFFFFF;
+  --btn-primary-ink: #111418;
   --btn-danger-bg: #C92A48;
   --btn-danger-hover: #DF3B59;
   --btn-danger-outline-border: #7F2D43;
@@ -141,10 +143,10 @@
   --warn-text: #F5CE8E;
   --warn-hover-bg: #453118;
 
-  --placeholder: #8BA0BA;
-  --focus-ring: rgba(98, 148, 245, 0.24);
-  --backdrop: rgba(4, 8, 15, 0.72);
-  --dialog-shadow: rgba(0, 0, 0, 0.45);
+  --placeholder: #8B95A5;
+  --focus-ring: rgba(230, 236, 244, 0.22);
+  --backdrop: rgba(6, 8, 11, 0.76);
+  --dialog-shadow: rgba(0, 0, 0, 0.5);
 }
 
 *,
@@ -379,7 +381,7 @@ button {
   gap: 8px;
 }
 
-.direction-group {
+.segmented-group {
   display: inline-flex;
   background-color: var(--desk-subtle);
   padding: 3px;
@@ -387,7 +389,7 @@ button {
   border: 1px solid var(--rule);
 }
 
-.dir-btn {
+.segmented-btn {
   border: 0;
   background: transparent;
   padding: 6px 12px;
@@ -396,24 +398,17 @@ button {
   font-size: 0.875rem;
   color: var(--ink-muted);
   min-height: 32px;
+  cursor: pointer;
 }
 
-.dir-btn:hover:not(.is-active):not(:disabled) {
+.segmented-btn:hover:not(.is-active):not(:disabled) {
   color: var(--ink);
 }
 
-.dir-btn.is-active {
+.segmented-btn.is-active {
   background-color: var(--card);
   color: var(--ink);
   box-shadow: 0 1px 0 var(--rule);
-}
-
-.direction-group.is-locked {
-  opacity: 0.55;
-}
-
-.dir-btn:disabled {
-  cursor: not-allowed;
 }
 
 .mode-btn {
@@ -524,21 +519,36 @@ button {
   gap: 10px;
 }
 
-.session-round-select {
-  appearance: auto;
-  background-color: var(--card);
-  border: 1px solid var(--rule-strong);
-  border-radius: 6px;
-  padding: 4px 8px;
-  min-height: 32px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--ink);
-  cursor: pointer;
+.round-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--desk-subtle);
+  padding: 2px;
+  border-radius: 7px;
+  border: 1px solid var(--rule);
 }
 
-.session-round-select:hover {
-  border-color: var(--ink-muted);
+.round-toggle-btn {
+  border: 0;
+  background: transparent;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  min-height: 30px;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.round-toggle-btn:hover:not(.is-active) {
+  color: var(--ink);
+}
+
+.round-toggle-btn.is-active {
+  background-color: var(--card);
+  color: var(--ink);
+  box-shadow: 0 1px 0 var(--rule);
 }
 
 /* Hero Study Card — Tactile Leitner Index Card */
@@ -648,7 +658,7 @@ button {
 .round-progress-fill {
   width: 0%;
   height: 100%;
-  background-color: var(--accent-der);
+  background-color: var(--btn-primary-bg);
   transition: width 200ms ease;
 }
 
@@ -685,18 +695,22 @@ button {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: var(--desk-subtle);
-  border: 1px solid var(--rule-strong);
+  background-color: transparent;
+  border: 1.5px solid rgba(19, 32, 51, 0.36);
+}
+
+[data-theme="dark"] .box-pip {
+  border-color: rgba(240, 242, 245, 0.36);
 }
 
 .box-pip.is-active {
-  background-color: var(--accent-der);
-  border-color: var(--accent-der);
+  background-color: var(--ink-muted);
+  border-color: var(--ink-muted);
 }
 
 .box-pip.is-active.is-mastered {
-  background-color: var(--accent-das);
-  border-color: var(--accent-das);
+  background-color: var(--ink);
+  border-color: var(--ink);
 }
 
 .meta-kind {
@@ -1028,12 +1042,7 @@ button {
 }
 
 .card-actions-compact {
-  justify-content: space-between;
-}
-
-.shortcut-hint {
-  font-size: 0.875rem;
-  color: var(--ink-muted);
+  justify-content: flex-end;
 }
 
 .btn-primary,
@@ -1052,20 +1061,30 @@ button {
   transition: background-color 120ms ease, border-color 120ms ease, transform 90ms ease;
 }
 
-.btn-primary:active,
-.btn-secondary:active,
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-danger:active:not(:disabled),
+.btn-danger-outline:active:not(:disabled),
 .choice-btn:active:not(:disabled),
 .article-btn:active:not(:disabled),
 .drill-btn:active:not(:disabled) {
   transform: translateY(1px);
 }
 
-.btn-primary {
-  background-color: var(--btn-primary-bg);
-  color: var(--on-accent);
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled,
+.btn-danger-outline:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-.btn-primary:hover {
+.btn-primary {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+}
+
+.btn-primary:hover:not(:disabled) {
   background-color: var(--btn-primary-hover);
 }
 
@@ -1075,7 +1094,7 @@ button {
   color: var(--ink);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background-color: var(--desk-subtle);
 }
 
@@ -1084,7 +1103,7 @@ button {
   color: var(--on-accent);
 }
 
-.btn-danger:hover {
+.btn-danger:hover:not(:disabled) {
   background-color: var(--btn-danger-hover);
 }
 
@@ -1094,7 +1113,7 @@ button {
   color: var(--accent-die);
 }
 
-.btn-danger-outline:hover {
+.btn-danger-outline:hover:not(:disabled) {
   background-color: var(--bad-bg);
 }
 
@@ -1829,14 +1848,19 @@ button {
   padding: 5px 12px;
   border-radius: 6px;
   border: 0;
-  background-color: var(--btn-primary-bg);
-  color: var(--on-accent);
+  background-color: var(--card);
+  color: var(--ink);
   font-size: 0.875rem;
   font-weight: 700;
 }
 
 .undo-toast-btn:hover {
-  background-color: var(--btn-primary-hover);
+  background-color: var(--desk-subtle);
+}
+
+.undo-toast-btn:focus-visible {
+  outline: 2px solid var(--card);
+  outline-offset: 2px;
 }
 
 .dict-empty {
@@ -2653,7 +2677,7 @@ button {
 
 .ai-fab.is-open {
   background-color: var(--btn-primary-bg);
-  color: var(--on-accent);
+  color: var(--btn-primary-ink);
   border-color: var(--btn-primary-bg);
 }
 
@@ -3061,8 +3085,7 @@ button {
   }
 
   .deck-right {
-    display: grid;
-    grid-template-columns: auto 1fr;
+    display: block;
     width: 100%;
   }
 
@@ -3109,6 +3132,11 @@ button {
     gap: 8px;
   }
 
+  .round-toggle-btn,
+  .session-actions .text-action {
+    min-height: 36px;
+  }
+
   .card-round-summary {
     padding: 24px 18px;
     gap: 16px;
@@ -3146,12 +3174,6 @@ button {
   .feedback-example {
     flex-direction: column;
     align-items: flex-start;
-  }
-}
-
-@media (hover: none) {
-  .shortcut-hint {
-    display: none;
   }
 }
 

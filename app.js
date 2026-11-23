@@ -23,10 +23,9 @@ import { initAiTutor } from "./ai-tutor.js";
 const STORAGE_KEY = "deutschkarte_state_v1";
 const THEME_STORAGE_KEY = "deutschkarte_theme";
 const VALID_MODES = ["mixed", "choice", "typing", "articles", "cloze", "mistakes"];
-const VALID_DIRECTIONS = ["tr-de", "de-tr"];
 const VALID_THEMES = ["light", "dark"];
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
-const VALID_ROUND_SIZES = ["off", "10", "20", "goal"];
+const VALID_ROUND_SIZES = ["off", "10", "20"];
 const SRS_INTERVAL_DAYS = { 1: 0, 2: 1, 3: 3, 4: 7, 5: 21 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HEATMAP_DAYS = 42;
@@ -222,9 +221,7 @@ function loadState() {
       parsed.settings?.lesson === "all" || lessons.includes(parsed.settings?.lesson)
         ? parsed.settings.lesson
         : "all";
-    const direction = VALID_DIRECTIONS.includes(parsed.settings?.direction)
-      ? parsed.settings.direction
-      : "tr-de";
+    const direction = "tr-de";
     const rawGoal = Number(parsed.settings?.dailyGoal);
     const dailyGoal = VALID_DAILY_GOALS.includes(rawGoal) ? rawGoal : 20;
     const roundSize = VALID_ROUND_SIZES.includes(parsed.settings?.roundSize)
@@ -374,14 +371,14 @@ const els = {
   grammarNotesList: document.getElementById("grammar-notes-list"),
   modeBtns: Array.from(document.querySelectorAll(".mode-btn")),
   mistakesBadge: document.getElementById("mistakes-badge"),
-  directionGroup: document.getElementById("direction-group"),
-  dirBtns: Array.from(document.querySelectorAll("#direction-group .dir-btn")),
   lessonSelect: document.getElementById("lesson-select"),
   dailyProgress: document.getElementById("daily-progress"),
   masteredCount: document.getElementById("mastered-count"),
   sessionScore: document.getElementById("session-score"),
   sessionStreak: document.getElementById("session-streak"),
-  sessionRoundSelect: document.getElementById("session-round-select"),
+  sessionRoundBtns: Array.from(
+    document.querySelectorAll("#session-round-group .round-toggle-btn")
+  ),
   resetSession: document.getElementById("reset-session"),
 
   studyCard: document.getElementById("study-card"),
@@ -481,7 +478,6 @@ const els = {
   rhythmActiveDays: document.getElementById("rhythm-active-days"),
   srsSummary: document.getElementById("srs-summary"),
   levelProgressList: document.getElementById("level-progress-list"),
-  dailyGoalSelect: document.getElementById("daily-goal-select"),
   roundSizeSelect: document.getElementById("round-size-select"),
   autoSpeakToggle: document.getElementById("auto-speak-toggle"),
   keepAiOpenToggle: document.getElementById("keep-ai-open-toggle"),
@@ -857,36 +853,23 @@ function updateTopControls() {
     btn.setAttribute("aria-pressed", String(isActive));
   }
 
-  const isDirectionLocked =
-    appState.settings.mode === "articles" ||
-    appState.settings.mode === "cloze";
-  els.directionGroup.classList.toggle("is-locked", isDirectionLocked);
-  for (const btn of els.dirBtns) {
-    const isActive = btn.dataset.dir === appState.settings.direction;
-    btn.classList.toggle("is-active", isActive);
-    btn.setAttribute("aria-pressed", String(isActive));
-    btn.disabled = isDirectionLocked;
-  }
-
   const scopedWords = getWordsForLesson(appState.settings.lesson).filter(
     (word) => !isWordHidden(word.id)
   );
   const scopedLearned = countMasteredWords(scopedWords);
   const scopedTotal = scopedWords.length;
-  const scopedRemaining = scopedTotal - scopedLearned;
-  const scopedPct =
-    scopedTotal > 0 ? Math.round((scopedLearned / scopedTotal) * 100) : 0;
+  const activeRoundSize = VALID_ROUND_SIZES.includes(appState.settings.roundSize)
+    ? appState.settings.roundSize
+    : "off";
 
   els.lessonSelect.value = appState.settings.lesson;
-  if (els.sessionRoundSelect) {
-    els.sessionRoundSelect.value = VALID_ROUND_SIZES.includes(
-      appState.settings.roundSize
-    )
-      ? appState.settings.roundSize
-      : "off";
+  for (const btn of els.sessionRoundBtns) {
+    const active = btn.dataset.round === activeRoundSize;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", String(active));
   }
-  els.dailyProgress.textContent = `${appState.daily.count} / ${appState.settings.dailyGoal}`;
-  els.masteredCount.textContent = `${scopedLearned} / ${scopedTotal} (%${scopedPct} · ${scopedRemaining} kalan)`;
+  els.dailyProgress.textContent = String(appState.daily.count);
+  els.masteredCount.textContent = `${scopedLearned} / ${scopedTotal}`;
   els.sessionScore.textContent = `${runtime.sessionCorrect} / ${runtime.sessionAnswered}`;
   els.sessionStreak.textContent = String(runtime.sessionStreak);
 }
@@ -1015,6 +998,9 @@ function decideQuestionType(word) {
     return "typing";
   }
   if ((appState.cards[word?.id]?.box || 1) >= 3) {
+    if (buildClozeForWord(word) && Math.random() < 0.35) {
+      return "cloze";
+    }
     return "typing";
   }
   return Math.random() < 0.45 ? "choice" : "typing";
@@ -1074,7 +1060,7 @@ function prioritizeActivePools(...pools) {
   return [...activeParts.flat(), ...hiddenParts.flat()];
 }
 
-function buildChoiceOptions(word, direction) {
+function buildChoiceOptions(word) {
   const options = [];
   const seenLabels = new Set();
 
@@ -1085,32 +1071,6 @@ function buildChoiceOptions(word, direction) {
     seenLabels.add(label);
     options.push({ label, isCorrect });
     return true;
-  }
-
-  if (direction === "de-tr") {
-    addOption(word.tr, true);
-
-    const sameCategory = ALL_WORDS.filter(
-      (item) =>
-        item.id !== word.id &&
-        item.category === word.category &&
-        item.tr !== word.tr
-    );
-    const otherWords = ALL_WORDS.filter(
-      (item) =>
-        item.id !== word.id &&
-        item.category !== word.category &&
-        item.tr !== word.tr
-    );
-
-    for (const candidate of prioritizeActivePools(sameCategory, otherWords)) {
-      if (options.length >= 4) {
-        break;
-      }
-      addOption(candidate.tr, false);
-    }
-
-    return shuffleArray(options.slice(0, 4));
   }
 
   if (word.category === "noun") {
@@ -1197,22 +1157,10 @@ function getEffectiveRoundTarget() {
   const setting = appState.settings.roundSize || "off";
   if (setting === "10") return 10;
   if (setting === "20") return 20;
-  if (setting === "goal") return appState.settings.dailyGoal || 20;
   return 0;
 }
 
 function shouldTriggerRoundSummary() {
-  const setting = appState.settings.roundSize || "off";
-  if (setting === "off") {
-    return false;
-  }
-  if (setting === "goal") {
-    const today = getLocalDateKey();
-    return (
-      appState.daily.count >= appState.settings.dailyGoal &&
-      appState.daily.goalCelebratedDate !== today
-    );
-  }
   const target = getEffectiveRoundTarget();
   return target > 0 && runtime.roundAnswered >= target;
 }
@@ -1221,24 +1169,14 @@ function updateRoundProgressBar() {
   if (!els.roundProgressTrack || !els.roundProgressFill) {
     return;
   }
-  const setting = appState.settings.roundSize || "off";
-  if (setting === "off" || (!runtime.currentWord && !runtime.showingRoundSummary)) {
+  const target = getEffectiveRoundTarget();
+  if (target === 0 || (!runtime.currentWord && !runtime.showingRoundSummary)) {
     els.roundProgressTrack.hidden = true;
     els.roundProgressFill.style.width = "0%";
     return;
   }
   els.roundProgressTrack.hidden = false;
-  if (setting === "goal") {
-    const goal = appState.settings.dailyGoal || 20;
-    const pct = Math.min(100, Math.round((appState.daily.count / goal) * 100));
-    els.roundProgressFill.style.width = `${pct}%`;
-    return;
-  }
-  const target = getEffectiveRoundTarget();
-  const pct =
-    target > 0
-      ? Math.min(100, Math.round((runtime.roundAnswered / target) * 100))
-      : 0;
+  const pct = Math.min(100, Math.round((runtime.roundAnswered / target) * 100));
   els.roundProgressFill.style.width = `${pct}%`;
 }
 
@@ -1297,11 +1235,6 @@ function resetRoundTracker() {
 
 function showRoundSummary() {
   runtime.showingRoundSummary = true;
-  const isGoalMode = appState.settings.roundSize === "goal";
-  if (isGoalMode) {
-    appState.daily.goalCelebratedDate = getLocalDateKey();
-    saveState({ sync: false, preserveTimestamp: true });
-  }
 
   els.cardActiveBody.hidden = true;
   els.cardEmptyState.hidden = true;
@@ -1319,30 +1252,19 @@ function showRoundSummary() {
   const wrongCount = Math.max(0, runtime.roundAnswered - runtime.roundCorrect);
 
   if (els.roundSummaryKicker) {
-    els.roundSummaryKicker.textContent = isGoalMode
-      ? "Günlük hedef"
-      : "Tur özeti";
+    els.roundSummaryKicker.textContent = "Tur özeti";
   }
   if (els.roundSummaryGoalPill) {
-    els.roundSummaryGoalPill.textContent = `Bugün ${appState.daily.count} / ${appState.settings.dailyGoal}`;
+    els.roundSummaryGoalPill.textContent = `Bugün ${appState.daily.count} kart`;
   }
   if (els.roundSummaryHeroValue) {
-    els.roundSummaryHeroValue.textContent =
-      isGoalMode && runtime.roundAnswered === 0
-        ? `${appState.daily.count}/${appState.settings.dailyGoal}`
-        : `%${accuracy}`;
+    els.roundSummaryHeroValue.textContent = `%${accuracy}`;
   }
   if (els.roundSummaryTitle) {
-    els.roundSummaryTitle.textContent = isGoalMode
-      ? "Bugünkü hedefiniz tamamlandı"
-      : `${runtime.roundAnswered} kartlık tur tamamlandı`;
+    els.roundSummaryTitle.textContent = `${runtime.roundAnswered} kartlık tur tamamlandı`;
   }
   if (els.roundSummaryDetail) {
-    if (isGoalMode && runtime.roundAnswered === 0) {
-      els.roundSummaryDetail.textContent = `Günlük seriniz: ${appState.daily.streakDays} gün`;
-    } else {
-      els.roundSummaryDetail.textContent = `${runtime.roundCorrect} doğru, ${wrongCount} yanlış — Oturum serisi: ${runtime.sessionStreak}`;
-    }
+    els.roundSummaryDetail.textContent = `${runtime.roundCorrect} doğru, ${wrongCount} yanlış — Oturum serisi: ${runtime.sessionStreak}`;
   }
 
   if (els.roundSummaryMastered) {
@@ -1356,9 +1278,7 @@ function showRoundSummary() {
   }
 
   if (els.btnRoundContinue) {
-    els.btnRoundContinue.textContent = isGoalMode
-      ? "Çalışmaya devam et"
-      : "Yeni tura devam et";
+    els.btnRoundContinue.textContent = "Yeni tura başla";
   }
 
   if (els.btnRoundMistakes) {
@@ -1371,9 +1291,7 @@ function showRoundSummary() {
     els.cardRoundSummary.hidden = false;
   }
 
-  announce(
-    isGoalMode ? "Günlük çalışma hedefiniz tamamlandı." : "Tur tamamlandı."
-  );
+  announce("Tur tamamlandı.");
   aiTutor?.refreshContext();
 
   if (!els.backupDialog.open && runtime.activeTab === "study") {
@@ -1402,12 +1320,7 @@ function advanceAfterAnswer() {
 
 function showNextCard() {
   const target = getEffectiveRoundTarget();
-  if (
-    appState.settings.roundSize !== "off" &&
-    appState.settings.roundSize !== "goal" &&
-    target > 0 &&
-    runtime.roundAnswered >= target
-  ) {
+  if (target > 0 && runtime.roundAnswered >= target) {
     resetRoundTracker();
   } else {
     runtime.showingRoundSummary = false;
@@ -1490,12 +1403,7 @@ function showNextCard() {
   const word = pickNextWord(pool);
   const questionType = decideQuestionType(word);
   const clozeData = questionType === "cloze" ? buildClozeForWord(word) : null;
-  const direction =
-    questionType === "articles"
-      ? "de-tr"
-      : questionType === "cloze"
-        ? "tr-de"
-        : appState.settings.direction;
+  const direction = questionType === "articles" ? "de-tr" : "tr-de";
 
   runtime.currentWord = word;
   runtime.currentCloze = clozeData;
@@ -1505,7 +1413,7 @@ function showNextCard() {
   runtime.currentQuestionType = questionType;
   runtime.currentDirection = direction;
   runtime.currentOptions =
-    questionType === "choice" ? buildChoiceOptions(word, direction) : [];
+    questionType === "choice" ? buildChoiceOptions(word) : [];
   updateRoundProgressBar();
 
   els.studyCard.classList.remove("is-advancing");
@@ -1544,19 +1452,6 @@ function showNextCard() {
     els.promptHint.textContent = word.tr;
     els.promptHint.hidden = false;
     els.btnSpeakPrompt.hidden = !speechReady;
-  } else if (direction === "de-tr") {
-    els.studyCard.dataset.gender =
-      word.category === "noun" ? word.article : "resolved";
-    els.promptTr.textContent =
-      word.category === "noun" ? formatNounSummary(word) : word.de;
-    if (word.hint) {
-      els.promptHint.textContent = word.hint;
-      els.promptHint.hidden = false;
-    } else {
-      els.promptHint.hidden = true;
-      els.promptHint.textContent = "";
-    }
-    els.btnSpeakPrompt.hidden = !speechReady;
   } else {
     els.studyCard.dataset.gender = "neutral";
     els.promptTr.textContent = word.tr;
@@ -1581,7 +1476,7 @@ function showNextCard() {
   } else if (questionType === "choice") {
     renderChoiceView();
   } else {
-    renderTypingView(word, direction);
+    renderTypingView(word);
   }
   aiTutor?.refreshContext();
 }
@@ -1647,7 +1542,7 @@ function renderArticleDrillView() {
   }
 }
 
-function renderTypingView(word, direction) {
+function renderTypingView(word) {
   els.choiceArea.hidden = true;
   els.articleDrillArea.hidden = true;
   els.typingArea.hidden = false;
@@ -1665,21 +1560,6 @@ function renderTypingView(word, direction) {
   els.inputSingular.disabled = false;
   els.inputPlural.disabled = false;
   els.inputPhrase.disabled = false;
-
-  if (direction === "de-tr") {
-    els.nounFields.hidden = true;
-    els.phraseFields.hidden = false;
-    els.inputPhraseLabel.textContent = "Türkçe anlamı";
-    els.inputPhrase.placeholder = "Türkçe karşılığını yazın";
-    if (!els.backupDialog.open && runtime.activeTab === "study") {
-      window.setTimeout(() => {
-        if (!els.backupDialog.open && runtime.activeTab === "study") {
-          els.inputPhrase.focus();
-        }
-      }, 10);
-    }
-    return;
-  }
 
   els.inputPhraseLabel.textContent = "Almanca karşılığı";
   els.inputPhrase.placeholder = "Almanca ifadeyi yazın";
@@ -2008,36 +1888,6 @@ function evaluatePhrase(rawInput, word) {
   };
 }
 
-function evaluateTurkishAnswer(rawInput, word) {
-  const cleanTr = (s) =>
-    collapseSpaces(s)
-      .replace(/[.!?]+$/g, "")
-      .trim()
-      .toLocaleLowerCase("tr-TR");
-
-  const candidate = cleanTr(rawInput);
-  if (!candidate) {
-    return { ok: false };
-  }
-
-  const base = word.tr;
-  const accepted = new Set([cleanTr(base)]);
-
-  const withoutParens = collapseSpaces(base.replace(/\([^)]*\)/g, ""));
-  if (withoutParens) {
-    accepted.add(cleanTr(withoutParens));
-  }
-
-  for (const part of withoutParens.split(/[\/,]/)) {
-    const trimmedPart = cleanTr(part);
-    if (trimmedPart) {
-      accepted.add(trimmedPart);
-    }
-  }
-
-  return { ok: accepted.has(candidate) };
-}
-
 function evaluateClozeAnswer(rawInput, target, word, isSentenceStart = false) {
   const candidate = stripSentencePunct(rawInput);
   const cleanTarget = stripSentencePunct(target);
@@ -2122,21 +1972,6 @@ function handleTypingSubmit() {
       clozeTarget: runtime.currentCloze.target,
       tip: tips.join(" ")
     });
-    return;
-  }
-
-  if (runtime.currentDirection === "de-tr") {
-    const raw = collapseSpaces(els.inputPhrase.value);
-    if (!raw) {
-      els.inputGuidance.textContent =
-        "Türkçe anlamını yazın veya \"Kartı atla\" ile sıradaki karta geçin.";
-      els.inputGuidance.hidden = false;
-      els.inputPhrase.focus();
-      return;
-    }
-
-    const res = evaluateTurkishAnswer(raw, word);
-    finalizeTurn(word, res.ok, {});
     return;
   }
 
@@ -2374,10 +2209,7 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
     appState.daily.count
   );
 
-  if (
-    appState.daily.count >= appState.settings.dailyGoal &&
-    appState.daily.lastCompletedDate !== today
-  ) {
+  if (appState.daily.lastCompletedDate !== today) {
     appState.daily.streakDays =
       appState.daily.lastCompletedDate === yesterday
         ? appState.daily.streakDays + 1
@@ -2500,9 +2332,7 @@ function finalizeTurn(word, isCorrect, details) {
 
   if (els.btnNext) {
     els.btnNext.textContent = shouldTriggerRoundSummary()
-      ? appState.settings.roundSize === "goal"
-        ? "Hedef özetini gör"
-        : "Tur özetini gör"
+      ? "Tur özetini gör"
       : "Sonraki kart";
   }
 
@@ -2524,13 +2354,6 @@ function renderFeedback(word, isCorrect, details, mistakeStatusText) {
     els.feedbackBanner.textContent = isCorrect
       ? `Doğru: ${details.clozeTarget}`
       : `Yanlış. Doğru cevap: ${details.clozeTarget}`;
-  } else if (
-    runtime.currentDirection === "de-tr" &&
-    runtime.currentQuestionType !== "articles"
-  ) {
-    els.feedbackBanner.textContent = isCorrect
-      ? `Doğru: ${word.tr}`
-      : `Yanlış. Doğru cevap: ${word.tr}`;
   } else if (word.category === "noun") {
     const summary = formatNounSummary(word);
     els.feedbackBanner.textContent = isCorrect
@@ -2925,35 +2748,44 @@ function renderActivityHeatmap() {
     return;
   }
   els.activityHeatmap.innerHTML = "";
-  const goal = appState.settings.dailyGoal || 20;
-  const halfGoal = Math.max(1, Math.ceil(goal * 0.5));
   const history = appState.dailyHistory || {};
+  const entries = [];
+  let maxCount = 0;
   let activeDays = 0;
 
-  const fragment = document.createDocumentFragment();
   for (let daysAgo = HEATMAP_DAYS - 1; daysAgo >= 0; daysAgo -= 1) {
     const dateKey = getOffsetDateKey(daysAgo);
     const rawCount = toNonNegativeInt(history[dateKey]);
     const count =
       daysAgo === 0 ? Math.max(rawCount, appState.daily.count) : rawCount;
-
     if (count > 0) {
       activeDays += 1;
     }
+    if (count > maxCount) {
+      maxCount = count;
+    }
+    entries.push({ dateKey, count, isToday: daysAgo === 0 });
+  }
 
+  const scaleMax = Math.max(120, maxCount);
+  const level2Min = Math.ceil(scaleMax * 0.3);
+  const level3Min = Math.ceil(scaleMax * 0.7);
+
+  const fragment = document.createDocumentFragment();
+  for (const entry of entries) {
     let level = "0";
-    if (count >= goal) {
+    if (entry.count >= level3Min) {
       level = "3";
-    } else if (count >= halfGoal) {
+    } else if (entry.count >= level2Min) {
       level = "2";
-    } else if (count > 0) {
+    } else if (entry.count > 0) {
       level = "1";
     }
 
     const cell = document.createElement("span");
-    cell.className = daysAgo === 0 ? "heatmap-cell is-today" : "heatmap-cell";
+    cell.className = entry.isToday ? "heatmap-cell is-today" : "heatmap-cell";
     cell.dataset.level = level;
-    cell.title = `${dateKey}: ${count} kart`;
+    cell.title = `${entry.dateKey}: ${entry.count} kart`;
     fragment.appendChild(cell);
   }
 
@@ -2983,7 +2815,6 @@ function refreshBackupModal() {
   els.statMistakes.textContent = String(getActiveMistakeCount());
   renderActivityHeatmap();
 
-  els.dailyGoalSelect.value = String(appState.settings.dailyGoal);
   if (els.roundSizeSelect) {
     els.roundSizeSelect.value = VALID_ROUND_SIZES.includes(
       appState.settings.roundSize
@@ -3430,9 +3261,7 @@ async function importBackupJson(file) {
           lessons.includes(parsed.settings?.lesson)
             ? parsed.settings.lesson
             : "all",
-        direction: VALID_DIRECTIONS.includes(parsed.settings?.direction)
-          ? parsed.settings.direction
-          : "tr-de",
+        direction: "tr-de",
         dailyGoal: VALID_DAILY_GOALS.includes(rawGoal) ? rawGoal : 20,
         roundSize: VALID_ROUND_SIZES.includes(parsed.settings?.roundSize)
           ? parsed.settings.roundSize
@@ -3499,7 +3328,7 @@ function applyTheme(theme, persist = false) {
   if (themeMeta) {
     themeMeta.setAttribute(
       "content",
-      resolved === "dark" ? "#182538" : "#1A4BB8"
+      resolved === "dark" ? "#1A1F26" : "#132033"
     );
   }
 
@@ -4220,20 +4049,6 @@ function bindEvents() {
     });
   }
 
-  for (const btn of els.dirBtns) {
-    btn.addEventListener("click", () => {
-      if (
-        appState.settings.mode === "articles" ||
-        appState.settings.mode === "cloze"
-      ) {
-        return;
-      }
-      appState.settings.direction = btn.dataset.dir;
-      saveState({ sync: false, preserveTimestamp: true });
-      showNextCard();
-    });
-  }
-
   els.lessonSelect?.addEventListener("change", () => {
     appState.settings.lesson = els.lessonSelect.value;
     saveState({ sync: false, preserveTimestamp: true });
@@ -4456,41 +4271,20 @@ function bindEvents() {
       updateRoundProgressBar();
       if (runtime.answered && els.btnNext) {
         els.btnNext.textContent = shouldTriggerRoundSummary()
-          ? nextVal === "goal"
-            ? "Hedef özetini gör"
-            : "Tur özetini gör"
+          ? "Tur özetini gör"
           : "Sonraki kart";
       }
     }
   };
 
-  els.sessionRoundSelect?.addEventListener("change", () => {
-    handleRoundSizeChange(els.sessionRoundSelect.value);
-  });
+  for (const btn of els.sessionRoundBtns) {
+    btn.addEventListener("click", () => {
+      handleRoundSizeChange(btn.dataset.round);
+    });
+  }
 
   els.roundSizeSelect?.addEventListener("change", () => {
     handleRoundSizeChange(els.roundSizeSelect.value);
-  });
-
-  els.dailyGoalSelect?.addEventListener("change", () => {
-    const val = Number(els.dailyGoalSelect.value);
-    if (VALID_DAILY_GOALS.includes(val)) {
-      appState.settings.dailyGoal = val;
-      if (val > appState.daily.count) {
-        appState.daily.goalCelebratedDate = null;
-      }
-      saveState({ sync: true });
-      updateTopControls();
-      updateRoundProgressBar();
-      if (runtime.answered && els.btnNext) {
-        els.btnNext.textContent = shouldTriggerRoundSummary()
-          ? appState.settings.roundSize === "goal"
-            ? "Hedef özetini gör"
-            : "Tur özetini gör"
-          : "Sonraki kart";
-      }
-      refreshBackupModal();
-    }
   });
 
   els.autoSpeakToggle?.addEventListener("change", () => {
@@ -4657,9 +4451,6 @@ function bindEvents() {
     }
 
     if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "s") {
-      const canSpeakPrompt =
-        runtime.currentQuestionType === "articles" ||
-        runtime.currentDirection === "de-tr";
       if (runtime.answered) {
         e.preventDefault();
         if (
@@ -4670,14 +4461,9 @@ function bindEvents() {
         } else {
           speakGerman(getSpokenGermanForWord(runtime.currentWord, true));
         }
-      } else if (canSpeakPrompt) {
+      } else if (runtime.currentQuestionType === "articles") {
         e.preventDefault();
-        speakGerman(
-          getSpokenGermanForWord(
-            runtime.currentWord,
-            runtime.currentQuestionType !== "articles"
-          )
-        );
+        speakGerman(getSpokenGermanForWord(runtime.currentWord, false));
       }
       return;
     }
@@ -4872,9 +4658,7 @@ function buildAiScreenContext() {
       ? "Artikel Pratiği"
       : runtime.currentQuestionType === "cloze"
         ? "Cümle İçi Boşluk"
-        : runtime.currentDirection === "de-tr"
-          ? "DE -> TR"
-          : "TR -> DE";
+        : "TR -> DE";
   const qLabel =
     runtime.currentQuestionType === "articles"
       ? "Artikel seçimi"

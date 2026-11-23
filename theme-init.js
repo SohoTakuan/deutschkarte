@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = theme;
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute("content", theme === "dark" ? "#1B2738" : "#1E4DB7");
+      meta.setAttribute("content", theme === "dark" ? "#1A1F26" : "#132033");
     }
   } catch (err) {
     // Ignore storage errors before app boot
