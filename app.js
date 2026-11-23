@@ -19,8 +19,10 @@ import {
   syncWithGitHubGist
 } from "./sync.js";
 import {
+  clearTtsAudioCache,
   evaluateUserSentence,
   generateArticleMnemonic,
+  getTtsCacheStats,
   hasConfiguredGeminiKey,
   initAiTutor,
   synthesizeGermanSpeech
@@ -536,6 +538,9 @@ const els = {
     document.querySelectorAll("#settings-tts-group .round-toggle-btn")
   ),
   ttsEngineNote: document.getElementById("tts-engine-note"),
+  ttsCacheRow: document.getElementById("tts-cache-row"),
+  ttsCacheMeta: document.getElementById("tts-cache-meta"),
+  btnClearTtsCache: document.getElementById("btn-clear-tts-cache"),
   autoSpeakToggle: document.getElementById("auto-speak-toggle"),
   keepAiOpenToggle: document.getElementById("keep-ai-open-toggle"),
   btnExportJson: document.getElementById("btn-export-json"),
@@ -3379,6 +3384,29 @@ function renderActivityHeatmap() {
   }
 }
 
+async function refreshTtsCacheMeta() {
+  if (!els.ttsCacheRow || !els.ttsCacheMeta) {
+    return;
+  }
+  const { count, totalBytes } = await getTtsCacheStats();
+  const showRow = count > 0 || appState.settings.speechEngine === "gemini";
+  els.ttsCacheRow.hidden = !showRow;
+  if (!showRow) {
+    return;
+  }
+  const sizeLabel =
+    totalBytes >= 1024 * 1024
+      ? `${(totalBytes / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.round(totalBytes / 1024)} KB`;
+  els.ttsCacheMeta.textContent =
+    count > 0
+      ? `Ses önbelleği: ${count} kayıt (${sizeLabel})`
+      : "Ses önbelleği: 0 kayıt";
+  if (els.btnClearTtsCache) {
+    els.btnClearTtsCache.disabled = count === 0;
+  }
+}
+
 function refreshBackupModal() {
   appState.daily = normalizeDailyState(appState.daily);
   const { totalAnswered, totalCorrect, bestStreak } = appState.progress;
@@ -3416,13 +3444,14 @@ function refreshBackupModal() {
   if (els.ttsEngineNote) {
     if (activeSpeechEngine === "gemini") {
       els.ttsEngineNote.textContent = hasConfiguredGeminiKey()
-        ? "Doğal insan tonlaması aktif. Aynı kelime/cümle tekrarında API kotası harcamaz; çevrimdışıyken tarayıcı sesine döner."
+        ? "Doğal insan tonlaması aktif. Üretilen sesler cihazında kalıcı olarak saklanır; sonraki dinlemelerde API kotası harcamaz."
         : "Gemini Doğal ses için sağ alttaki Almanca Asistan ayarlarına API anahtarı ekleyin; anahtar yokken tarayıcı sesi çalar.";
       els.ttsEngineNote.hidden = false;
     } else {
       els.ttsEngineNote.hidden = true;
     }
   }
+  refreshTtsCacheMeta();
   els.autoSpeakToggle.checked = Boolean(appState.settings.autoSpeak);
   els.autoSpeakToggle.disabled =
     !isSpeechSupported() && activeSpeechEngine !== "gemini";
@@ -4910,6 +4939,12 @@ function bindEvents() {
       refreshBackupModal();
     });
   }
+
+  els.btnClearTtsCache?.addEventListener("click", async () => {
+    await clearTtsAudioCache();
+    await refreshTtsCacheMeta();
+    announce("Ses önbelleği temizlendi.");
+  });
 
   els.autoSpeakToggle?.addEventListener("change", () => {
     appState.settings.autoSpeak = Boolean(els.autoSpeakToggle.checked);

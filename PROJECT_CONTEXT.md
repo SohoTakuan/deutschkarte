@@ -127,7 +127,7 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
-- **`v27`:** Accepted all Duden singular/plural/alt variants in Cloze mode (`buildClozeForWord()` + `evaluateClozeAnswer()`, e.g., `Pizzas`/`Pizzen`) and switched all `.speak-btn` audio controls to icon-only (`sw.js` `deutschkarte-v27`).
 - **`v28`:** Removed premature `onlySingular`/`onlyPlural` field locks in `applyNounFieldLocks()` (preventing pre-answer spoilers and dual-input deadlock) and rejected non-empty fake singular/plural inputs in `handleTypingSubmit()` (`sw.js` `deutschkarte-v28`).
 - **`v29`:** Tolerated omitted commas/apostrophes in `evaluateClozeAnswer()` and fixed multi-sentence `isSentenceStart` detection in `buildClozeForWord()` (`sw.js` `deutschkarte-v29`).
 - **`v30`:** Added Hybrid TTS (`speechEngine`: `Tarayıcı` with scored Natural/Online `de-DE` voice selection + `Gemini Doğal` via `gemini-2.5-flash-preview-tts`, 120-item session cache, Web Audio API playback, and `sync.js` support; `sw.js` `deutschkarte-v30`).
+- **`v31`:** Extracted persistent IndexedDB TTS audio cache into standalone `tts-cache.js` (600-item / 100 MB cap, offline playback) and added Settings cache stats & clear control (`sw.js` `deutschkarte-v31`).

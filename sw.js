@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deutschkarte-v30";
+const CACHE_VERSION = "deutschkarte-v31";
 
 const PRECACHE_URLS = [
   "./",
@@ -7,6 +7,7 @@ const PRECACHE_URLS = [
   "./theme-init.js",
   "./boot-guard.js",
   "./custom-select.js",
+  "./tts-cache.js",
   "./app.js",
   "./ai-tutor.js",
   "./sync.js",

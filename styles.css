@@ -2629,6 +2629,18 @@ button {
   color: var(--ink-muted);
 }
 
+.tts-cache-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tts-cache-row .pref-note {
+  margin: 0;
+}
+
 .pref-select {
   min-height: 38px;
   padding: 6px 10px;

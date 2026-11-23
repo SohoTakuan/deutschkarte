@@ -1,4 +1,12 @@
 import { createCustomSelect } from "./custom-select.js";
+import {
+  clearTtsCache,
+  getCachedTtsAudio,
+  getTtsCacheStats,
+  putCachedTtsAudio
+} from "./tts-cache.js";
+
+export { getTtsCacheStats };
 
 const AI_STORAGE_KEY = "deutschkarte_ai_tutor_v1";
 const GEMINI_MODELS = [
@@ -614,6 +622,21 @@ export function hasConfiguredGeminiKey() {
   return isValidApiKeyFormat(loadAiConfig().apiKey);
 }
 
+function rememberInMemoryTts(cacheKey, payload) {
+  if (ttsAudioCache.size >= MAX_TTS_CACHE_ITEMS) {
+    const oldestKey = ttsAudioCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      ttsAudioCache.delete(oldestKey);
+    }
+  }
+  ttsAudioCache.set(cacheKey, payload);
+}
+
+export async function clearTtsAudioCache() {
+  ttsAudioCache.clear();
+  await clearTtsCache();
+}
+
 export async function synthesizeGermanSpeech(
   text,
   { voiceName = DEFAULT_TTS_VOICE } = {}
@@ -626,6 +649,12 @@ export async function synthesizeGermanSpeech(
   const cacheKey = `${voiceName}::${cleanText}`;
   if (ttsAudioCache.has(cacheKey)) {
     return ttsAudioCache.get(cacheKey);
+  }
+
+  const persisted = await getCachedTtsAudio(cacheKey);
+  if (persisted) {
+    rememberInMemoryTts(cacheKey, persisted);
+    return persisted;
   }
 
   if (!navigator.onLine) {
@@ -700,13 +729,8 @@ export async function synthesizeGermanSpeech(
   const bytes = decodeBase64ToBytes(inlineData.data);
   const payload = { bytes, sampleRate, mimeType };
 
-  if (ttsAudioCache.size >= MAX_TTS_CACHE_ITEMS) {
-    const oldestKey = ttsAudioCache.keys().next().value;
-    if (oldestKey !== undefined) {
-      ttsAudioCache.delete(oldestKey);
-    }
-  }
-  ttsAudioCache.set(cacheKey, payload);
+  rememberInMemoryTts(cacheKey, payload);
+  putCachedTtsAudio(cacheKey, payload).catch(() => {});
   return payload;
 }
 
