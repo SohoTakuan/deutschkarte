@@ -523,6 +523,9 @@ button {
 
 .mode-btn-due {
   font-weight: 700;
+  background-color: var(--accent-due-soft);
+  border-color: var(--accent-due-border);
+  color: var(--accent-due);
 }
 
 .due-dot {
@@ -534,17 +537,11 @@ button {
   flex-shrink: 0;
 }
 
-.mode-btn-due.has-due {
-  background-color: var(--accent-due-soft);
-  border-color: var(--accent-due-border);
-  color: var(--accent-due);
-}
-
 .mode-btn-due.has-due .due-dot {
   display: inline-block;
 }
 
-.mode-btn-due.has-due:hover:not(.is-active) {
+.mode-btn-due:hover:not(.is-active) {
   background-color: var(--accent-due-soft);
   border-color: var(--accent-due);
   color: var(--accent-due-hover);
@@ -895,6 +892,10 @@ button {
   transition: background-color 160ms ease;
 }
 
+.study-card.is-due-mode[data-gender="neutral"] .card-accent-bar {
+  background-color: var(--accent-due);
+}
+
 .study-card[data-gender="der"] .card-accent-bar {
   background-color: var(--accent-der);
 }
@@ -956,6 +957,36 @@ button {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--ink-muted);
+}
+
+.card-meta-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.card-due-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent-due);
+  opacity: 0.88;
+}
+
+.card-due-tag[hidden] {
+  display: none;
+}
+
+.card-due-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--accent-due);
+  flex-shrink: 0;
 }
 
 .card-meta-right {

@@ -467,6 +467,8 @@ const els = {
   emptyOpenHidden: document.getElementById("empty-open-hidden"),
 
   cardLessonLabel: document.getElementById("card-lesson-label"),
+  cardDueTag: document.getElementById("card-due-tag"),
+  cardDueTagText: document.getElementById("card-due-tag-text"),
   cardBoxPips: document.getElementById("card-box-pips"),
   cardKindLabel: document.getElementById("card-kind-label"),
   btnHideWord: document.getElementById("btn-hide-word"),
@@ -1113,6 +1115,16 @@ function updateTopControls() {
       strong.textContent = `${dueCount} kart`;
       els.dueBannerText.appendChild(strong);
       els.dueBannerText.appendChild(document.createTextNode(" bekliyor"));
+    }
+  }
+
+  const inDueMode = appState.settings.mode === "due";
+  els.studyCard?.classList.toggle("is-due-mode", inDueMode);
+  if (els.cardDueTag && els.cardDueTagText) {
+    els.cardDueTag.hidden = !inDueMode;
+    if (inDueMode) {
+      els.cardDueTagText.textContent =
+        dueCount > 0 ? `Günün Kartları · ${dueCount} kaldı` : "Günün Kartları";
     }
   }
 
