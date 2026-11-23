@@ -1692,20 +1692,14 @@ function applyNounFieldLocks() {
     return;
   }
 
-  const lockSingularByWord = Boolean(word.onlyPlural);
-  const lockPluralByWord = Boolean(word.onlySingular);
-  const lockSingularBySelection = runtime.selectedArticle === "nur Pl.";
-  const lockPluralBySelection = runtime.selectedArticle === "nur Sg.";
-
-  const disableSingular = lockSingularByWord || lockSingularBySelection;
-  const disablePlural = lockPluralByWord || lockPluralBySelection;
+  const disableSingular = runtime.selectedArticle === "nur Pl.";
+  const disablePlural = runtime.selectedArticle === "nur Sg.";
 
   els.inputSingular.disabled = disableSingular;
   if (disableSingular) {
     els.inputSingular.value = "";
-    els.singularLockNote.textContent = lockSingularByWord
-      ? "Sadece çoğul kullanılır (Tekil biçimi yok)"
-      : "nur Pl. seçildiği için tekil alanı kilitli";
+    els.singularLockNote.textContent =
+      "nur Pl. seçildiği için tekil alanı kilitli";
     els.singularLockNote.hidden = false;
   } else {
     els.singularLockNote.hidden = true;
@@ -1714,9 +1708,8 @@ function applyNounFieldLocks() {
   els.inputPlural.disabled = disablePlural;
   if (disablePlural) {
     els.inputPlural.value = "";
-    els.pluralLockNote.textContent = lockPluralByWord
-      ? "Sadece tekil kullanılır (Çoğul biçimi yok)"
-      : "nur Sg. seçildiği için çoğul alanı kilitli";
+    els.pluralLockNote.textContent =
+      "nur Sg. seçildiği için çoğul alanı kilitli";
     els.pluralLockNote.hidden = false;
   } else {
     els.pluralLockNote.hidden = true;
@@ -2129,33 +2122,73 @@ function handleTypingSubmit() {
       articleOk = runtime.selectedArticle === word.article;
     }
 
-    const singularResult = word.onlyPlural
-      ? {
+    let singularResult;
+    let extraOnlyPluralTip = false;
+    if (word.onlyPlural) {
+      const singularRaw = collapseSpaces(els.inputSingular.value);
+      if (!singularRaw) {
+        singularResult = {
           na: true,
           ok: true,
           expectedDisplay: "Tekil yok (nur Plural)",
           userDisplay: ""
-        }
-      : {
-          na: false,
-          ...evaluateGermanWord(els.inputSingular.value, word.singular, word.article)
         };
+      } else {
+        extraOnlyPluralTip = true;
+        singularResult = {
+          na: false,
+          ok: false,
+          expectedDisplay: "Tekil yok (nur Plural)",
+          userDisplay: singularRaw
+        };
+      }
+    } else {
+      singularResult = {
+        na: false,
+        ...evaluateGermanWord(els.inputSingular.value, word.singular, word.article)
+      };
+    }
 
-    const pluralResult = word.onlySingular
-      ? {
+    let pluralResult;
+    let extraOnlySingularTip = false;
+    if (word.onlySingular) {
+      const pluralRaw = collapseSpaces(els.inputPlural.value);
+      if (!pluralRaw) {
+        pluralResult = {
           na: true,
           ok: true,
           expectedDisplay: "Çoğul yok (nur Singular)",
           userDisplay: ""
-        }
-      : {
-          na: false,
-          ...evaluateGermanWord(els.inputPlural.value, word.plural, "die")
         };
+      } else {
+        extraOnlySingularTip = true;
+        pluralResult = {
+          na: false,
+          ok: false,
+          expectedDisplay: "Çoğul yok (nur Singular)",
+          userDisplay: pluralRaw
+        };
+      }
+    } else {
+      pluralResult = {
+        na: false,
+        ...evaluateGermanWord(els.inputPlural.value, word.plural, "die")
+      };
+    }
 
     const allCorrect = articleOk && singularResult.ok && pluralResult.ok;
 
     const tips = [];
+    if (extraOnlyPluralTip) {
+      tips.push(
+        "İpucu: Bu isim yalnızca çoğul kullanılır; \"nur Pl.\" seçip tekil alanını boş bırakın."
+      );
+    }
+    if (extraOnlySingularTip) {
+      tips.push(
+        "İpucu: Bu isim yalnızca tekil kullanılır; çoğul alanını boş bırakın veya \"nur Sg.\" seçin."
+      );
+    }
     if (singularResult.lowercaseTip || pluralResult.lowercaseTip) {
       tips.push("İpucu: Almanca isimler büyük harfle başlar.");
     } else if (singularResult.allCapsTip || pluralResult.allCapsTip) {
