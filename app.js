@@ -1004,7 +1004,7 @@ function buildClozeForWord(word) {
         maskedSentence,
         target,
         acceptedTargets,
-        isSentenceStart: match.index === 0,
+        isSentenceStart: match.index === 0 || /[.!?]\s*$/.test(before),
         trCue: word.example.tr || word.tr,
         fullSentence
       };
@@ -1978,6 +1978,8 @@ function evaluatePhrase(rawInput, word) {
 
 function evaluateClozeAnswer(rawInput, targetOrList, word, isSentenceStart = false) {
   const candidate = stripSentencePunct(rawInput);
+  const stripCommasAndApos = (s) =>
+    s.replace(/,\s*/g, " ").replace(/'/g, "").replace(/\s+/g, " ").trim();
   const cleanTargets = [
     ...new Set(toArray(targetOrList).map(stripSentencePunct).filter(Boolean))
   ];
@@ -2004,7 +2006,11 @@ function evaluateClozeAnswer(rawInput, targetOrList, word, isSentenceStart = fal
   }
 
   for (const cleanTarget of cleanTargets) {
-    if (candidate.toLowerCase() === cleanTarget.toLowerCase()) {
+    if (
+      candidate.toLowerCase() === cleanTarget.toLowerCase() ||
+      stripCommasAndApos(candidate).toLowerCase() ===
+        stripCommasAndApos(cleanTarget).toLowerCase()
+    ) {
       let caseTip = null;
       if (word.category === "noun") {
         const cap = checkNounCapitalization(candidate, cleanTarget);

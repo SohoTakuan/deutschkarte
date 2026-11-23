@@ -32,7 +32,7 @@
 - `ai-tutor.js`: Floating **Almanca Asistan** BYOK Gemini Flash drawer (`deutschkarte_ai_tutor_v1` in `localStorage` or `sessionStorage`, `x-goog-api-key`, fallback chain `gemini-3.8-flash` -> `gemini-3.6-flash` -> `gemini-3.5-flash-lite`, 15s timeout, 1500-char prompt cap, safe DOM markdown-lite, `Ekran bağlamını kopyala`) plus Structured JSON endpoints (`evaluateUserSentence` & session-cached `generateArticleMnemonic`).
 - `sync.js`: Offline-first GitHub Gist sync (`deutschkarte_gist_sync_v1`, `deutschkarte-sync.json`, Gist ID/token/origin/schema validation, `debt` + `dailyHistory` + `mistakeClearedAt`/`hiddenWords`/`hiddenRestoredAt` tombstones, `resetAt` dominance).
 - `manifest.json`: PWA web app manifest (`icons/icon-192.png`, `icons/icon-512.png`).
-- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v28"`.
+- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v29"`.
 - `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png` (maskable safe-zone compliant).
 - `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`).
 - `data/lesson_01.js`: A1 Lesson 1 (71 Duden-verified items + `example: { de, tr }`).
@@ -127,7 +127,7 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
-- **`v25`:** Added post-answer Gemini Structured JSON **Cümle Kur & Hata Koçu** (`evaluateUserSentence`) and session-cached **Artikel İpucu** (`generateArticleMnemonic`) in `ai-tutor.js` / `app.js` with `openSettings()` shortcut and `sw.js` `deutschkarte-v25`.
 - **`v26`:** Filtered Gemini `thought` parts in `requestSingleModel()`, added brace-sliced fallback in `parseJsonReply()`, and raised structured JSON `maxOutputTokens` to `1024` (`sw.js` `deutschkarte-v26`).
 - **`v27`:** Accepted all Duden singular/plural/alt variants in Cloze mode (`buildClozeForWord()` + `evaluateClozeAnswer()`, e.g., `Pizzas`/`Pizzen`) and switched all `.speak-btn` audio controls to icon-only (`sw.js` `deutschkarte-v27`).
 - **`v28`:** Removed premature `onlySingular`/`onlyPlural` field locks in `applyNounFieldLocks()` (preventing pre-answer spoilers and dual-input deadlock) and rejected non-empty fake singular/plural inputs in `handleTypingSubmit()` (`sw.js` `deutschkarte-v28`).
+- **`v29`:** Tolerated omitted commas/apostrophes in `evaluateClozeAnswer()` and fixed multi-sentence `isSentenceStart` detection in `buildClozeForWord()` (`sw.js` `deutschkarte-v29`).
