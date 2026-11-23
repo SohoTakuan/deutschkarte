@@ -328,7 +328,8 @@ async function requestSingleModel({
   const parts = data?.candidates?.[0]?.content?.parts;
   const reply = Array.isArray(parts)
     ? parts
-        .map((p) => (typeof p?.text === "string" ? p.text : ""))
+        .filter((p) => !p?.thought && typeof p?.text === "string")
+        .map((p) => p.text)
         .join("")
         .trim()
     : "";
@@ -409,13 +410,27 @@ function parseJsonReply(rawText) {
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
-  try {
-    const parsed = JSON.parse(cleaned);
+
+  const tryParse = (str) => {
+    const parsed = JSON.parse(str);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("Invalid object");
     }
     return parsed;
+  };
+
+  try {
+    return tryParse(cleaned);
   } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try {
+        return tryParse(cleaned.slice(start, end + 1));
+      } catch {
+        // fall through
+      }
+    }
     throw new Error("Yapılandırılmış yanıt okunamadı. Lütfen tekrar deneyin.");
   }
 }
@@ -483,7 +498,7 @@ export async function evaluateUserSentence({ word, userSentence }) {
     systemInstruction,
     generationConfig: {
       temperature: 0.25,
-      maxOutputTokens: 350,
+      maxOutputTokens: 1024,
       responseMimeType: "application/json",
       responseSchema: {
         type: "OBJECT",
@@ -556,7 +571,7 @@ export async function generateArticleMnemonic({ word }) {
     systemInstruction,
     generationConfig: {
       temperature: 0.35,
-      maxOutputTokens: 280,
+      maxOutputTokens: 1024,
       responseMimeType: "application/json",
       responseSchema: {
         type: "OBJECT",
