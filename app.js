@@ -427,6 +427,10 @@ const els = {
   themeToggleLabel: document.getElementById("theme-toggle-label"),
   backupDialog: document.getElementById("backup-dialog"),
   closeBackup: document.getElementById("close-backup"),
+  modalTabProgress: document.getElementById("modal-tab-progress"),
+  modalTabSettings: document.getElementById("modal-tab-settings"),
+  modalPanelProgress: document.getElementById("modal-panel-progress"),
+  modalPanelSettings: document.getElementById("modal-panel-settings"),
   statLearned: document.getElementById("stat-learned"),
   statDailyStreak: document.getElementById("stat-daily-streak"),
   statTotal: document.getElementById("stat-total"),
@@ -2413,6 +2417,17 @@ function renderDictionary() {
 
 /* Backup & Stats Modal */
 
+function switchBackupModalTab(tabName) {
+  const showProgress = tabName !== "settings";
+  els.modalTabProgress?.classList.toggle("is-active", showProgress);
+  els.modalTabProgress?.setAttribute("aria-selected", String(showProgress));
+  els.modalTabSettings?.classList.toggle("is-active", !showProgress);
+  els.modalTabSettings?.setAttribute("aria-selected", String(!showProgress));
+
+  if (els.modalPanelProgress) els.modalPanelProgress.hidden = !showProgress;
+  if (els.modalPanelSettings) els.modalPanelSettings.hidden = showProgress;
+}
+
 function refreshBackupModal() {
   appState.daily = normalizeDailyState(appState.daily);
   const { totalAnswered, totalCorrect, bestStreak } = appState.progress;
@@ -3863,6 +3878,7 @@ function bindEvents() {
   els.openBackup?.addEventListener("click", () => {
     if (els.backupStatus) els.backupStatus.hidden = true;
     if (els.syncStatus) els.syncStatus.hidden = true;
+    switchBackupModalTab("progress");
     refreshBackupModal();
     if (typeof els.backupDialog.showModal === "function") {
       els.backupDialog.showModal();
@@ -3870,6 +3886,13 @@ function bindEvents() {
       els.backupDialog.setAttribute("open", "");
     }
   });
+
+  els.modalTabProgress?.addEventListener("click", () =>
+    switchBackupModalTab("progress")
+  );
+  els.modalTabSettings?.addEventListener("click", () =>
+    switchBackupModalTab("settings")
+  );
 
   els.closeBackup?.addEventListener("click", () => {
     els.backupDialog.close();

@@ -1,10 +1,10 @@
 :root {
   color-scheme: light;
-  --desk: #E9EEF2;
-  --desk-subtle: #DFE6EC;
+  --desk: #F1F3F6;
+  --desk-subtle: #E6EAF0;
   --card: #FFFFFF;
-  --rule: #CDD7E0;
-  --rule-strong: #B4C2CF;
+  --rule: rgba(21, 34, 56, 0.08);
+  --rule-strong: rgba(21, 34, 56, 0.16);
   --ink: #152238;
   --ink-muted: #52647A;
   --on-accent: #FFFFFF;
@@ -63,8 +63,8 @@
   --desk: #0F1722;
   --desk-subtle: #162130;
   --card: #1B2738;
-  --rule: #2A3A4F;
-  --rule-strong: #3B4F6B;
+  --rule: rgba(236, 242, 248, 0.08);
+  --rule-strong: rgba(236, 242, 248, 0.16);
   --ink: #ECF2F8;
   --ink-muted: #9FB2C8;
   --on-accent: #FFFFFF;
@@ -270,25 +270,36 @@ button {
 }
 
 .header-action {
-  background-color: var(--card);
-  border: 1px solid var(--rule-strong);
+  background-color: transparent;
+  border: 1px solid var(--rule);
   border-radius: var(--radius-control);
-  padding: 7px 13px;
+  padding: 6px 12px;
   font-weight: 600;
-  font-size: 0.9375rem;
-  min-height: 38px;
+  font-size: 0.875rem;
+  color: var(--ink);
+  min-height: 36px;
 }
 
 .header-action:hover {
-  border-color: var(--ink-muted);
-  background-color: var(--desk-subtle);
+  border-color: var(--rule-strong);
+  background-color: var(--card);
 }
 
 .theme-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 11px;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--ink-muted);
+}
+
+.theme-toggle:hover {
+  color: var(--ink);
+  background-color: var(--desk-subtle);
+  border-color: transparent;
 }
 
 .theme-icon {
@@ -311,23 +322,25 @@ button {
 
 .control-deck {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 10px;
 }
 
 .mode-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .deck-right {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .direction-group {
@@ -371,37 +384,39 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  background-color: var(--card);
-  border: 1px solid var(--rule);
+  gap: 6px;
+  background-color: transparent;
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  padding: 8px 12px;
-  min-height: 40px;
-  font-size: 0.9375rem;
+  padding: 6px 11px;
+  min-height: 34px;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--ink-muted);
+  white-space: nowrap;
 }
 
 .mode-btn:hover:not(.is-active) {
-  border-color: var(--rule-strong);
+  background-color: var(--desk-subtle);
   color: var(--ink);
 }
 
 .mode-btn.is-active {
-  background-color: var(--ink);
-  border-color: var(--ink);
-  color: var(--card);
+  background-color: var(--card);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(21, 34, 56, 0.06);
 }
 
 .count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   border-radius: var(--radius-pill);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   background-color: var(--warn-bg);
   color: var(--warn-text);
@@ -418,10 +433,10 @@ button {
   background-color: var(--card);
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-control);
-  padding: 8px 12px;
-  min-height: 40px;
+  padding: 6px 11px;
+  min-height: 36px;
   font-weight: 600;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   color: var(--ink);
 }
 
@@ -433,15 +448,16 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 0 2px 14px;
-  font-size: 0.9375rem;
+  padding: 0 2px 12px;
+  font-size: 0.8125rem;
   color: var(--ink-muted);
 }
 
 .session-metrics {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
 }
 
 .metric-item strong {
@@ -455,13 +471,16 @@ button {
   padding: 4px 2px;
   color: var(--ink-muted);
   font-weight: 600;
-  font-size: 0.875rem;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-size: 0.8125rem;
+  text-decoration: none;
+  opacity: 0.75;
 }
 
 .text-action:hover {
   color: var(--ink);
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* Hero Study Card — Tactile Leitner Index Card */
@@ -472,9 +491,11 @@ button {
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-card);
   box-shadow:
+    0 1px 2px rgba(21, 34, 56, 0.04),
+    0 10px 28px -16px rgba(21, 34, 56, 0.14),
     0 2px 0 var(--card-stack-1),
-    0 6px 0 -2px var(--card-stack-2),
-    0 7px 0 -2px var(--card-stack-3);
+    0 5px 0 -2px var(--card-stack-2),
+    0 6px 0 -2px var(--card-stack-3);
   overflow: hidden;
 }
 
@@ -494,9 +515,9 @@ button {
 }
 
 .card-accent-bar {
-  height: 5px;
+  height: 4px;
   width: 100%;
-  background-color: var(--ink);
+  background-color: var(--rule-strong);
   transition: background-color 160ms ease;
 }
 
@@ -522,7 +543,7 @@ button {
 }
 
 .card-body {
-  padding: 24px 28px 28px;
+  padding: 26px 30px 30px;
 }
 
 .card-meta {
@@ -530,9 +551,9 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--desk-subtle);
-  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 22px;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--ink-muted);
@@ -545,35 +566,35 @@ button {
 }
 
 .meta-kind {
-  padding: 3px 10px;
-  border-radius: var(--radius-pill);
-  background-color: var(--desk-subtle);
-  color: var(--ink);
+  padding: 0;
+  color: var(--ink-muted);
 }
 
 .card-hide-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  min-height: 32px;
-  padding: 4px 10px;
+  min-height: 30px;
+  padding: 3px 8px;
   border-radius: 6px;
-  border: 1px solid var(--rule);
+  border: 1px solid transparent;
   background-color: transparent;
   color: var(--ink-muted);
   font-size: 0.8125rem;
   font-weight: 600;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  opacity: 0.65;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, opacity 120ms ease;
 }
 
 .card-hide-btn:hover {
+  opacity: 1;
   border-color: var(--btn-danger-outline-border);
   background-color: var(--bad-bg);
   color: var(--bad-text);
 }
 
 .card-prompt {
-  margin-bottom: 22px;
+  margin-bottom: 26px;
   max-width: 62ch;
 }
 
@@ -1133,9 +1154,10 @@ button {
 .feedback-tip {
   margin: 0;
   padding: 10px 14px;
-  border-radius: var(--radius-control);
+  border-radius: 6px;
   background-color: var(--warn-bg);
-  border: 1px solid var(--warn-border);
+  border: 0;
+  border-left: 3px solid var(--accent-pl);
   color: var(--warn-text);
   font-weight: 600;
   font-size: 0.9375rem;
@@ -1218,9 +1240,9 @@ button {
 .dict-header {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .dict-title {
@@ -1233,9 +1255,10 @@ button {
 }
 
 .dict-count {
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .dict-toolbar {
@@ -1248,37 +1271,37 @@ button {
 .dict-filters-stack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 14px;
 }
 
 .dict-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .filter-chip {
-  min-height: 36px;
-  padding: 6px 12px;
+  min-height: 32px;
+  padding: 5px 10px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--rule-strong);
-  background-color: var(--card);
+  border: 1px solid transparent;
+  background-color: transparent;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--ink-muted);
 }
 
 .filter-chip:hover:not(.is-active) {
-  border-color: var(--ink-muted);
   color: var(--ink);
   background-color: var(--desk-subtle);
 }
 
 .filter-chip.is-active {
-  background-color: var(--ink);
-  border-color: var(--ink);
-  color: var(--card);
+  background-color: var(--card);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(21, 34, 56, 0.05);
 }
 
 .filter-chip-with-badge {
@@ -1406,63 +1429,60 @@ button {
 }
 
 .srs-tag {
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: var(--radius-pill);
   font-size: 0.75rem;
   font-weight: 600;
-  border: 1px solid var(--rule);
+  border: 1px solid transparent;
   background-color: var(--desk-subtle);
   color: var(--ink-muted);
 }
 
 .srs-tag.is-learned {
   background-color: var(--ok-bg);
-  border-color: var(--ok-border);
   color: var(--ok-text);
 }
 
 .srs-tag.is-due {
   background-color: var(--warn-bg);
-  border-color: var(--warn-border);
   color: var(--warn-text);
 }
 
 .srs-tag.is-learning {
   background-color: var(--accent-der-soft);
-  border-color: var(--rule-strong);
   color: var(--accent-der);
 }
 
 .dict-side-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  transition: opacity 140ms ease;
 }
 
 .dict-speak-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 6px;
-  border: 1px solid var(--rule-strong);
-  background-color: var(--card);
+  border: 1px solid transparent;
+  background-color: transparent;
   color: var(--ink-muted);
 }
 
 .dict-speak-btn:hover {
-  border-color: var(--ink-muted);
   color: var(--ink);
   background-color: var(--desk-subtle);
 }
 
 .dict-mistake-toggle {
-  min-height: 36px;
-  padding: 5px 11px;
+  min-height: 34px;
+  padding: 4px 10px;
   border-radius: 6px;
-  border: 1px solid var(--rule-strong);
-  background-color: var(--card);
+  border: 1px solid transparent;
+  background-color: transparent;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--ink-muted);
@@ -1470,7 +1490,6 @@ button {
 }
 
 .dict-mistake-toggle:hover {
-  border-color: var(--ink-muted);
   color: var(--ink);
   background-color: var(--desk-subtle);
 }
@@ -1495,16 +1514,15 @@ button {
 
 .srs-tag.is-hidden {
   background-color: var(--desk-subtle);
-  border-color: var(--rule-strong);
   color: var(--ink-muted);
 }
 
 .dict-hide-btn {
-  min-height: 36px;
-  padding: 5px 10px;
+  min-height: 34px;
+  padding: 4px 9px;
   border-radius: 6px;
-  border: 1px solid var(--rule-strong);
-  background-color: var(--card);
+  border: 1px solid transparent;
+  background-color: transparent;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--ink-muted);
@@ -1515,6 +1533,17 @@ button {
   border-color: var(--btn-danger-outline-border);
   background-color: var(--bad-bg);
   color: var(--bad-text);
+}
+
+@media (hover: hover) {
+  .dict-side-actions {
+    opacity: 0.52;
+  }
+
+  .dict-item:hover .dict-side-actions,
+  .dict-item:focus-within .dict-side-actions {
+    opacity: 1;
+  }
 }
 
 .dict-restore-btn {
@@ -1607,10 +1636,10 @@ button {
 }
 
 .modal-surface {
-  padding: 22px 24px 24px;
+  padding: 20px 24px 24px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
 }
 
 .modal-header {
@@ -1618,8 +1647,39 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 12px;
+  padding-bottom: 4px;
+}
+
+.modal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   border-bottom: 1px solid var(--rule);
+}
+
+.modal-tab-btn {
+  border: 0;
+  background: transparent;
+  padding: 8px 14px 10px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--ink-muted);
+  border-radius: 6px 6px 0 0;
+}
+
+.modal-tab-btn:hover:not(.is-active) {
+  color: var(--ink);
+}
+
+.modal-tab-btn.is-active {
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--ink);
+}
+
+.modal-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .modal-title {
@@ -1672,15 +1732,36 @@ button {
   font-family: var(--font-display);
   font-size: 1.25rem;
   color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
-.level-progress-section,
-.prefs-section {
+.stats-substrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+  padding: 0 2px;
+}
+
+.stats-substrip strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.level-progress-section {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding-top: 14px;
   border-top: 1px solid var(--rule);
+}
+
+.prefs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .section-head-row {
@@ -1794,8 +1875,8 @@ button {
 .level-lessons-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 12px 12px;
+  gap: 4px;
+  padding: 6px 12px 10px;
   border-top: 1px solid var(--rule);
   max-height: 260px;
   overflow-y: auto;
@@ -1805,10 +1886,12 @@ button {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background-color: var(--card);
-  border: 1px solid var(--rule);
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.lesson-subrow:last-child {
+  border-bottom: 0;
 }
 
 .lesson-subrow-head {
@@ -1895,6 +1978,27 @@ button {
   gap: 10px;
   padding-top: 14px;
   border-top: 1px solid var(--rule);
+}
+
+.sync-setup-details {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-control);
+  background-color: var(--desk);
+  padding: 9px 12px;
+}
+
+.sync-setup-summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--accent-der);
+}
+
+.sync-setup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .sync-panel {
@@ -1989,11 +2093,12 @@ button {
 /* Grammar & Conjugation View */
 
 .grammar-subnav {
-  display: inline-flex;
-  background-color: var(--desk-subtle);
-  padding: 3px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--rule);
+  display: flex;
+  width: 100%;
+  background-color: transparent;
+  padding: 0;
+  gap: 4px;
+  border-bottom: 1px solid var(--rule);
   margin-bottom: 14px;
 }
 
@@ -2003,8 +2108,8 @@ button {
   justify-content: center;
   border: 0;
   background: transparent;
-  padding: 7px 14px;
-  border-radius: 6px;
+  padding: 8px 14px 10px;
+  border-radius: 6px 6px 0 0;
   font-weight: 600;
   font-size: 0.9375rem;
   color: var(--ink-muted);
@@ -2016,9 +2121,9 @@ button {
 }
 
 .grammar-sub-btn.is-active {
-  background-color: var(--card);
+  background-color: transparent;
   color: var(--ink);
-  box-shadow: 0 1px 0 var(--rule);
+  box-shadow: inset 0 -2px 0 var(--ink);
 }
 
 .grammar-panel {
@@ -2155,7 +2260,6 @@ button {
   padding: 2px 9px;
   border-radius: var(--radius-pill);
   background-color: var(--accent-der-soft);
-  border: 1px solid var(--rule);
   color: var(--accent-der);
   font-size: 0.75rem;
   font-weight: 700;
@@ -2170,8 +2274,6 @@ button {
 .grammar-table-wrap {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-control);
 }
 
 .grammar-table {
@@ -2221,15 +2323,15 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 48px;
-  padding: 0 16px;
+  height: 46px;
+  padding: 0 15px;
   border-radius: 999px;
   border: 1px solid var(--rule-strong);
-  background-color: var(--ink);
-  color: var(--card);
+  background-color: var(--card);
+  color: var(--ink);
   font-weight: 700;
   font-size: 0.9375rem;
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
   transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
@@ -2624,13 +2726,21 @@ button {
   }
 
   .mode-group {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
     width: 100%;
+    padding-bottom: 2px;
   }
 
-  .mode-btn-wide {
-    grid-column: 1 / -1;
+  .mode-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mode-btn {
+    flex-shrink: 0;
   }
 
   .deck-right {
@@ -2645,8 +2755,12 @@ button {
   }
 
   .session-metrics {
-    gap: 12px;
-    font-size: 0.875rem;
+    gap: 10px;
+    font-size: 0.8125rem;
+  }
+
+  .metric-secondary {
+    display: none;
   }
 
   .card-body {
@@ -2715,13 +2829,9 @@ button {
   }
 }
 
-@media (max-width: 400px) {
-  .theme-toggle-label {
+@media (hover: none) {
+  .shortcut-hint {
     display: none;
-  }
-
-  .theme-toggle {
-    padding: 7px 10px;
   }
 }
 

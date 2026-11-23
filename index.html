@@ -63,7 +63,7 @@
             <path d="m6.34 17.66-1.41 1.41"/>
             <path d="m19.07 4.93-1.41 1.41"/>
           </svg>
-          <span id="theme-toggle-label" class="theme-toggle-label">Karanlık</span>
+          <span id="theme-toggle-label" class="sr-only">Karanlık</span>
         </button>
 
         <button type="button" id="open-backup" class="header-action" aria-haspopup="dialog">
@@ -76,10 +76,10 @@
       <section id="study-view" class="view-section" aria-label="Çalışma alanı">
         <div class="control-deck">
           <div class="mode-group" role="group" aria-label="Çalışma modu">
-            <button type="button" class="mode-btn is-active" data-mode="mixed">Karma Mod</button>
-            <button type="button" class="mode-btn" data-mode="choice">Sadece Şıklı</button>
-            <button type="button" class="mode-btn" data-mode="typing">Sadece Yazmalı</button>
-            <button type="button" class="mode-btn" data-mode="articles">Artikel Pratiği</button>
+            <button type="button" class="mode-btn is-active" data-mode="mixed">Karma</button>
+            <button type="button" class="mode-btn" data-mode="choice">Şıklı</button>
+            <button type="button" class="mode-btn" data-mode="typing">Yazmalı</button>
+            <button type="button" class="mode-btn" data-mode="articles">Artikel</button>
             <button type="button" class="mode-btn mode-btn-wide" data-mode="mistakes">
               <span>Zorlandıklarım</span>
               <span id="mistakes-badge" class="count-badge" hidden>0</span>
@@ -102,7 +102,7 @@
         <div class="session-strip">
           <div class="session-metrics">
             <span class="metric-item">Bugün: <strong id="daily-progress">0 / 20</strong></span>
-            <span class="metric-item">Öğrenilen: <strong id="mastered-count">0 / 0</strong></span>
+            <span class="metric-item metric-secondary">Öğrenilen: <strong id="mastered-count">0 / 0</strong></span>
             <span class="metric-item">Doğru: <strong id="session-score">0 / 0</strong></span>
             <span class="metric-item">Seri: <strong id="session-streak">0</strong></span>
           </div>
@@ -442,7 +442,6 @@
 
         <div id="grammar-notes-panel" class="grammar-panel" hidden>
           <div class="grammar-notes-header">
-            <h1 class="dict-title">Ders Notları ve Çekim Tabloları</h1>
             <p class="grammar-notes-subtitle">Defter notların, Duden kurallarıyla düzenlenmiş ve seslendirmeli.</p>
           </div>
           <div id="grammar-notes-list" class="grammar-notes-list"></div>
@@ -451,7 +450,7 @@
 
       <section id="dictionary-view" class="view-section" aria-label="Kelime Sözlüğü" hidden>
         <div class="dict-header">
-          <h1 class="dict-title">Kelime Sözlüğü</h1>
+          <h1 class="dict-title sr-only">Kelime Sözlüğü</h1>
           <span id="dict-count" class="dict-count">0 kelime</span>
         </div>
 
@@ -505,128 +504,136 @@
   <dialog id="backup-dialog" class="modal-dialog" aria-labelledby="backup-title">
     <div class="modal-surface">
       <div class="modal-header">
-        <h2 id="backup-title" class="modal-title">İlerleme ve Yedekleme</h2>
+        <h2 id="backup-title" class="modal-title">İlerleme ve Ayarlar</h2>
         <button type="button" id="close-backup" class="icon-close" aria-label="Pencereyi kapat">Kapat</button>
       </div>
 
-      <div class="stats-grid stats-grid-3">
-        <div class="stat-box">
-          <span class="stat-label">Öğrenilen</span>
-          <strong id="stat-learned" class="stat-value">0 / 0</strong>
-        </div>
-        <div class="stat-box">
-          <span class="stat-label">Günlük seri</span>
-          <strong id="stat-daily-streak" class="stat-value">0 gün</strong>
-        </div>
-        <div class="stat-box">
-          <span class="stat-label">Genel doğruluk</span>
-          <strong id="stat-accuracy" class="stat-value">%0</strong>
-        </div>
-        <div class="stat-box">
-          <span class="stat-label">Toplam cevap</span>
-          <strong id="stat-total" class="stat-value">0</strong>
-        </div>
-        <div class="stat-box">
-          <span class="stat-label">En uzun seri</span>
-          <strong id="stat-best-streak" class="stat-value">0</strong>
-        </div>
-        <div class="stat-box">
-          <span class="stat-label">Zorlandıklarım</span>
-          <strong id="stat-mistakes" class="stat-value">0</strong>
-        </div>
+      <div class="modal-tabs" role="tablist" aria-label="Pencere bölümleri">
+        <button type="button" id="modal-tab-progress" class="modal-tab-btn is-active" role="tab" aria-selected="true" aria-controls="modal-panel-progress">İlerleme</button>
+        <button type="button" id="modal-tab-settings" class="modal-tab-btn" role="tab" aria-selected="false" aria-controls="modal-panel-settings">Ayarlar ve Yedek</button>
       </div>
 
-      <div class="level-progress-section">
-        <div class="section-head-row">
-          <h3 class="backup-heading">Seviye ve ders ilerlemesi</h3>
-          <span id="srs-summary" class="srs-summary"></span>
-        </div>
-        <div id="level-progress-list" class="level-progress-list"></div>
-      </div>
-
-      <div class="prefs-section">
-        <h3 class="backup-heading">Çalışma tercihleri</h3>
-        <div class="prefs-row">
-          <label for="daily-goal-select" class="pref-label">Günlük hedef</label>
-          <select id="daily-goal-select" class="lesson-select pref-select">
-            <option value="10">10 kart / gün</option>
-            <option value="20">20 kart / gün</option>
-            <option value="30">30 kart / gün</option>
-            <option value="50">50 kart / gün</option>
-          </select>
-        </div>
-        <label class="pref-check">
-          <input type="checkbox" id="auto-speak-toggle">
-          <span>Cevaptan sonra Almanca telaffuzu otomatik seslendir</span>
-        </label>
-        <label class="pref-check">
-          <input type="checkbox" id="keep-ai-open-toggle">
-          <span>Sonraki karta / soruya geçince asistan penceresini açık tut</span>
-        </label>
-      </div>
-
-      <div class="sync-section">
-        <div class="section-head-row">
-          <h3 class="backup-heading">Bulut senkronizasyonu (GitHub Gist)</h3>
-          <span id="sync-meta" class="srs-summary">Bağlı değil</span>
-        </div>
-
-        <div id="sync-disconnected" class="sync-panel">
-          <p class="backup-desc">GitHub token'ınızı PC ve telefonda bir kez girerek ilerlemenizi otomatik eşitleyebilirsiniz. Token yalnızca bu cihazda saklanır.</p>
-          <div class="sync-form">
-            <label for="gist-token-input" class="sr-only">GitHub token</label>
-            <input
-              type="password"
-              id="gist-token-input"
-              class="text-input sync-token-input"
-              placeholder="ghp_..."
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-            >
-            <button type="button" id="btn-sync-connect" class="btn-primary">Bağlan ve eşitle</button>
+      <div id="modal-panel-progress" class="modal-panel" role="tabpanel" aria-labelledby="modal-tab-progress">
+        <div class="stats-grid stats-grid-3">
+          <div class="stat-box">
+            <span class="stat-label">Öğrenilen</span>
+            <strong id="stat-learned" class="stat-value">0 / 0</strong>
           </div>
-          <a
-            href="https://github.com/settings/tokens/new?description=DeutschKarte&scopes=gist"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-action sync-token-link"
-          >GitHub'dan tek tıkla token oluştur (yalnızca gist izni)</a>
-        </div>
-
-        <div id="sync-connected" class="sync-panel" hidden>
-          <p id="sync-connected-info" class="backup-desc">GitHub Gist bağlı. Değişiklikler çevrimiçi olduğunuzda otomatik eşitlenir.</p>
-          <div class="sync-actions">
-            <button type="button" id="btn-sync-now" class="btn-secondary">Şimdi eşitle</button>
-            <button type="button" id="btn-sync-disconnect" class="btn-danger-outline">Bağlantıyı kes</button>
+          <div class="stat-box">
+            <span class="stat-label">Günlük seri</span>
+            <strong id="stat-daily-streak" class="stat-value">0 gün</strong>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Genel doğruluk</span>
+            <strong id="stat-accuracy" class="stat-value">%0</strong>
           </div>
         </div>
 
-        <p id="sync-status" class="backup-status" hidden></p>
+        <div class="stats-substrip">
+          <span>Toplam cevap: <strong id="stat-total">0</strong></span>
+          <span>En uzun seri: <strong id="stat-best-streak">0</strong></span>
+          <span>Zorlandıklarım: <strong id="stat-mistakes">0</strong></span>
+        </div>
+
+        <div class="level-progress-section">
+          <div class="section-head-row">
+            <h3 class="backup-heading">Seviye ve ders ilerlemesi</h3>
+            <span id="srs-summary" class="srs-summary"></span>
+          </div>
+          <div id="level-progress-list" class="level-progress-list"></div>
+        </div>
       </div>
 
-      <div class="backup-section">
-        <h3 class="backup-heading">Veri yedekleme</h3>
-        <p class="backup-desc">İlerlemenizi JSON dosyası olarak cihazınıza kaydedip bilgisayar veya telefon arasında aktarabilirsiniz.</p>
-        <div class="backup-actions">
-          <button type="button" id="btn-export-json" class="btn-primary">Yedeği indir</button>
-          <button type="button" id="btn-import-json" class="btn-secondary">Yedek yükle</button>
-          <input type="file" id="input-import-json" accept="application/json,.json" class="sr-only" tabindex="-1">
+      <div id="modal-panel-settings" class="modal-panel" role="tabpanel" aria-labelledby="modal-tab-settings" hidden>
+        <div class="prefs-section">
+          <h3 class="backup-heading">Çalışma tercihleri</h3>
+          <div class="prefs-row">
+            <label for="daily-goal-select" class="pref-label">Günlük hedef</label>
+            <select id="daily-goal-select" class="lesson-select pref-select">
+              <option value="10">10 kart / gün</option>
+              <option value="20">20 kart / gün</option>
+              <option value="30">30 kart / gün</option>
+              <option value="50">50 kart / gün</option>
+            </select>
+          </div>
+          <label class="pref-check">
+            <input type="checkbox" id="auto-speak-toggle">
+            <span>Cevaptan sonra Almanca telaffuzu otomatik seslendir</span>
+          </label>
+          <label class="pref-check">
+            <input type="checkbox" id="keep-ai-open-toggle">
+            <span>Sonraki karta / soruya geçince asistan penceresini açık tut</span>
+          </label>
         </div>
-        <p id="backup-status" class="backup-status" hidden></p>
-      </div>
 
-      <div class="danger-section">
-        <div id="reset-initial-row" class="danger-row">
-          <span class="danger-text">Tüm kayıtlı ilerleme, zorlandığınız ve gizlediğiniz kelimeler bu cihazdan silinir.</span>
-          <button type="button" id="btn-reset-ask" class="btn-danger-outline">İlerlemeyi sıfırla</button>
+        <div class="sync-section">
+          <div class="section-head-row">
+            <h3 class="backup-heading">Bulut senkronizasyonu (GitHub Gist)</h3>
+            <span id="sync-meta" class="srs-summary">Bağlı değil</span>
+          </div>
+
+          <div id="sync-disconnected" class="sync-panel">
+            <details class="sync-setup-details">
+              <summary class="sync-setup-summary">GitHub Gist ile eşitlemeyi kur</summary>
+              <div class="sync-setup-body">
+                <p class="backup-desc">GitHub token'ınızı PC ve telefonda bir kez girerek ilerlemenizi otomatik eşitleyebilirsiniz. Token yalnızca bu cihazda saklanır.</p>
+                <div class="sync-form">
+                  <label for="gist-token-input" class="sr-only">GitHub token</label>
+                  <input
+                    type="password"
+                    id="gist-token-input"
+                    class="text-input sync-token-input"
+                    placeholder="ghp_..."
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                  >
+                  <button type="button" id="btn-sync-connect" class="btn-primary">Bağlan ve eşitle</button>
+                </div>
+                <a
+                  href="https://github.com/settings/tokens/new?description=DeutschKarte&scopes=gist"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-action sync-token-link"
+                >GitHub'dan tek tıkla token oluştur (yalnızca gist izni)</a>
+              </div>
+            </details>
+          </div>
+
+          <div id="sync-connected" class="sync-panel" hidden>
+            <p id="sync-connected-info" class="backup-desc">GitHub Gist bağlı. Değişiklikler çevrimiçi olduğunuzda otomatik eşitlenir.</p>
+            <div class="sync-actions">
+              <button type="button" id="btn-sync-now" class="btn-secondary">Şimdi eşitle</button>
+              <button type="button" id="btn-sync-disconnect" class="btn-danger-outline">Bağlantıyı kes</button>
+            </div>
+          </div>
+
+          <p id="sync-status" class="backup-status" hidden></p>
         </div>
-        <div id="reset-confirm-row" class="danger-row" hidden>
-          <span class="danger-text">Emin misiniz? Bu işlem geri alınamaz.</span>
-          <div class="danger-confirm-actions">
-            <button type="button" id="btn-reset-confirm" class="btn-danger">Evet, sıfırla</button>
-            <button type="button" id="btn-reset-cancel" class="btn-secondary">Vazgeç</button>
+
+        <div class="backup-section">
+          <h3 class="backup-heading">Veri yedekleme</h3>
+          <p class="backup-desc">İlerlemenizi JSON dosyası olarak cihazınıza kaydedip bilgisayar veya telefon arasında aktarabilirsiniz.</p>
+          <div class="backup-actions">
+            <button type="button" id="btn-export-json" class="btn-primary">Yedeği indir</button>
+            <button type="button" id="btn-import-json" class="btn-secondary">Yedek yükle</button>
+            <input type="file" id="input-import-json" accept="application/json,.json" class="sr-only" tabindex="-1">
+          </div>
+          <p id="backup-status" class="backup-status" hidden></p>
+        </div>
+
+        <div class="danger-section">
+          <div id="reset-initial-row" class="danger-row">
+            <span class="danger-text">Tüm kayıtlı ilerleme, zorlandığınız ve gizlediğiniz kelimeler bu cihazdan silinir.</span>
+            <button type="button" id="btn-reset-ask" class="btn-danger-outline">İlerlemeyi sıfırla</button>
+          </div>
+          <div id="reset-confirm-row" class="danger-row" hidden>
+            <span class="danger-text">Emin misiniz? Bu işlem geri alınamaz.</span>
+            <div class="danger-confirm-actions">
+              <button type="button" id="btn-reset-confirm" class="btn-danger">Evet, sıfırla</button>
+              <button type="button" id="btn-reset-cancel" class="btn-secondary">Vazgeç</button>
+            </div>
           </div>
         </div>
       </div>
