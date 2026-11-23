@@ -19,6 +19,7 @@ import {
   syncWithGitHubGist
 } from "./sync.js";
 import { initAiTutor } from "./ai-tutor.js";
+import { createCustomSelect } from "./custom-select.js";
 
 const STORAGE_KEY = "deutschkarte_state_v1";
 const THEME_STORAGE_KEY = "deutschkarte_theme";
@@ -28,15 +29,36 @@ const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const VALID_ROUND_SIZES = ["off", "10", "20"];
 const SRS_INTERVAL_DAYS = { 1: 0, 2: 1, 3: 3, 4: 7, 5: 21 };
 const DAY_MS = 24 * 60 * 60 * 1000;
-const HEATMAP_DAYS = 42;
+const HEATMAP_DAYS = 28;
+const TR_SHORT_MONTHS = [
+  "Oca",
+  "Şub",
+  "Mar",
+  "Nis",
+  "May",
+  "Haz",
+  "Tem",
+  "Ağu",
+  "Eyl",
+  "Eki",
+  "Kas",
+  "Ara"
+];
 const WORD_BY_ID = new Map(ALL_WORDS.map((word) => [word.id, word]));
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_IMPORT_BYTES = 1024 * 1024;
 let aiTutor = null;
+let lessonSelectCtrl = null;
+let dictLessonSelectCtrl = null;
 
 function toNonNegativeInt(val) {
   const num = Number(val);
   return Number.isFinite(num) && num > 0 ? Math.floor(num) : 0;
+}
+
+function sanitizeDebt(val) {
+  const num = Number(val);
+  return Number.isFinite(num) ? Math.max(-3, Math.min(0, Math.trunc(num))) : 0;
 }
 
 function maybeAutoCloseAi() {
@@ -192,11 +214,12 @@ function sanitizeCards(rawCards) {
     }
     const boxNum = Number(entry.box);
     const box = Number.isFinite(boxNum) ? Math.max(1, Math.min(5, Math.floor(boxNum))) : 1;
+    const debt = sanitizeDebt(entry.debt);
     const seen = toNonNegativeInt(entry.seen);
     const correct = Math.min(seen, toNonNegativeInt(entry.correct));
     const lastSeenAt = toNonNegativeInt(entry.lastSeenAt);
     const nextReviewAt = toNonNegativeInt(entry.nextReviewAt);
-    clean[id] = { box, seen, correct, lastSeenAt, nextReviewAt };
+    clean[id] = { box, debt, seen, correct, lastSeenAt, nextReviewAt };
   }
   return clean;
 }
@@ -379,7 +402,6 @@ const els = {
   sessionRoundBtns: Array.from(
     document.querySelectorAll("#session-round-group .round-toggle-btn")
   ),
-  resetSession: document.getElementById("reset-session"),
 
   studyCard: document.getElementById("study-card"),
   roundProgressTrack: document.getElementById("round-progress-track"),
@@ -478,7 +500,9 @@ const els = {
   rhythmActiveDays: document.getElementById("rhythm-active-days"),
   srsSummary: document.getElementById("srs-summary"),
   levelProgressList: document.getElementById("level-progress-list"),
-  roundSizeSelect: document.getElementById("round-size-select"),
+  settingsRoundBtns: Array.from(
+    document.querySelectorAll("#settings-round-group .round-toggle-btn")
+  ),
   autoSpeakToggle: document.getElementById("auto-speak-toggle"),
   keepAiOpenToggle: document.getElementById("keep-ai-open-toggle"),
   btnExportJson: document.getElementById("btn-export-json"),
@@ -794,44 +818,65 @@ function unhideWord(wordId, { fromUndo = false } = {}) {
 
 /* Lesson Selectors & Top UI */
 
-function populateLessonSelects() {
-  const lessons = getLessonList();
-  const selects = [els.lessonSelect, els.dictLessonSelect];
-  const activeTotal = getActiveWords().length;
-
-  for (const select of selects) {
-    select.innerHTML = "";
-    const allOpt = document.createElement("option");
-    allOpt.value = "all";
-    allOpt.textContent = `Tüm Dersler (${activeTotal})`;
-    select.appendChild(allOpt);
-
-    const byLevel = new Map();
-    for (const lesson of lessons) {
-      if (!byLevel.has(lesson.level)) {
-        byLevel.set(lesson.level, []);
+function initLessonSelectControls() {
+  if (!lessonSelectCtrl && els.lessonSelect) {
+    lessonSelectCtrl = createCustomSelect(els.lessonSelect, {
+      ariaLabel: "Ders seçimi",
+      onChange: (nextLesson) => {
+        appState.settings.lesson = nextLesson;
+        saveState({ sync: false, preserveTimestamp: true });
+        showNextCard();
       }
-      byLevel.get(lesson.level).push(lesson);
-    }
+    });
+  }
+  if (!dictLessonSelectCtrl && els.dictLessonSelect) {
+    dictLessonSelectCtrl = createCustomSelect(els.dictLessonSelect, {
+      ariaLabel: "Sözlük ders filtresi",
+      onChange: (nextDictLesson) => {
+        runtime.dictLesson = nextDictLesson;
+        renderDictionary();
+      }
+    });
+  }
+}
 
-    for (const [level, group] of byLevel.entries()) {
-      const optgroup = document.createElement("optgroup");
-      optgroup.label = `${level} Seviyesi`;
-      for (const lesson of group) {
+function populateLessonSelects() {
+  initLessonSelectControls();
+  const lessons = getLessonList();
+  const activeTotal = getActiveWords().length;
+  const items = [{ value: "all", label: `Tüm Dersler (${activeTotal})` }];
+
+  const byLevel = new Map();
+  for (const lesson of lessons) {
+    if (!byLevel.has(lesson.level)) {
+      byLevel.set(lesson.level, []);
+    }
+    byLevel.get(lesson.level).push(lesson);
+  }
+
+  for (const [level, group] of byLevel.entries()) {
+    items.push({
+      groupLabel: `${level} Seviyesi`,
+      options: group.map((lesson) => {
         const activeLessonCount = getWordsForLesson(lesson.id).filter(
           (w) => !isWordHidden(w.id)
         ).length;
-        const opt = document.createElement("option");
-        opt.value = lesson.title;
-        opt.textContent = `${lesson.title} (${activeLessonCount})`;
-        optgroup.appendChild(opt);
-      }
-      select.appendChild(optgroup);
-    }
+        return {
+          value: lesson.title,
+          label: `${lesson.title} (${activeLessonCount})`
+        };
+      })
+    });
   }
 
-  els.lessonSelect.value = appState.settings.lesson;
-  els.dictLessonSelect.value = runtime.dictLesson;
+  if (lessonSelectCtrl) {
+    lessonSelectCtrl.setOptions(items);
+    lessonSelectCtrl.setValue(appState.settings.lesson);
+  }
+  if (dictLessonSelectCtrl) {
+    dictLessonSelectCtrl.setOptions(items);
+    dictLessonSelectCtrl.setValue(runtime.dictLesson);
+  }
 }
 
 function updateTopControls() {
@@ -862,8 +907,13 @@ function updateTopControls() {
     ? appState.settings.roundSize
     : "off";
 
-  els.lessonSelect.value = appState.settings.lesson;
+  lessonSelectCtrl?.setValue(appState.settings.lesson);
   for (const btn of els.sessionRoundBtns) {
+    const active = btn.dataset.round === activeRoundSize;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  }
+  for (const btn of els.settingsRoundBtns) {
     const active = btn.dataset.round === activeRoundSize;
     btn.classList.toggle("is-active", active);
     btn.setAttribute("aria-pressed", String(active));
@@ -956,19 +1006,20 @@ function pickNextWord(pool) {
   const weightedList = candidates.length > 0 ? candidates : pool;
 
   const weights = weightedList.map((word) => {
+    const card = appState.cards[word.id];
+    const debtMultiplier = 1 + Math.abs(sanitizeDebt(card?.debt));
     const mistake = appState.mistakes[word.id];
     if (mistake) {
-      return 8 + Math.min(4, mistake.misses);
+      return (8 + Math.min(4, mistake.misses)) * debtMultiplier;
     }
-    const card = appState.cards[word.id];
     if (!card || !card.seen) {
       return 4;
     }
     if (card.nextReviewAt <= now) {
-      return 6;
+      return 6 * debtMultiplier;
     }
     if (card.box <= 3) {
-      return 1.5;
+      return 1.5 * debtMultiplier;
     }
     return 0.4;
   });
@@ -1318,7 +1369,7 @@ function advanceAfterAnswer() {
   showNextCard();
 }
 
-function showNextCard() {
+function showNextCard({ preserveWord = false } = {}) {
   const target = getEffectiveRoundTarget();
   if (target > 0 && runtime.roundAnswered >= target) {
     resetRoundTracker();
@@ -1400,7 +1451,13 @@ function showNextCard() {
   els.cardEmptyState.hidden = true;
   els.cardActiveBody.hidden = false;
 
-  const word = pickNextWord(pool);
+  const canPreserve =
+    preserveWord &&
+    !runtime.answered &&
+    !runtime.showingRoundSummary &&
+    runtime.currentWord &&
+    pool.some((item) => item.id === runtime.currentWord.id);
+  const word = canPreserve ? runtime.currentWord : pickNextWord(pool);
   const questionType = decideQuestionType(word);
   const clozeData = questionType === "cloze" ? buildClozeForWord(word) : null;
   const direction = questionType === "articles" ? "de-tr" : "tr-de";
@@ -2172,26 +2229,39 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
   const now = Date.now();
   const prev = appState.cards[wordId] || {
     box: 1,
+    debt: 0,
     seen: 0,
     correct: 0,
     lastSeenAt: 0,
     nextReviewAt: 0
   };
+  const prevDebt = sanitizeDebt(prev.debt);
 
   let nextBox = 1;
+  let nextDebt = 0;
   let heldAtBox3 = false;
   if (isCorrect) {
-    if (prev.box === 3 && !isProduction) {
+    if (prevDebt < 0) {
+      nextBox = 1;
+      nextDebt = prevDebt + 1;
+    } else if (prev.box === 3 && !isProduction) {
       nextBox = 3;
       heldAtBox3 = true;
     } else {
       nextBox = Math.min(5, prev.box + 1);
     }
+  } else if (prev.box === 1) {
+    nextBox = 1;
+    nextDebt = Math.max(-3, prevDebt - 1);
+  } else {
+    nextBox = Math.max(1, prev.box - 2);
+    nextDebt = 0;
   }
   const intervalDays = SRS_INTERVAL_DAYS[nextBox] ?? 0;
 
   appState.cards[wordId] = {
     box: nextBox,
+    debt: nextDebt,
     seen: prev.seen + 1,
     correct: prev.correct + (isCorrect ? 1 : 0),
     lastSeenAt: now,
@@ -2754,7 +2824,7 @@ function renderActivityHeatmap() {
   let activeDays = 0;
 
   const mondayIndex = (new Date().getDay() + 6) % 7;
-  const startDaysAgo = 5 * 7 + mondayIndex;
+  const startDaysAgo = 3 * 7 + mondayIndex;
   const endDaysAgo = mondayIndex - 6;
 
   for (let daysAgo = startDaysAgo; daysAgo >= endDaysAgo; daysAgo -= 1) {
@@ -2780,13 +2850,13 @@ function renderActivityHeatmap() {
   const level3Min = Math.ceil(scaleMax * 0.7);
 
   const fragment = document.createDocumentFragment();
-  for (const entry of entries) {
+  entries.forEach((entry, idx) => {
     const cell = document.createElement("span");
     if (entry.isFuture) {
       cell.className = "heatmap-cell is-future";
       cell.setAttribute("aria-hidden", "true");
       fragment.appendChild(cell);
-      continue;
+      return;
     }
 
     let level = "0";
@@ -2798,16 +2868,24 @@ function renderActivityHeatmap() {
       level = "1";
     }
 
+    const [, mm, dd] = entry.dateKey.split("-");
+    const monthLabel = TR_SHORT_MONTHS[Number(mm) - 1] || "";
+    const tooltipText = `${Number(dd)} ${monthLabel} · ${entry.count} kart`;
+    const colIdx = idx % 7;
+
     cell.className = entry.isToday ? "heatmap-cell is-today" : "heatmap-cell";
     cell.dataset.level = level;
-    cell.title = `${entry.dateKey}: ${entry.count} kart`;
+    cell.dataset.tooltip = tooltipText;
+    cell.dataset.col = colIdx <= 1 ? "left" : colIdx >= 5 ? "right" : "mid";
+    cell.setAttribute("aria-label", tooltipText);
+    cell.setAttribute("tabindex", "0");
     fragment.appendChild(cell);
-  }
+  });
 
   els.activityHeatmap.appendChild(fragment);
   els.activityHeatmap.setAttribute(
     "aria-label",
-    `Son 6 haftalık çalışma ritmi: ${activeDays} aktif gün`
+    `Son 4 haftalık çalışma ritmi: ${activeDays} aktif gün`
   );
   if (els.rhythmActiveDays) {
     els.rhythmActiveDays.textContent = `${activeDays} aktif gün`;
@@ -2830,12 +2908,13 @@ function refreshBackupModal() {
   els.statMistakes.textContent = String(getActiveMistakeCount());
   renderActivityHeatmap();
 
-  if (els.roundSizeSelect) {
-    els.roundSizeSelect.value = VALID_ROUND_SIZES.includes(
-      appState.settings.roundSize
-    )
-      ? appState.settings.roundSize
-      : "off";
+  const activeRoundSize = VALID_ROUND_SIZES.includes(appState.settings.roundSize)
+    ? appState.settings.roundSize
+    : "off";
+  for (const btn of els.settingsRoundBtns) {
+    const active = btn.dataset.round === activeRoundSize;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-pressed", String(active));
   }
   els.autoSpeakToggle.checked = Boolean(appState.settings.autoSpeak);
   els.autoSpeakToggle.disabled = !isSpeechSupported();
@@ -2978,9 +3057,7 @@ function refreshBackupModal() {
           jumpBtn.addEventListener("click", () => {
             els.backupDialog?.close();
             runtime.dictLesson = lessonItem.title;
-            if (els.dictLessonSelect) {
-              els.dictLessonSelect.value = lessonItem.title;
-            }
+            dictLessonSelectCtrl?.setValue(lessonItem.title);
             runtime.dictFilter = "unlearned";
             runtime.dictQuery = "";
             if (els.dictSearch) {
@@ -4058,29 +4135,14 @@ function bindEvents() {
 
   for (const btn of els.modeBtns) {
     btn.addEventListener("click", () => {
+      if (btn.dataset.mode === appState.settings.mode) {
+        return;
+      }
       appState.settings.mode = btn.dataset.mode;
       saveState({ sync: false, preserveTimestamp: true });
-      showNextCard();
+      showNextCard({ preserveWord: true });
     });
   }
-
-  els.lessonSelect?.addEventListener("change", () => {
-    appState.settings.lesson = els.lessonSelect.value;
-    saveState({ sync: false, preserveTimestamp: true });
-    showNextCard();
-  });
-
-  els.resetSession?.addEventListener("click", () => {
-    runtime.sessionAnswered = 0;
-    runtime.sessionCorrect = 0;
-    runtime.sessionStreak = 0;
-    resetRoundTracker();
-    updateTopControls();
-    if (runtime.showingRoundSummary || els.cardActiveBody.hidden) {
-      showNextCard();
-    }
-    announce("Oturum sayacı sıfırlandı.");
-  });
 
   els.btnRoundContinue?.addEventListener("click", continueFromRoundSummary);
   els.btnRoundMistakes?.addEventListener("click", () => {
@@ -4106,7 +4168,7 @@ function bindEvents() {
   els.emptyOpenHidden?.addEventListener("click", () => {
     runtime.dictFilter = "hidden";
     runtime.dictLesson = appState.settings.lesson;
-    els.dictLessonSelect.value = runtime.dictLesson;
+    dictLessonSelectCtrl?.setValue(runtime.dictLesson);
     for (const chip of els.dictFilterChips) {
       const isSelected = chip.dataset.filter === "hidden";
       chip.classList.toggle("is-active", isSelected);
@@ -4190,11 +4252,6 @@ function bindEvents() {
     renderDictionary();
   });
 
-  els.dictLessonSelect?.addEventListener("change", () => {
-    runtime.dictLesson = els.dictLessonSelect.value;
-    renderDictionary();
-  });
-
   for (const chip of els.dictFilterChips) {
     chip.addEventListener("click", () => {
       runtime.dictFilter = chip.dataset.filter;
@@ -4212,7 +4269,7 @@ function bindEvents() {
     runtime.dictLesson = "all";
     runtime.dictQuery = "";
     els.dictSearch.value = "";
-    els.dictLessonSelect.value = "all";
+    dictLessonSelectCtrl?.setValue("all");
     for (const chip of els.dictFilterChips) {
       const active = chip.dataset.filter === "all";
       chip.classList.toggle("is-active", active);
@@ -4277,9 +4334,6 @@ function bindEvents() {
     }
     saveState({ sync: true });
     updateTopControls();
-    if (els.roundSizeSelect) {
-      els.roundSizeSelect.value = nextVal;
-    }
     if (runtime.showingRoundSummary) {
       showNextCard();
     } else {
@@ -4298,9 +4352,11 @@ function bindEvents() {
     });
   }
 
-  els.roundSizeSelect?.addEventListener("change", () => {
-    handleRoundSizeChange(els.roundSizeSelect.value);
-  });
+  for (const btn of els.settingsRoundBtns) {
+    btn.addEventListener("click", () => {
+      handleRoundSizeChange(btn.dataset.round);
+    });
+  }
 
   els.autoSpeakToggle?.addEventListener("change", () => {
     appState.settings.autoSpeak = Boolean(els.autoSpeakToggle.checked);

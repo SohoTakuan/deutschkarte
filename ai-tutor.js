@@ -1,8 +1,15 @@
+import { createCustomSelect } from "./custom-select.js";
+
 const AI_STORAGE_KEY = "deutschkarte_ai_tutor_v1";
 const GEMINI_MODELS = [
   "gemini-3.8-flash",
   "gemini-3.6-flash",
   "gemini-3.5-flash-lite"
+];
+const GEMINI_MODEL_OPTIONS = [
+  { value: "gemini-3.8-flash", label: "gemini-3.8-flash (Önerilen)" },
+  { value: "gemini-3.6-flash", label: "gemini-3.6-flash (Stabil)" },
+  { value: "gemini-3.5-flash-lite", label: "gemini-3.5-flash-lite (En hızlı)" }
 ];
 const DEFAULT_MODEL = GEMINI_MODELS[0];
 const MAX_HISTORY_TURNS = 10;
@@ -402,6 +409,29 @@ export function initAiTutor({ getScreenContext, announce }) {
   let statusTimer = null;
   let history = [];
 
+  const modelSelectCtrl = dom.modelSelect
+    ? createCustomSelect(dom.modelSelect, {
+        ariaLabel: "Gemini modeli",
+        onChange: (rawModel) => {
+          const nextModel = GEMINI_MODELS.includes(rawModel)
+            ? rawModel
+            : DEFAULT_MODEL;
+          preferredModelIndex = GEMINI_MODELS.indexOf(nextModel);
+          if (config.apiKey) {
+            config = saveAiConfig({
+              apiKey: config.apiKey,
+              model: nextModel,
+              sessionOnly: config.sessionOnly
+            });
+            setStatus(`Model ${nextModel} olarak güncellendi.`, "ok");
+          } else {
+            config.model = nextModel;
+          }
+        }
+      })
+    : null;
+  modelSelectCtrl?.setOptions(GEMINI_MODEL_OPTIONS);
+
   function setStatus(text, tone = "neutral") {
     if (!dom.settingsStatus) {
       return;
@@ -423,8 +453,8 @@ export function initAiTutor({ getScreenContext, announce }) {
   }
 
   function syncSettingsUI() {
-    if (dom.modelSelect) {
-      dom.modelSelect.value = config.model;
+    if (modelSelectCtrl) {
+      modelSelectCtrl.setValue(config.model);
     }
     if (dom.sessionOnlyCheck) {
       dom.sessionOnlyCheck.checked = Boolean(config.sessionOnly);
@@ -664,7 +694,7 @@ export function initAiTutor({ getScreenContext, announce }) {
 
   dom.btnSaveKey?.addEventListener("click", () => {
     const enteredKey = dom.apiKeyInput?.value.trim() || "";
-    const selectedModel = dom.modelSelect?.value || DEFAULT_MODEL;
+    const selectedModel = modelSelectCtrl?.getValue() || DEFAULT_MODEL;
     const sessionOnly = Boolean(dom.sessionOnlyCheck?.checked);
 
     if (!enteredKey && !config.apiKey) {
@@ -717,23 +747,6 @@ export function initAiTutor({ getScreenContext, announce }) {
       );
     } else {
       config.sessionOnly = sessionOnly;
-    }
-  });
-
-  dom.modelSelect?.addEventListener("change", () => {
-    const nextModel = GEMINI_MODELS.includes(dom.modelSelect.value)
-      ? dom.modelSelect.value
-      : DEFAULT_MODEL;
-    preferredModelIndex = GEMINI_MODELS.indexOf(nextModel);
-    if (config.apiKey) {
-      config = saveAiConfig({
-        apiKey: config.apiKey,
-        model: nextModel,
-        sessionOnly: config.sessionOnly
-      });
-      setStatus(`Model ${nextModel} olarak güncellendi.`, "ok");
-    } else {
-      config.model = nextModel;
     }
   });
 

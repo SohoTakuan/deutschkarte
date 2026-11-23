@@ -16,6 +16,11 @@ function toNonNegativeInt(val) {
   return Number.isFinite(num) && num > 0 ? Math.floor(num) : 0;
 }
 
+function sanitizeDebt(val) {
+  const num = Number(val);
+  return Number.isFinite(num) ? Math.max(-3, Math.min(0, Math.trunc(num))) : 0;
+}
+
 function getLocalDateKeyOffset(daysAgo = 0) {
   const now = new Date();
   const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo);
@@ -118,11 +123,12 @@ function sanitizeCardEntry(entry) {
   }
   const boxNum = Number(entry.box);
   const box = Number.isFinite(boxNum) ? Math.max(1, Math.min(5, Math.floor(boxNum))) : 1;
+  const debt = sanitizeDebt(entry.debt);
   const seen = toNonNegativeInt(entry.seen);
   const correct = Math.min(seen, toNonNegativeInt(entry.correct));
   const lastSeenAt = toNonNegativeInt(entry.lastSeenAt);
   const nextReviewAt = toNonNegativeInt(entry.nextReviewAt);
-  return { box, seen, correct, lastSeenAt, nextReviewAt };
+  return { box, debt, seen, correct, lastSeenAt, nextReviewAt };
 }
 
 function sanitizeMistakeEntry(entry) {
@@ -145,7 +151,10 @@ function pickNewerCard(a, b) {
   if (b.seen !== a.seen) {
     return b.seen > a.seen ? b : a;
   }
-  return b.box >= a.box ? b : a;
+  if (b.box !== a.box) {
+    return b.box > a.box ? b : a;
+  }
+  return (b.debt ?? 0) <= (a.debt ?? 0) ? b : a;
 }
 
 function pickSharedSnapshot(state) {

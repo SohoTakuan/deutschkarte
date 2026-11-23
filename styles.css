@@ -65,7 +65,7 @@
   --warn-hover-bg: #FDEBD1;
 
   --placeholder: #5E6E82;
-  --focus-ring: rgba(26, 75, 184, 0.14);
+  --focus-ring: rgba(19, 32, 51, 0.14);
   --backdrop: rgba(19, 32, 51, 0.48);
   --dialog-shadow: rgba(19, 32, 51, 0.24);
 
@@ -106,14 +106,14 @@
   --wash-das: rgba(62, 199, 136, 0.1);
   --wash-pl: rgba(234, 168, 68, 0.1);
 
-  --summary-surface: #162A4A;
-  --summary-surface-edge: rgba(120, 165, 248, 0.42);
-  --summary-ink: #F5F8FF;
-  --summary-muted: #C2D4F2;
-  --summary-rule: rgba(245, 248, 255, 0.18);
+  --summary-surface: #202630;
+  --summary-surface-edge: rgba(240, 242, 245, 0.22);
+  --summary-ink: #F0F2F5;
+  --summary-muted: #B6C0CC;
+  --summary-rule: rgba(240, 242, 245, 0.16);
   --summary-btn-bg: #FFFFFF;
-  --summary-btn-hover: #E8EEF7;
-  --summary-btn-ink: #132033;
+  --summary-btn-hover: #E6ECF4;
+  --summary-btn-ink: #111418;
   --summary-secondary-hover: rgba(255, 255, 255, 0.12);
   --summary-mastered-bg: rgba(62, 199, 136, 0.18);
   --summary-mastered-border: rgba(62, 199, 136, 0.42);
@@ -187,7 +187,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent-der);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
 
@@ -460,7 +460,18 @@ button {
   border-color: var(--article-pl-fill);
 }
 
-.lesson-select {
+.custom-select {
+  position: relative;
+  display: inline-block;
+  min-width: 170px;
+}
+
+.custom-select-trigger {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   background-color: var(--card);
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-control);
@@ -469,6 +480,93 @@ button {
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--ink);
+  text-align: left;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.custom-select-trigger:hover {
+  border-color: var(--ink-muted);
+}
+
+.custom-select.is-open .custom-select-trigger {
+  border-color: var(--ink);
+}
+
+.custom-select-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-select-chevron {
+  flex-shrink: 0;
+  color: var(--ink-muted);
+  transition: transform 140ms ease;
+}
+
+.custom-select.is-open .custom-select-chevron {
+  transform: rotate(180deg);
+}
+
+.custom-select-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 100%;
+  max-width: min(300px, calc(100vw - 28px));
+  max-height: 260px;
+  overflow-y: auto;
+  z-index: 80;
+  background-color: var(--card);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-control);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  padding: 4px;
+}
+
+.custom-select-menu:focus {
+  outline: none;
+}
+
+.custom-select-group {
+  margin-top: 4px;
+}
+
+.custom-select-group-label {
+  padding: 6px 10px 3px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.custom-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.custom-select-option:hover,
+.custom-select-option.is-focused {
+  background-color: var(--desk-subtle);
+}
+
+.custom-select-option.is-selected {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+}
+
+.custom-select-option.is-selected::after {
+  content: "✓";
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 /* Session Strip */
@@ -516,7 +614,8 @@ button {
 .session-actions {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .round-toggle-group {
@@ -644,7 +743,7 @@ button {
 }
 
 .study-card.is-round-summary .card-accent-bar {
-  background-color: var(--accent-der);
+  background-color: var(--btn-primary-bg);
 }
 
 .round-progress-track {
@@ -773,9 +872,9 @@ button {
   min-width: 4ch;
   margin: 0 0.16em;
   padding: 0 0.4em;
-  border-bottom: 2.5px solid var(--accent-der);
-  background-color: var(--accent-der-soft);
-  color: var(--accent-der);
+  border-bottom: 2.5px solid var(--ink);
+  background-color: var(--desk-subtle);
+  color: var(--ink);
   border-radius: 4px 4px 0 0;
   line-height: 1.25;
   text-align: center;
@@ -947,8 +1046,10 @@ button {
 }
 
 .drill-btn:hover:not(:disabled) {
-  border-color: var(--accent-der);
-  background-color: var(--accent-der-soft);
+  border-top-color: var(--ink-muted);
+  border-right-color: var(--ink-muted);
+  border-bottom-color: var(--ink-muted);
+  background-color: var(--desk-subtle);
 }
 
 .drill-btn:disabled {
@@ -1003,7 +1104,7 @@ button {
 
 .text-input:focus {
   outline: 2px solid transparent;
-  border-color: var(--accent-der);
+  border-color: var(--ink);
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
@@ -1147,8 +1248,8 @@ button {
 }
 
 .choice-btn:hover:not(:disabled) {
-  border-color: var(--accent-der);
-  background-color: var(--accent-der-soft);
+  border-color: var(--ink-muted);
+  background-color: var(--desk);
 }
 
 .choice-btn:disabled {
@@ -1304,7 +1405,7 @@ button {
   border-radius: var(--radius-control);
   background-color: var(--desk);
   border: 1px solid var(--rule);
-  border-left: 3px solid var(--accent-der);
+  border-left: 3px solid var(--ink-muted);
 }
 
 .example-copy {
@@ -1711,8 +1812,9 @@ button {
 }
 
 .srs-tag.is-learning {
-  background-color: var(--accent-der-soft);
-  color: var(--accent-der);
+  background-color: var(--desk-subtle);
+  color: var(--ink);
+  border-color: var(--rule-strong);
 }
 
 .dict-side-actions {
@@ -2006,7 +2108,7 @@ button {
   font-weight: 700;
 }
 
-/* 42-Day Activity Rhythm Heatmap */
+/* 28-Day Neutral Activity Rhythm Heatmap */
 
 .rhythm-section {
   display: flex;
@@ -2033,6 +2135,7 @@ button {
 }
 
 .heatmap-cell {
+  position: relative;
   display: block;
   width: 100%;
   height: 20px;
@@ -2048,38 +2151,71 @@ button {
 }
 
 .heatmap-cell[data-level="1"] {
-  background-color: #C7DBFA;
-  border-color: rgba(30, 77, 183, 0.18);
+  background-color: #D6DCE5;
+  border-color: rgba(19, 32, 51, 0.14);
 }
 
 .heatmap-cell[data-level="2"] {
-  background-color: #6B9CE8;
-  border-color: rgba(30, 77, 183, 0.25);
+  background-color: #7C8B9F;
+  border-color: rgba(19, 32, 51, 0.24);
 }
 
 .heatmap-cell[data-level="3"] {
-  background-color: var(--accent-der);
-  border-color: var(--accent-der);
+  background-color: #132033;
+  border-color: #132033;
 }
 
 [data-theme="dark"] .heatmap-cell[data-level="1"] {
-  background-color: #1F3558;
-  border-color: rgba(120, 165, 248, 0.2);
+  background-color: #262D37;
+  border-color: rgba(240, 242, 245, 0.14);
 }
 
 [data-theme="dark"] .heatmap-cell[data-level="2"] {
-  background-color: #2E5CA8;
-  border-color: rgba(120, 165, 248, 0.35);
+  background-color: #5A6678;
+  border-color: rgba(240, 242, 245, 0.26);
 }
 
 [data-theme="dark"] .heatmap-cell[data-level="3"] {
-  background-color: var(--accent-der);
-  border-color: var(--accent-der);
+  background-color: #E6ECF4;
+  border-color: #E6ECF4;
 }
 
 .heatmap-cell.is-today {
   outline: 1.5px solid var(--ink);
   outline-offset: 1px;
+}
+
+.heatmap-cell[data-tooltip]:hover::after,
+.heatmap-cell[data-tooltip]:focus-visible::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.heatmap-cell[data-col="left"][data-tooltip]:hover::after,
+.heatmap-cell[data-col="left"][data-tooltip]:focus-visible::after {
+  left: 0;
+  transform: none;
+}
+
+.heatmap-cell[data-col="right"][data-tooltip]:hover::after,
+.heatmap-cell[data-col="right"][data-tooltip]:focus-visible::after {
+  left: auto;
+  right: 0;
+  transform: none;
 }
 
 .rhythm-legend {
@@ -2204,7 +2340,7 @@ button {
 }
 
 .level-accordion-summary:focus-visible {
-  outline: 2px solid var(--accent-der);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
 
@@ -2274,13 +2410,14 @@ button {
   border-radius: 6px;
   border: 1px solid var(--rule-strong);
   background-color: var(--card);
-  color: var(--accent-der);
+  color: var(--ink);
   font-size: 0.8125rem;
   font-weight: 600;
 }
 
 .lesson-jump-btn:hover {
-  border-color: var(--accent-der);
+  border-color: var(--ink);
+  background-color: var(--desk-subtle);
 }
 
 .lesson-done-tag {
@@ -2317,10 +2454,44 @@ button {
 }
 
 .pref-check input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent-der);
+  position: relative;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background-color: var(--desk-subtle);
+  border: 1px solid var(--rule-strong);
+  cursor: pointer;
   flex-shrink: 0;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.pref-check input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--ink-muted);
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+.pref-check input[type="checkbox"]:checked {
+  background-color: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+}
+
+.pref-check input[type="checkbox"]:checked::after {
+  transform: translateX(16px);
+  background-color: var(--btn-primary-ink);
+}
+
+.pref-check input[type="checkbox"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .sync-section,
@@ -2343,7 +2514,7 @@ button {
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--accent-der);
+  color: var(--ink);
 }
 
 .sync-setup-body {
@@ -2504,9 +2675,9 @@ button {
   align-items: center;
   padding: 4px 12px;
   border-radius: var(--radius-control);
-  background-color: var(--accent-der-soft);
-  border: 1px solid var(--accent-der);
-  color: var(--accent-der);
+  background-color: var(--desk-subtle);
+  border: 1px solid var(--rule-strong);
+  color: var(--ink);
   font-family: var(--font-display);
   font-weight: 700;
   font-size: clamp(1.15rem, 2.6vw, 1.4rem);
@@ -2552,8 +2723,8 @@ button {
 }
 
 .conj-mini-row.is-highlight {
-  background-color: var(--accent-der-soft);
-  border-color: var(--accent-der);
+  background-color: var(--desk-subtle);
+  border-color: var(--ink-muted);
 }
 
 .conj-mini-pronoun {
@@ -2585,7 +2756,7 @@ button {
 .grammar-note-card {
   background-color: var(--card);
   border: 1px solid var(--rule-strong);
-  border-left: 3px solid var(--accent-der);
+  border-left: 3px solid var(--ink-muted);
   border-radius: var(--radius-card);
   padding: 20px 22px;
   display: flex;
@@ -2612,8 +2783,8 @@ button {
 .grammar-note-badge {
   padding: 2px 9px;
   border-radius: var(--radius-pill);
-  background-color: var(--accent-der-soft);
-  color: var(--accent-der);
+  background-color: var(--desk-subtle);
+  color: var(--ink);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -2820,8 +2991,19 @@ button {
 
 .ai-model-select {
   flex: 1 1 170px;
+  min-width: 0;
+}
+
+.ai-model-select .custom-select-trigger {
   min-height: 36px;
   font-size: 0.8125rem;
+}
+
+.ai-model-select .custom-select-menu {
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: none;
 }
 
 .ai-save-btn,
@@ -2835,7 +3017,7 @@ button {
   align-self: flex-start;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--accent-der);
+  color: var(--ink);
   text-decoration: underline;
 }
 
@@ -2899,8 +3081,8 @@ button {
 
 .ai-msg-user {
   align-self: flex-end;
-  background-color: var(--accent-der-soft);
-  border: 1px solid var(--accent-der);
+  background-color: var(--desk-subtle);
+  border: 1px solid var(--rule-strong);
   color: var(--ink);
 }
 
@@ -2951,8 +3133,9 @@ button {
 }
 
 .ai-quick-chip:hover:not(:disabled) {
-  border-color: var(--accent-der);
-  color: var(--accent-der);
+  border-color: var(--ink);
+  color: var(--ink);
+  background-color: var(--desk-subtle);
 }
 
 .ai-quick-chip:disabled {
@@ -2986,7 +3169,7 @@ button {
 }
 
 .ai-input:focus {
-  outline: 2px solid var(--accent-der);
+  outline: 2px solid var(--ink);
   outline-offset: 1px;
 }
 
@@ -3107,7 +3290,8 @@ button {
   }
 
   .lesson-picker,
-  .lesson-select {
+  .lesson-picker .custom-select,
+  .dict-lesson-wrap .custom-select {
     width: 100%;
   }
 
@@ -3145,12 +3329,11 @@ button {
 
   .session-actions {
     width: 100%;
-    justify-content: space-between;
-    gap: 8px;
+    justify-content: flex-end;
+    margin-left: 0;
   }
 
-  .round-toggle-btn,
-  .session-actions .text-action {
+  .round-toggle-btn {
     min-height: 36px;
   }
 
@@ -3213,7 +3396,10 @@ button {
   .level-bar-fill,
   .level-chevron,
   .round-progress-fill,
-  .ai-fab {
+  .ai-fab,
+  .custom-select-chevron,
+  .pref-check input[type="checkbox"],
+  .pref-check input[type="checkbox"]::after {
     transition: none;
   }
 
