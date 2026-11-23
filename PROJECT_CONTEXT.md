@@ -23,7 +23,7 @@
 ## 2. File Architecture
 
 ### Tracked Application Files (Public Repo)
-- `index.html`: App shell (`Çalış`, `Çekim ve Notlar`, `Kelime Sözlüğü`, theme toggle, 2-tab `İlerleme ve Ayarlar` modal, `Almanca Asistan` drawer), strict CSP (`script-src 'self'`, `img-src 'self'`, `media-src 'none'`, `frame-src 'none'`, zero `'unsafe-inline'`, `connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://generativelanguage.googleapis.com https://fonts.googleapis.com https://fonts.gstatic.com`), `referrer="no-referrer"`, `notranslate` guard, PWA metadata.
+- `index.html`: App shell (`Çalış`, `Çekim ve Notlar`, `Kelime Sözlüğü`, theme toggle, collapsible practice mode shelf + `Günün Kartları` hero mode, 2-tab `İlerleme ve Ayarlar` modal, `Almanca Asistan` drawer), strict CSP (`script-src 'self'`, `img-src 'self'`, `media-src 'none'`, `frame-src 'none'`, zero `'unsafe-inline'`, `connect-src 'self' https://api.github.com https://gist.githubusercontent.com https://generativelanguage.googleapis.com https://fonts.googleapis.com https://fonts.gstatic.com`), `referrer="no-referrer"`, `notranslate` guard, PWA metadata.
 - `theme-init.js`: External anti-flash theme initializer (`deutschkarte_theme` in `localStorage`, `#1A1F26` / `#132033` `theme-color`).
 - `boot-guard.js`: `file://` protocol warning banner and 3-second boot-recovery watchdog.
 - `custom-select.js`: Reusable accessible custom `<div role="listbox">` dropdown (`createCustomSelect`, `closeAllCustomSelects`) with flat/grouped options, monochrome styling, keyboard navigation (`ArrowUp`/`ArrowDown`/`Home`/`End`/`Enter`/`Space`/`Escape`/`Tab`), and outside-click close.
@@ -33,7 +33,7 @@
 - `ai-tutor.js`: Floating **Almanca Asistan** BYOK Gemini Flash drawer (`deutschkarte_ai_tutor_v1` in `localStorage` or `sessionStorage`, `x-goog-api-key`, fallback chain `gemini-3.8-flash` -> `gemini-3.6-flash` -> `gemini-3.5-flash-lite`, 15s timeout, 1500-char prompt cap, safe DOM markdown-lite, `Ekran bağlamını kopyala`), Structured JSON endpoints (`evaluateUserSentence` & session-cached `generateArticleMnemonic`), and session-cached Gemini Natural TTS (`synthesizeGermanSpeech` via `gemini-2.5-flash-preview-tts`, 120-item cache).
 - `sync.js`: Offline-first GitHub Gist sync (`deutschkarte_gist_sync_v1`, `deutschkarte-sync.json`, Gist ID/token/origin/schema validation, `speechEngine` + `debt` + `dailyHistory` + `mistakeClearedAt`/`hiddenWords`/`hiddenRestoredAt` tombstones, `resetAt` dominance).
 - `manifest.json`: PWA web app manifest (`icons/icon-192.png`, `icons/icon-512.png`).
-- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v33"`.
+- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v34"`.
 - `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png` (maskable safe-zone compliant).
 - `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`).
 - `data/lesson_01.js`: A1 Lesson 1 (71 Duden-verified items + `example: { de, tr }`).
@@ -128,7 +128,7 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
-- **`v30`:** Added Hybrid TTS (`speechEngine`: `Tarayıcı` with scored Natural/Online `de-DE` voice selection + `Gemini Doğal` via `gemini-2.5-flash-preview-tts`, 120-item session cache, Web Audio API playback, and `sync.js` support; `sw.js` `deutschkarte-v30`).
 - **`v31`:** Extracted persistent IndexedDB TTS audio cache into standalone `tts-cache.js` (600-item / 100 MB cap, offline playback) and added Settings cache stats & clear control (`sw.js` `deutschkarte-v31`).
 - **`v32`:** Replaced `Kesintisiz` label in `#session-round-group` with `∞` (`∞ | 10 | 20`) and removed duplicate `Tur özeti` toggle from Settings (`sw.js` `deutschkarte-v32`).
 - **`v33`:** Added cross-lesson `Tekrar` due-review mode (`[data-mode="due"]` with neutral monochrome `#due-badge`), enforced hybrid SRS cooldown gate (Box 1→3 same-day; Box 3→4 after 1d + production; Box 4→5 after 7d), and bumped `sw.js` to `deutschkarte-v33`.
+- **`v34`:** Elevated `Günün Kartları` (1st hero position with `--accent-due` plum/violet palette, `#due-banner`, countdown progress bar, and smart startup), collapsed the 5 practice modes into a horizontally-expanding `#practice-mode-shelf`, hid `Doğru` outside `∞` round mode, and bumped `sw.js` to `deutschkarte-v34`.

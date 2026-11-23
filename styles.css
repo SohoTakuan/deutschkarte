@@ -21,6 +21,11 @@
   --accent-das-soft: #EBF7F0;
   --accent-pl: #B0650B;
   --accent-sg: #475569;
+  --accent-due: #6D3B9E;
+  --accent-due-hover: #5A2E85;
+  --accent-due-soft: #F3ECFA;
+  --accent-due-border: rgba(109, 59, 158, 0.28);
+  --accent-due-ink: #FFFFFF;
 
   --wash-der: rgba(26, 75, 184, 0.055);
   --wash-die: rgba(188, 30, 60, 0.055);
@@ -100,6 +105,11 @@
   --accent-das-soft: #142E25;
   --accent-pl: #EAA844;
   --accent-sg: #94A3B8;
+  --accent-due: #B794F6;
+  --accent-due-hover: #CAAEFF;
+  --accent-due-soft: rgba(183, 148, 246, 0.14);
+  --accent-due-border: rgba(183, 148, 246, 0.34);
+  --accent-due-ink: #16111F;
 
   --wash-der: rgba(120, 165, 248, 0.1);
   --wash-die: rgba(242, 100, 125, 0.1);
@@ -206,7 +216,7 @@ button {
 /* App Shell */
 
 .app-shell {
-  max-width: 780px;
+  max-width: 820px;
   margin: 0 auto;
   padding: 20px 18px 48px;
 }
@@ -371,7 +381,8 @@ button {
 .mode-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  align-items: center;
+  gap: 3px;
 }
 
 .deck-right {
@@ -419,9 +430,9 @@ button {
   background-color: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
-  padding: 6px 11px;
+  padding: 5px 9px;
   min-height: 34px;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--ink-muted);
   white-space: nowrap;
@@ -460,22 +471,169 @@ button {
   border-color: var(--article-pl-fill);
 }
 
-.count-badge-due {
-  background-color: var(--desk-subtle);
-  color: var(--ink);
+.practice-mode-shelf {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.practice-toggle-btn {
   border-color: var(--rule-strong);
 }
 
-.mode-btn.is-active .count-badge-due {
-  background-color: var(--btn-primary-bg);
-  color: var(--btn-primary-ink);
-  border-color: var(--btn-primary-bg);
+.practice-toggle-chevron {
+  color: var(--ink-muted);
+  transition: transform 150ms ease;
+  flex-shrink: 0;
+}
+
+.practice-mode-shelf.is-open .practice-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+.practice-mode-tray {
+  position: absolute;
+  left: calc(100% + 6px);
+  top: -3px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 4px;
+  border-radius: var(--radius-control);
+  background-color: var(--card);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.18);
+  flex-shrink: 0;
+  animation: trayReveal 150ms ease-out;
+}
+
+@keyframes trayReveal {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.mode-btn-due {
+  font-weight: 700;
+}
+
+.due-dot {
+  display: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+.mode-btn-due.has-due {
+  background-color: var(--accent-due-soft);
+  border-color: var(--accent-due-border);
+  color: var(--accent-due);
+}
+
+.mode-btn-due.has-due .due-dot {
+  display: inline-block;
+}
+
+.mode-btn-due.has-due:hover:not(.is-active) {
+  background-color: var(--accent-due-soft);
+  border-color: var(--accent-due);
+  color: var(--accent-due-hover);
+}
+
+.mode-btn-due.is-active {
+  background-color: var(--accent-due);
+  border-color: var(--accent-due);
+  color: var(--accent-due-ink);
+  box-shadow: 0 2px 8px rgba(109, 59, 158, 0.22);
+}
+
+.due-done-mark {
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0.72;
+}
+
+.count-badge-due {
+  background-color: var(--accent-due);
+  color: var(--accent-due-ink);
+  border-color: var(--accent-due);
+}
+
+.mode-btn-due.is-active .count-badge-due {
+  background-color: rgba(255, 255, 255, 0.22);
+  color: var(--accent-due-ink);
+  border-color: transparent;
+}
+
+[data-theme="dark"] .mode-btn-due.is-active .count-badge-due {
+  background-color: rgba(22, 17, 31, 0.2);
+}
+
+.due-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-control);
+  background-color: var(--accent-due-soft);
+  border: 1px solid var(--accent-due-border);
+  color: var(--ink);
+}
+
+.due-banner-copy {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.due-banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--accent-due);
+  flex-shrink: 0;
+}
+
+.due-banner-text strong {
+  color: var(--accent-due);
+  font-weight: 700;
+}
+
+.due-banner-btn {
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 0;
+  background-color: var(--accent-due);
+  color: var(--accent-due-ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background-color 120ms ease;
+}
+
+.due-banner-btn:hover {
+  background-color: var(--accent-due-hover);
 }
 
 .custom-select {
   position: relative;
   display: inline-block;
-  min-width: 170px;
+  min-width: 158px;
 }
 
 .custom-select-trigger {
@@ -777,6 +935,10 @@ button {
   height: 100%;
   background-color: var(--btn-primary-bg);
   transition: width 200ms ease;
+}
+
+.round-progress-fill.is-due-fill {
+  background-color: var(--accent-due);
 }
 
 .card-body {
@@ -3505,6 +3667,13 @@ button {
     flex-shrink: 0;
   }
 
+  .practice-mode-tray {
+    position: static;
+    box-shadow: none;
+    background-color: var(--desk-subtle);
+    border-color: var(--rule);
+  }
+
   .deck-right {
     display: block;
     width: 100%;
@@ -3607,7 +3776,8 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .study-card.is-advancing {
+  .study-card.is-advancing,
+  .practice-mode-tray {
     animation: none;
   }
 
@@ -3627,6 +3797,7 @@ button {
   .round-progress-fill,
   .ai-fab,
   .custom-select-chevron,
+  .practice-toggle-chevron,
   .pref-check input[type="checkbox"],
   .pref-check input[type="checkbox"]::after {
     transition: none;

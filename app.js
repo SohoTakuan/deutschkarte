@@ -32,6 +32,13 @@ import { createCustomSelect } from "./custom-select.js";
 const STORAGE_KEY = "deutschkarte_state_v1";
 const THEME_STORAGE_KEY = "deutschkarte_theme";
 const VALID_MODES = ["mixed", "choice", "typing", "articles", "cloze", "due", "mistakes"];
+const PRACTICE_MODE_LABELS = {
+  mixed: "Karma",
+  choice: "Şıklı",
+  typing: "Yazmalı",
+  articles: "Artikel",
+  cloze: "Boşluk"
+};
 const VALID_THEMES = ["light", "dark"];
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const VALID_ROUND_SIZES = ["off", "10", "20"];
@@ -343,6 +350,7 @@ const runtime = {
   roundAnswered: 0,
   roundCorrect: 0,
   roundMastered: 0,
+  dueInitialCount: 0,
   showingRoundSummary: false,
   currentWord: null,
   currentCloze: null,
@@ -416,12 +424,22 @@ const els = {
   conjNext: document.getElementById("conj-next"),
   conjSpeak: document.getElementById("conj-speak"),
   grammarNotesList: document.getElementById("grammar-notes-list"),
-  modeBtns: Array.from(document.querySelectorAll(".mode-btn")),
+  modeBtns: Array.from(document.querySelectorAll(".mode-btn[data-mode]")),
+  practiceModeShelf: document.getElementById("practice-mode-shelf"),
+  btnPracticeToggle: document.getElementById("btn-practice-toggle"),
+  practiceToggleLabel: document.getElementById("practice-toggle-label"),
+  practiceModeTray: document.getElementById("practice-mode-tray"),
+  dueModeBtn: document.querySelector('.mode-btn[data-mode="due"]'),
   dueBadge: document.getElementById("due-badge"),
+  dueDoneMark: document.getElementById("due-done-mark"),
+  dueBanner: document.getElementById("due-banner"),
+  dueBannerText: document.getElementById("due-banner-text"),
+  btnStartDue: document.getElementById("btn-start-due"),
   mistakesBadge: document.getElementById("mistakes-badge"),
   lessonSelect: document.getElementById("lesson-select"),
   dailyProgress: document.getElementById("daily-progress"),
   masteredCount: document.getElementById("mastered-count"),
+  sessionScoreItem: document.getElementById("session-score-item"),
   sessionScore: document.getElementById("session-score"),
   sessionStreak: document.getElementById("session-streak"),
   sessionRoundBtns: Array.from(
@@ -1049,6 +1067,16 @@ function populateLessonSelects() {
   }
 }
 
+function setPracticeShelfOpen(isOpen) {
+  if (!els.practiceModeShelf || !els.practiceModeTray || !els.btnPracticeToggle) {
+    return;
+  }
+  const open = Boolean(isOpen);
+  els.practiceModeShelf.classList.toggle("is-open", open);
+  els.practiceModeTray.hidden = !open;
+  els.btnPracticeToggle.setAttribute("aria-expanded", String(open));
+}
+
 function getDueWords(now = Date.now()) {
   return getActiveWords().filter((word) => {
     const card = appState.cards[word.id];
@@ -1059,10 +1087,33 @@ function getDueWords(now = Date.now()) {
 function updateTopControls() {
   appState.daily = normalizeDailyState(appState.daily);
 
+  const dueCount = getDueWords().length;
+  const hasAnySeenCards = Object.keys(appState.cards).length > 0;
+  if (appState.settings.mode === "due" && dueCount > runtime.dueInitialCount) {
+    runtime.dueInitialCount = dueCount;
+  }
+
+  if (els.dueModeBtn) {
+    els.dueModeBtn.classList.toggle("has-due", dueCount > 0);
+  }
   if (els.dueBadge) {
-    const dueCount = getDueWords().length;
     els.dueBadge.textContent = String(dueCount);
     els.dueBadge.hidden = dueCount === 0;
+  }
+  if (els.dueDoneMark) {
+    els.dueDoneMark.hidden = !(dueCount === 0 && hasAnySeenCards);
+  }
+  if (els.dueBanner && els.dueBannerText) {
+    const showBanner = dueCount > 0 && appState.settings.mode !== "due";
+    els.dueBanner.hidden = !showBanner;
+    if (showBanner) {
+      els.dueBannerText.textContent = "";
+      els.dueBannerText.appendChild(document.createTextNode("Tekrar vakti gelen "));
+      const strong = document.createElement("strong");
+      strong.textContent = `${dueCount} kart`;
+      els.dueBannerText.appendChild(strong);
+      els.dueBannerText.appendChild(document.createTextNode(" bekliyor"));
+    }
   }
 
   const mistakeCount = getActiveMistakeCount();
@@ -1079,6 +1130,15 @@ function updateTopControls() {
     const isActive = btn.dataset.mode === appState.settings.mode;
     btn.classList.toggle("is-active", isActive);
     btn.setAttribute("aria-pressed", String(isActive));
+  }
+
+  const practiceLabel = PRACTICE_MODE_LABELS[appState.settings.mode];
+  const isPracticeMode = Boolean(practiceLabel);
+  if (els.practiceToggleLabel) {
+    els.practiceToggleLabel.textContent = practiceLabel || "Modlar";
+  }
+  if (els.btnPracticeToggle) {
+    els.btnPracticeToggle.classList.toggle("is-active", isPracticeMode);
   }
 
   const scopedWords = getWordsForLesson(appState.settings.lesson).filter(
@@ -1098,6 +1158,9 @@ function updateTopControls() {
   }
   els.dailyProgress.textContent = String(appState.daily.count);
   els.masteredCount.textContent = `${scopedLearned} / ${scopedTotal}`;
+  if (els.sessionScoreItem) {
+    els.sessionScoreItem.hidden = activeRoundSize !== "off";
+  }
   els.sessionScore.textContent = `${runtime.sessionCorrect} / ${runtime.sessionAnswered}`;
   els.sessionStreak.textContent = String(runtime.sessionStreak);
 }
@@ -1432,6 +1495,23 @@ function updateRoundProgressBar() {
   if (!els.roundProgressTrack || !els.roundProgressFill) {
     return;
   }
+  if (
+    appState.settings.mode === "due" &&
+    runtime.dueInitialCount > 0 &&
+    !runtime.showingRoundSummary
+  ) {
+    const remaining = getDueWords().length;
+    const completed = Math.max(0, runtime.dueInitialCount - remaining);
+    const pct = Math.min(
+      100,
+      Math.round((completed / runtime.dueInitialCount) * 100)
+    );
+    els.roundProgressTrack.hidden = false;
+    els.roundProgressFill.classList.add("is-due-fill");
+    els.roundProgressFill.style.width = `${pct}%`;
+    return;
+  }
+  els.roundProgressFill.classList.remove("is-due-fill");
   const target = getEffectiveRoundTarget();
   if (target === 0 || (!runtime.currentWord && !runtime.showingRoundSummary)) {
     els.roundProgressTrack.hidden = true;
@@ -2635,7 +2715,7 @@ function finalizeTurn(word, isCorrect, details) {
       : gateTip;
   } else if (reviewResult.heldByCooldown && reviewResult.prevBox === 3) {
     const cooldownTip =
-      "Bu kelime yarın \"Tekrar\" modunda doğru yazıldığında \"Öğrenildi\" seviyesine yükselecek.";
+      "Bu kelime yarın \"Günün Kartları\" modunda doğru yazıldığında \"Öğrenildi\" seviyesine yükselecek.";
     finalDetails.tip = finalDetails.tip
       ? `${finalDetails.tip} ${cooldownTip}`
       : cooldownTip;
@@ -4708,16 +4788,47 @@ function bindEvents() {
     }
   });
 
+  els.btnPracticeToggle?.addEventListener("click", () => {
+    const isCurrentlyOpen = Boolean(
+      els.practiceModeTray && !els.practiceModeTray.hidden
+    );
+    setPracticeShelfOpen(!isCurrentlyOpen);
+  });
+
+  document.addEventListener("pointerdown", (e) => {
+    if (
+      els.practiceModeTray &&
+      !els.practiceModeTray.hidden &&
+      els.practiceModeShelf &&
+      e.target instanceof Node &&
+      !els.practiceModeShelf.contains(e.target)
+    ) {
+      setPracticeShelfOpen(false);
+    }
+  });
+
   for (const btn of els.modeBtns) {
     btn.addEventListener("click", () => {
+      setPracticeShelfOpen(false);
       if (btn.dataset.mode === appState.settings.mode) {
         return;
+      }
+      if (btn.dataset.mode === "due") {
+        runtime.dueInitialCount = getDueWords().length;
       }
       appState.settings.mode = btn.dataset.mode;
       saveState({ sync: false, preserveTimestamp: true });
       showNextCard({ preserveWord: true });
     });
   }
+
+  els.btnStartDue?.addEventListener("click", () => {
+    setPracticeShelfOpen(false);
+    runtime.dueInitialCount = getDueWords().length;
+    appState.settings.mode = "due";
+    saveState({ sync: false, preserveTimestamp: true });
+    showNextCard({ preserveWord: true });
+  });
 
   els.btnRoundContinue?.addEventListener("click", continueFromRoundSummary);
   els.btnRoundMistakes?.addEventListener("click", () => {
@@ -5074,6 +5185,17 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
+    if (
+      e.key === "Escape" &&
+      els.practiceModeTray &&
+      !els.practiceModeTray.hidden
+    ) {
+      e.preventDefault();
+      setPracticeShelfOpen(false);
+      els.btnPracticeToggle?.focus();
+      return;
+    }
+
     if (els.backupDialog.open || aiTutor?.isOpen()) {
       return;
     }
@@ -5364,7 +5486,7 @@ function buildAiScreenContext() {
   const solutionText =
     word.category === "noun" ? formatNounSummary(word) : word.de;
 
-  const modeTag = appState.settings.mode === "due" ? "Günün Tekrarı · " : "";
+  const modeTag = appState.settings.mode === "due" ? "Günün Kartları · " : "";
   const lines = [
     `Sekme: Çalış (${modeTag}${dirLabel} · ${qLabel})`,
     `Ders: ${word.lesson} | Tür: ${word.category}`,
@@ -5427,6 +5549,13 @@ function init() {
       getScreenContext: buildAiScreenContext,
       announce
     });
+    const initialDueCount = getDueWords().length;
+    if (initialDueCount > 0 && appState.settings.mode !== "mistakes") {
+      appState.settings.mode = "due";
+      runtime.dueInitialCount = initialDueCount;
+    } else if (initialDueCount === 0 && appState.settings.mode === "due") {
+      appState.settings.mode = "mixed";
+    }
     showNextCard();
     registerServiceWorker();
     window.__deutschkarteReady = true;

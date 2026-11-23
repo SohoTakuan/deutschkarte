@@ -76,15 +76,34 @@
       <section id="study-view" class="view-section" aria-label="Çalışma alanı">
         <div class="control-deck">
           <div class="mode-group" role="group" aria-label="Çalışma modu">
-            <button type="button" class="mode-btn is-active" data-mode="mixed" aria-pressed="true">Karma</button>
-            <button type="button" class="mode-btn" data-mode="choice" aria-pressed="false">Şıklı</button>
-            <button type="button" class="mode-btn" data-mode="typing" aria-pressed="false">Yazmalı</button>
-            <button type="button" class="mode-btn" data-mode="articles" aria-pressed="false">Artikel</button>
-            <button type="button" class="mode-btn" data-mode="cloze" aria-pressed="false">Boşluk</button>
-            <button type="button" class="mode-btn mode-btn-wide" data-mode="due" aria-pressed="false">
-              <span>Tekrar</span>
+            <button type="button" class="mode-btn mode-btn-wide mode-btn-due" data-mode="due" aria-pressed="false">
+              <span class="due-dot" aria-hidden="true"></span>
+              <span>Günün Kartları</span>
               <span id="due-badge" class="count-badge count-badge-due" hidden>0</span>
+              <span id="due-done-mark" class="due-done-mark" hidden aria-hidden="true">✓</span>
             </button>
+            <div id="practice-mode-shelf" class="practice-mode-shelf">
+              <button
+                type="button"
+                id="btn-practice-toggle"
+                class="mode-btn practice-toggle-btn is-active"
+                aria-expanded="false"
+                aria-controls="practice-mode-tray"
+                title="Çalışma modları"
+              >
+                <span id="practice-toggle-label">Karma</span>
+                <svg class="practice-toggle-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m9 6 6 6-6 6"/>
+                </svg>
+              </button>
+              <div id="practice-mode-tray" class="practice-mode-tray" role="group" aria-label="Alıştırma modları" hidden>
+                <button type="button" class="mode-btn is-active" data-mode="mixed" aria-pressed="true">Karma</button>
+                <button type="button" class="mode-btn" data-mode="choice" aria-pressed="false">Şıklı</button>
+                <button type="button" class="mode-btn" data-mode="typing" aria-pressed="false">Yazmalı</button>
+                <button type="button" class="mode-btn" data-mode="articles" aria-pressed="false">Artikel</button>
+                <button type="button" class="mode-btn" data-mode="cloze" aria-pressed="false">Boşluk</button>
+              </div>
+            </div>
             <button type="button" class="mode-btn mode-btn-wide" data-mode="mistakes" aria-pressed="false">
               <span>Zorlandıklarım</span>
               <span id="mistakes-badge" class="count-badge" hidden>0</span>
@@ -102,7 +121,7 @@
           <div class="session-metrics">
             <span class="metric-item">Bugün: <strong id="daily-progress">0</strong></span>
             <span class="metric-item metric-secondary">Öğrenilen: <strong id="mastered-count">0 / 0</strong></span>
-            <span class="metric-item">Doğru: <strong id="session-score">0 / 0</strong></span>
+            <span id="session-score-item" class="metric-item">Doğru: <strong id="session-score">0 / 0</strong></span>
             <span class="metric-item">Seri: <strong id="session-streak">0</strong></span>
           </div>
           <div class="session-actions">
@@ -112,6 +131,14 @@
               <button type="button" class="round-toggle-btn" data-round="20" aria-pressed="false">20</button>
             </div>
           </div>
+        </div>
+
+        <div id="due-banner" class="due-banner" hidden>
+          <div class="due-banner-copy">
+            <span class="due-banner-dot" aria-hidden="true"></span>
+            <span id="due-banner-text" class="due-banner-text"></span>
+          </div>
+          <button type="button" id="btn-start-due" class="due-banner-btn">Başla</button>
         </div>
 
         <article id="study-card" class="study-card" data-gender="neutral">
