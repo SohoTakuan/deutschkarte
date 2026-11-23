@@ -531,9 +531,6 @@ const els = {
   rhythmActiveDays: document.getElementById("rhythm-active-days"),
   srsSummary: document.getElementById("srs-summary"),
   levelProgressList: document.getElementById("level-progress-list"),
-  settingsRoundBtns: Array.from(
-    document.querySelectorAll("#settings-round-group .round-toggle-btn")
-  ),
   settingsTtsBtns: Array.from(
     document.querySelectorAll("#settings-tts-group .round-toggle-btn")
   ),
@@ -1081,11 +1078,6 @@ function updateTopControls() {
 
   lessonSelectCtrl?.setValue(appState.settings.lesson);
   for (const btn of els.sessionRoundBtns) {
-    const active = btn.dataset.round === activeRoundSize;
-    btn.classList.toggle("is-active", active);
-    btn.setAttribute("aria-pressed", String(active));
-  }
-  for (const btn of els.settingsRoundBtns) {
     const active = btn.dataset.round === activeRoundSize;
     btn.classList.toggle("is-active", active);
     btn.setAttribute("aria-pressed", String(active));
@@ -3423,14 +3415,6 @@ function refreshBackupModal() {
   els.statMistakes.textContent = String(getActiveMistakeCount());
   renderActivityHeatmap();
 
-  const activeRoundSize = VALID_ROUND_SIZES.includes(appState.settings.roundSize)
-    ? appState.settings.roundSize
-    : "off";
-  for (const btn of els.settingsRoundBtns) {
-    const active = btn.dataset.round === activeRoundSize;
-    btn.classList.toggle("is-active", active);
-    btn.setAttribute("aria-pressed", String(active));
-  }
   const activeSpeechEngine = VALID_SPEECH_ENGINES.includes(
     appState.settings.speechEngine
   )
@@ -4917,12 +4901,6 @@ function bindEvents() {
   };
 
   for (const btn of els.sessionRoundBtns) {
-    btn.addEventListener("click", () => {
-      handleRoundSizeChange(btn.dataset.round);
-    });
-  }
-
-  for (const btn of els.settingsRoundBtns) {
     btn.addEventListener("click", () => {
       handleRoundSizeChange(btn.dataset.round);
     });

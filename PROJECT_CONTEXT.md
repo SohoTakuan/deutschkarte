@@ -33,7 +33,7 @@
 - `ai-tutor.js`: Floating **Almanca Asistan** BYOK Gemini Flash drawer (`deutschkarte_ai_tutor_v1` in `localStorage` or `sessionStorage`, `x-goog-api-key`, fallback chain `gemini-3.8-flash` -> `gemini-3.6-flash` -> `gemini-3.5-flash-lite`, 15s timeout, 1500-char prompt cap, safe DOM markdown-lite, `Ekran bağlamını kopyala`), Structured JSON endpoints (`evaluateUserSentence` & session-cached `generateArticleMnemonic`), and session-cached Gemini Natural TTS (`synthesizeGermanSpeech` via `gemini-2.5-flash-preview-tts`, 120-item cache).
 - `sync.js`: Offline-first GitHub Gist sync (`deutschkarte_gist_sync_v1`, `deutschkarte-sync.json`, Gist ID/token/origin/schema validation, `speechEngine` + `debt` + `dailyHistory` + `mistakeClearedAt`/`hiddenWords`/`hiddenRestoredAt` tombstones, `resetAt` dominance).
 - `manifest.json`: PWA web app manifest (`icons/icon-192.png`, `icons/icon-512.png`).
-- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v31"`.
+- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v32"`.
 - `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png` (maskable safe-zone compliant).
 - `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`).
 - `data/lesson_01.js`: A1 Lesson 1 (71 Duden-verified items + `example: { de, tr }`).
@@ -128,7 +128,7 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
-- **`v28`:** Removed premature `onlySingular`/`onlyPlural` field locks in `applyNounFieldLocks()` (preventing pre-answer spoilers and dual-input deadlock) and rejected non-empty fake singular/plural inputs in `handleTypingSubmit()` (`sw.js` `deutschkarte-v28`).
 - **`v29`:** Tolerated omitted commas/apostrophes in `evaluateClozeAnswer()` and fixed multi-sentence `isSentenceStart` detection in `buildClozeForWord()` (`sw.js` `deutschkarte-v29`).
 - **`v30`:** Added Hybrid TTS (`speechEngine`: `Tarayıcı` with scored Natural/Online `de-DE` voice selection + `Gemini Doğal` via `gemini-2.5-flash-preview-tts`, 120-item session cache, Web Audio API playback, and `sync.js` support; `sw.js` `deutschkarte-v30`).
 - **`v31`:** Extracted persistent IndexedDB TTS audio cache into standalone `tts-cache.js` (600-item / 100 MB cap, offline playback) and added Settings cache stats & clear control (`sw.js` `deutschkarte-v31`).
+- **`v32`:** Replaced `Kesintisiz` label in `#session-round-group` with `∞` (`∞ | 10 | 20`) and removed duplicate `Tur özeti` toggle from Settings (`sw.js` `deutschkarte-v32`).

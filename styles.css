@@ -640,6 +640,12 @@ button {
   transition: background-color 120ms ease, color 120ms ease;
 }
 
+.round-toggle-btn[data-round="off"] {
+  padding: 4px 11px;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
 .round-toggle-btn:hover:not(.is-active) {
   color: var(--ink);
 }
