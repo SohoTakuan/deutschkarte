@@ -33,7 +33,8 @@
 - `ai-tutor.js`: Floating **Almanca Asistan** BYOK Gemini Flash drawer (`deutschkarte_ai_tutor_v1` in `localStorage` or `sessionStorage`, `x-goog-api-key`, fallback chain `gemini-3.5-flash-lite` -> `gemini-3.8-flash` -> `gemini-3.6-flash` with per-model 429/503/404 cooldowns, 6-turn history window, 15s timeout, 1500-char prompt cap, safe DOM markdown-lite, `Ekran bağlamını kopyala`), Structured JSON endpoints (`evaluateUserSentence` & session-cached `generateArticleMnemonic`), and session-cached Gemini Natural TTS (`synthesizeGermanSpeech` fallback chain `gemini-3.8-flash-lite-tts` -> `gemini-3.8-flash-tts` -> `gemini-2.5-flash-preview-tts` with cooldown & `getTtsStatusInfo`, 120-item cache).
 - `sync.js`: Offline-first GitHub Gist sync (`deutschkarte_gist_sync_v1`, `deutschkarte-sync.json`, Gist ID/token/origin/schema validation, `speechEngine` + `debt` + `dailyHistory` + `mistakeClearedAt`/`hiddenWords`/`hiddenRestoredAt` tombstones, `resetAt` dominance).
 - `manifest.json`: PWA web app manifest (`icons/icon-192.png`, `icons/icon-512.png`).
-- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v37"`.
+- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v38"`.
+- `scripts/check-lessons.mjs`: Automated Node ESM validator for lesson schema, Duden article rules, hint leakage, and Cloze-mode unambiguity (`er`/`sie`/`es`, formal `Sie`, register/context cues).
 - `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png` (maskable safe-zone compliant).
 - `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`).
 - `data/lesson_01.js`: A1 Lesson 1 (71 Duden-verified items + `example: { de, tr }`).
@@ -80,9 +81,13 @@ export default {
 }
 ```
 > [!CAUTION]
-> **Critical Noun Rules:**
+> **Critical Noun & Cloze Rules:**
 > 1. For `onlySingular: true` nouns (e.g., `der Sport`, `die Musik`), `article` **MUST** remain the real Duden article (`"der" | "die" | "das"`), **never** `"nur Sg."`. The app automatically accepts both the real article and `"nur Sg."` in checks.
 > 2. Put German-containing grammar explanations in `note` (shown after answering & in dictionary), **never** in `hint` (shown before answering).
+> 3. **Cloze Unambiguity Rule:** Every `example: { de, tr }` must uniquely determine the blanked target word/phrase in Cloze mode:
+>    - **`er` / `sie` / `es`:** Include an explicit gender, referent, or plural-verb cue outside the blank (e.g., a gendered name/title like `Anna` or `Taxifahrer`, a neuter noun like `das Hotel`, or an impersonal phrase).
+>    - **Formal `Sie`:** Include a formal greeting/address cue outside the blank or in `tr` (e.g., `Guten Tag, Frau Weber!`, `Entschuldigung`, `bitte`).
+>    - **Register / context-sensitive items (`Mama`, `Papa`, `Auf Wiederhören`, `Hier ist ...`):** Include the distinguishing cue in `example.de` or `example.tr` (e.g., `(samimi)`, `Telefongespräch`, `(telefonda)`).
 
 ### Phrase / Verb Schema (`category: "phrase" | "verb"`)
 ```js
@@ -108,7 +113,7 @@ export default {
 2. Verify every word against **Duden** (spelling, `ä/ö/ü/ß`, `article`, `plural`, `onlySingular`/`onlyPlural`), write natural Turkish meanings, and add a level-appropriate `example: { de, tr }`.
 3. Deduplicate against `ALL_WORDS` in `data/index.js`.
 4. Add `./data/lesson_XX.js` to `PRECACHE_URLS` and bump `CACHE_VERSION` in `sw.js`.
-5. Update `PROJECT_CONTEXT.md`, run `node --check`, verify privacy rules, and push to `origin main`.
+5. Update `PROJECT_CONTEXT.md`, run `node --check` and `node scripts/check-lessons.mjs`, verify privacy rules, and push to `origin main`.
 
 ### Protocol 2: UI Changes & Feature Development
 1. Follow `~/.gemini/config/skills/frontend-design/SKILL.md` and the Section 1 strict article-color rule with natural Turkish copy.
@@ -128,8 +133,8 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
-- **`v33`:** Added cross-lesson `Tekrar` due-review mode (`[data-mode="due"]` with neutral monochrome `#due-badge`), enforced hybrid SRS cooldown gate (Box 1→3 same-day; Box 3→4 after 1d + production; Box 4→5 after 7d), and bumped `sw.js` to `deutschkarte-v33`.
 - **`v34`:** Elevated `Günün Kartları` (1st hero position with `--accent-due` plum/violet palette, `#due-banner`, countdown progress bar, and smart startup), collapsed the 5 practice modes into a horizontally-expanding `#practice-mode-shelf`, hid `Doğru` outside `∞` round mode, and bumped `sw.js` to `deutschkarte-v34`.
 - **`v35`:** Made the `Günün Kartları` button keep its subtle plum tint even at 0 due cards, added pre-answer plum `.card-accent-bar` + `.card-due-tag` (`• Günün Kartları · X kaldı`) inside `#study-card`, and bumped `sw.js` to `deutschkarte-v35`.
 - **`v36`:** Added 1 free typo retry in Typing and Cloze modes (`isWithinOneEdit`, 1 Damerau-Levenshtein edit on words `>=4` chars without revealing the answer or dropping SRS box, guarded by correct noun article and non-opposite singular/plural form), and bumped `sw.js` to `deutschkarte-v36`.
 - **`v37`:** Upgraded Gemini TTS to a `gemini-3.8-flash-lite-tts` -> `gemini-3.8-flash-tts` -> `gemini-2.5-flash-preview-tts` fallback chain with per-model cooldowns and visible fallback status (`getTtsStatusInfo` + `updateTtsEngineNote`), reordered AI Tutor default/fallback to `gemini-3.5-flash-lite` first with per-model cooldowns and removed `preferredModelIndex` reset on coach/TTS calls, and bumped `sw.js` to `deutschkarte-v37`.
+- **`v38`:** Disambiguated Cloze-mode example sentences/cues across Lessons 1–2 (`l1_43`, `l1_59`, `l2_10`, `l2_47`, `l2_67`, `l2_73`), added `scripts/check-lessons.mjs` automated validator + Cloze unambiguity rule in `PROJECT_CONTEXT.md`, and bumped `sw.js` to `deutschkarte-v38`.

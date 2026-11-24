@@ -573,7 +573,7 @@ export const lesson01 = {
       note: "Günlük ve samimi dilde die Mama; resmi veya standart kullanımda die Mutter tercih edilir.",
       example: {
         de: "Meine Mama kocht heute Abend für uns.",
-        tr: "Annem bu akşam bizim için yemek yapıyor."
+        tr: "Annem (samimi) bu akşam bizim için yemek yapıyor."
       }
     },
     {
@@ -776,8 +776,8 @@ export const lesson01 = {
       hint: "Resmi, telefonda vedalaşma",
       note: "Yalnızca telefon görüşmesini bitirirken kullanılır (hören = duymak). Yüz yüze vedalaşmada 'Auf Wiedersehen' kullanılır.",
       example: {
-        de: "Vielen Dank für das Gespräch, auf Wiederhören!",
-        tr: "Görüşme için çok teşekkürler, hoşça kalın!"
+        de: "Vielen Dank für das Telefongespräch, auf Wiederhören!",
+        tr: "Telefon görüşmesi için çok teşekkürler, hoşça kalın!"
       }
     },
     {

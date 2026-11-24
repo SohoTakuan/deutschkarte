@@ -135,7 +135,7 @@ export const lesson02 = {
       note: "Samimi kullanım der Papa; standart kullanım der Vater (die Väter).",
       example: {
         de: "Mein Papa kocht am Wochenende besonders gut.",
-        tr: "Babam hafta sonları özellikle güzel yemek yapar."
+        tr: "Babam (samimi) hafta sonları özellikle güzel yemek yapar."
       }
     },
     {
@@ -618,8 +618,8 @@ export const lesson02 = {
       hint: "3. tekil dişil veya 3. çoğul zamir",
       note: "Cümle ortasında küçük harfle yazılır; fiil çekiminden ayırt edilir (sie ist = o, sie sind = onlar).",
       example: {
-        de: "Sie wohnt in München.",
-        tr: "O Münih'te yaşıyor."
+        de: "Sie heißt Anna und wohnt in München.",
+        tr: "Adı Anna ve Münih'te yaşıyor."
       }
     },
     {
@@ -861,7 +861,7 @@ export const lesson02 = {
       note: "Telefonda isim söylerken kalıp olarak kullanılır: Hallo, hier ist Emma!",
       example: {
         de: "Hallo Emma, hier ist Nico!",
-        tr: "Merhaba Emma, ben Nico!"
+        tr: "Merhaba Emma, ben Nico! (telefonda)"
       }
     },
     {
@@ -930,8 +930,8 @@ export const lesson02 = {
       de: "Wo wohnen Sie?",
       hint: "Resmi hitap",
       example: {
-        de: "Wo wohnen Sie jetzt in Deutschland?",
-        tr: "Şimdi Almanya'da nerede oturuyorsunuz?"
+        de: "Guten Tag, Frau Weber! Wo wohnen Sie jetzt in Deutschland?",
+        tr: "İyi günler Bayan Weber! Şimdi Almanya'da nerede oturuyorsunuz?"
       }
     },
     {
