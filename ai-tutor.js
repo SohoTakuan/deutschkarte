@@ -10,22 +10,28 @@ export { getTtsCacheStats };
 
 const AI_STORAGE_KEY = "deutschkarte_ai_tutor_v1";
 const GEMINI_MODELS = [
+  "gemini-3.5-flash-lite",
   "gemini-3.8-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash-lite"
+  "gemini-3.6-flash"
 ];
 const GEMINI_MODEL_OPTIONS = [
-  { value: "gemini-3.8-flash", label: "gemini-3.8-flash (Önerilen)" },
-  { value: "gemini-3.6-flash", label: "gemini-3.6-flash (Stabil)" },
-  { value: "gemini-3.5-flash-lite", label: "gemini-3.5-flash-lite (En hızlı)" }
+  { value: "gemini-3.5-flash-lite", label: "gemini-3.5-flash-lite (Önerilen · Yüksek kota)" },
+  { value: "gemini-3.8-flash", label: "gemini-3.8-flash (Yüksek kalite · Dar kota)" },
+  { value: "gemini-3.6-flash", label: "gemini-3.6-flash (Stabil · Dar kota)" }
 ];
 const DEFAULT_MODEL = GEMINI_MODELS[0];
-const MAX_HISTORY_TURNS = 10;
+const MAX_HISTORY_TURNS = 6;
 const MAX_PROMPT_LENGTH = 1500;
 const REQUEST_TIMEOUT_MS = 15000;
+const MODEL_COOLDOWN_MS = 60_000;
+const MODEL_UNAVAILABLE_COOLDOWN_MS = 10 * 60_000;
 const CREDENTIAL_PATTERN = /^[\x21-\x7E]{20,256}$/;
 const MAX_COACH_SENTENCE_LENGTH = 300;
-const GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts";
+const GEMINI_TTS_MODELS = [
+  { id: "gemini-3.8-flash-lite-tts", verbatimPrompt: true },
+  { id: "gemini-3.8-flash-tts", verbatimPrompt: true },
+  { id: "gemini-2.5-flash-preview-tts", verbatimPrompt: false }
+];
 const DEFAULT_TTS_VOICE = "Kore";
 const MAX_TTS_CACHE_ITEMS = 120;
 const MAX_TTS_TEXT_LENGTH = 500;
@@ -40,7 +46,15 @@ const VALID_ERROR_TYPES = [
 ];
 const mnemonicCache = new Map();
 const ttsAudioCache = new Map();
+const modelCooldownUntil = new Map();
+const ttsModelCooldownUntil = new Map();
 let preferredModelIndex = 0;
+let ttsStatusState = {
+  activeModel: null,
+  lastErrorCode: null,
+  lastErrorMessage: "",
+  updatedAt: 0
+};
 
 function isValidApiKeyFormat(key) {
   return typeof key === "string" && CREDENTIAL_PATTERN.test(key.trim());
@@ -314,7 +328,9 @@ async function requestSingleModel({
         ok: false,
         retryable: true,
         status: 429,
-        error: new Error("Ücretsiz kullanım istek sınırına ulaşıldı. Biraz bekleyip tekrar deneyin.")
+        error: new Error(
+          "Ücretsiz kullanım istek sınırına ulaşıldı. Ayarlardan gemini-3.5-flash-lite modelini seçebilir veya biraz bekleyip tekrar deneyebilirsiniz."
+        )
       };
     }
     if (response.status === 503) {
@@ -359,6 +375,21 @@ async function requestSingleModel({
   return { ok: true, reply };
 }
 
+function getModelCooldownRemaining(cooldownMap, model) {
+  const until = cooldownMap.get(model) || 0;
+  return Math.max(0, until - Date.now());
+}
+
+function markModelCooldown(cooldownMap, model, status) {
+  let durationMs = 30_000;
+  if (status === 404) {
+    durationMs = MODEL_UNAVAILABLE_COOLDOWN_MS;
+  } else if (status === 429 || status === 503) {
+    durationMs = MODEL_COOLDOWN_MS;
+  }
+  cooldownMap.set(model, Date.now() + durationMs);
+}
+
 async function requestGeminiWithFallback({
   apiKey,
   contents,
@@ -375,8 +406,22 @@ async function requestGeminiWithFallback({
     orderedModels.push(GEMINI_MODELS[idx]);
   }
 
-  let lastError = null;
+  const readyModels = [];
+  const coolingModels = [];
   for (const model of orderedModels) {
+    if (getModelCooldownRemaining(modelCooldownUntil, model) === 0) {
+      readyModels.push(model);
+    } else {
+      coolingModels.push(model);
+    }
+  }
+  coolingModels.sort(
+    (a, b) => (modelCooldownUntil.get(a) || 0) - (modelCooldownUntil.get(b) || 0)
+  );
+  const candidates = readyModels.length > 0 ? readyModels : coolingModels;
+
+  let lastError = null;
+  for (const model of candidates) {
     const result = await requestSingleModel({
       model,
       apiKey,
@@ -385,12 +430,16 @@ async function requestGeminiWithFallback({
       generationConfig
     });
     if (result.ok) {
+      modelCooldownUntil.delete(model);
       preferredModelIndex = GEMINI_MODELS.indexOf(model);
       return result.reply;
     }
     lastError = result.error;
     if (!result.retryable) {
       throw lastError;
+    }
+    if (result.status === 429 || result.status === 503 || result.status === 404) {
+      markModelCooldown(modelCooldownUntil, model, result.status);
     }
   }
 
@@ -454,10 +503,6 @@ function requireCoachApiKey() {
     const err = new Error("API anahtarı gerekli.");
     err.code = "NO_API_KEY";
     throw err;
-  }
-  const idx = GEMINI_MODELS.indexOf(cfg.model);
-  if (idx >= 0) {
-    preferredModelIndex = idx;
   }
   return cfg.apiKey;
 }
@@ -637,40 +682,31 @@ export async function clearTtsAudioCache() {
   await clearTtsCache();
 }
 
-export async function synthesizeGermanSpeech(
-  text,
-  { voiceName = DEFAULT_TTS_VOICE } = {}
-) {
-  const cleanText = String(text || "").trim().slice(0, MAX_TTS_TEXT_LENGTH);
-  if (!cleanText) {
-    return null;
-  }
+export function getTtsStatusInfo() {
+  const allCoolingDown = GEMINI_TTS_MODELS.every(
+    (entry) => getModelCooldownRemaining(ttsModelCooldownUntil, entry.id) > 0
+  );
+  return {
+    ...ttsStatusState,
+    allCoolingDown
+  };
+}
 
-  const cacheKey = `${voiceName}::${cleanText}`;
-  if (ttsAudioCache.has(cacheKey)) {
-    return ttsAudioCache.get(cacheKey);
+function buildTtsPromptText(cleanText, verbatimPrompt) {
+  if (verbatimPrompt) {
+    return cleanText;
   }
+  return `Lies den folgenden deutschen Text natürlich, deutlich und mit passender Satzmelodie vor:\n${cleanText}`;
+}
 
-  const persisted = await getCachedTtsAudio(cacheKey);
-  if (persisted) {
-    rememberInMemoryTts(cacheKey, persisted);
-    return persisted;
-  }
-
-  if (!navigator.onLine) {
-    const err = new Error("Çevrimdışı");
-    err.code = "OFFLINE";
-    throw err;
-  }
-
-  const apiKey = requireCoachApiKey();
+async function requestSingleTtsModel({ ttsModel, cleanText, voiceName, apiKey }) {
   const controller = new AbortController();
   const timerId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   let response;
   try {
     response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_TTS_MODEL)}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(ttsModel.id)}:generateContent`,
       {
         method: "POST",
         credentials: "omit",
@@ -686,7 +722,7 @@ export async function synthesizeGermanSpeech(
               role: "user",
               parts: [
                 {
-                  text: `Lies den folgenden deutschen Text natürlich, deutlich und mit passender Satzmelodie vor:\n${cleanText}`
+                  text: buildTtsPromptText(cleanText, ttsModel.verbatimPrompt)
                 }
               ]
             }
@@ -727,11 +763,97 @@ export async function synthesizeGermanSpeech(
   const rateMatch = mimeType.match(/rate=(\d+)/i);
   const sampleRate = rateMatch ? Number(rateMatch[1]) || 24000 : 24000;
   const bytes = decodeBase64ToBytes(inlineData.data);
-  const payload = { bytes, sampleRate, mimeType };
+  return { bytes, sampleRate, mimeType };
+}
 
-  rememberInMemoryTts(cacheKey, payload);
-  putCachedTtsAudio(cacheKey, payload).catch(() => {});
-  return payload;
+export async function synthesizeGermanSpeech(
+  text,
+  { voiceName = DEFAULT_TTS_VOICE } = {}
+) {
+  const cleanText = String(text || "").trim().slice(0, MAX_TTS_TEXT_LENGTH);
+  if (!cleanText) {
+    return null;
+  }
+
+  const cacheKey = `${voiceName}::${cleanText}`;
+  if (ttsAudioCache.has(cacheKey)) {
+    return ttsAudioCache.get(cacheKey);
+  }
+
+  const persisted = await getCachedTtsAudio(cacheKey);
+  if (persisted) {
+    rememberInMemoryTts(cacheKey, persisted);
+    return persisted;
+  }
+
+  if (!navigator.onLine) {
+    const err = new Error("Çevrimdışı");
+    err.code = "OFFLINE";
+    throw err;
+  }
+
+  const apiKey = requireCoachApiKey();
+  const readyModels = GEMINI_TTS_MODELS.filter(
+    (entry) => getModelCooldownRemaining(ttsModelCooldownUntil, entry.id) === 0
+  );
+
+  if (readyModels.length === 0) {
+    const err = new Error("Gemini ses kotası geçici olarak beklemede.");
+    err.code = "TTS_COOLDOWN";
+    throw err;
+  }
+
+  let lastError = null;
+  for (const ttsModel of readyModels) {
+    try {
+      const payload = await requestSingleTtsModel({
+        ttsModel,
+        cleanText,
+        voiceName,
+        apiKey
+      });
+      ttsModelCooldownUntil.delete(ttsModel.id);
+      ttsStatusState = {
+        activeModel: ttsModel.id,
+        lastErrorCode: null,
+        lastErrorMessage: "",
+        updatedAt: Date.now()
+      };
+      rememberInMemoryTts(cacheKey, payload);
+      putCachedTtsAudio(cacheKey, payload).catch(() => {});
+      return payload;
+    } catch (err) {
+      lastError = err;
+      const status = Number(err?.status) || 0;
+      if (status === 400 || status === 401 || status === 403) {
+        ttsStatusState = {
+          activeModel: null,
+          lastErrorCode: status,
+          lastErrorMessage: "API anahtarı geçersiz veya yetkisiz; tarayıcı sesi kullanılıyor.",
+          updatedAt: Date.now()
+        };
+        throw err;
+      }
+      if ([404, 429, 500, 502, 503, 504].includes(status) || err?.message === "TTS audio missing") {
+        markModelCooldown(ttsModelCooldownUntil, ttsModel.id, status || 500);
+        continue;
+      }
+      break;
+    }
+  }
+
+  const lastStatus = Number(lastError?.status) || 0;
+  ttsStatusState = {
+    activeModel: null,
+    lastErrorCode: lastStatus || lastError?.code || "ERROR",
+    lastErrorMessage:
+      lastStatus === 429
+        ? "Gemini ses kotası geçici olarak doldu; önbellekte olmayan kelimeler şu an tarayıcı sesiyle okunuyor."
+        : "Gemini ses servisine şu an ulaşılamıyor; geçici olarak tarayıcı sesi kullanılıyor.",
+    updatedAt: Date.now()
+  };
+
+  throw lastError || new Error("Gemini TTS failed");
 }
 
 export function initAiTutor({ getScreenContext, announce }) {

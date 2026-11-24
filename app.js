@@ -23,6 +23,7 @@ import {
   evaluateUserSentence,
   generateArticleMnemonic,
   getTtsCacheStats,
+  getTtsStatusInfo,
   hasConfiguredGeminiKey,
   initAiTutor,
   synthesizeGermanSpeech
@@ -593,6 +594,7 @@ let cachedGermanVoice = null;
 let sharedAudioCtx = null;
 let activeAudioSource = null;
 let speechRequestId = 0;
+let lastTtsNoticeAt = 0;
 
 function isSpeechSupported() {
   return (
@@ -750,12 +752,28 @@ async function speakGerman(text, triggerBtn = null) {
       }
       if (audio) {
         await playSynthesizedAudio(audio);
+        updateTtsEngineNote();
         return;
       }
-    } catch {
+    } catch (err) {
       if (myReqId !== speechRequestId) {
         return;
       }
+      console.warn(
+        "[DeutschKarte TTS] Gemini TTS yerine tarayıcı sesi kullanılıyor:",
+        err?.code || err?.status || err?.message || "unknown"
+      );
+      const now = Date.now();
+      if (now - lastTtsNoticeAt > 60_000) {
+        lastTtsNoticeAt = now;
+        const isQuota = err?.status === 429 || err?.code === "TTS_COOLDOWN";
+        announce(
+          isQuota
+            ? "Gemini ses kotası geçici olarak doldu, tarayıcı sesi kullanılıyor."
+            : "Gemini sesine şu an ulaşılamıyor, tarayıcı sesi kullanılıyor."
+        );
+      }
+      updateTtsEngineNote();
     } finally {
       if (triggerBtn) {
         triggerBtn.classList.remove("is-loading");
@@ -3703,6 +3721,35 @@ async function refreshTtsCacheMeta() {
   }
 }
 
+function updateTtsEngineNote() {
+  if (!els.ttsEngineNote) {
+    return;
+  }
+  const activeSpeechEngine = VALID_SPEECH_ENGINES.includes(
+    appState.settings.speechEngine
+  )
+    ? appState.settings.speechEngine
+    : "browser";
+  if (activeSpeechEngine !== "gemini") {
+    els.ttsEngineNote.hidden = true;
+    return;
+  }
+  if (!hasConfiguredGeminiKey()) {
+    els.ttsEngineNote.textContent =
+      "Gemini Doğal ses için sağ alttaki Almanca Asistan ayarlarına API anahtarı ekleyin; anahtar yokken tarayıcı sesi çalar.";
+    els.ttsEngineNote.hidden = false;
+    return;
+  }
+  const ttsStatus = getTtsStatusInfo();
+  const hasRecentError =
+    Boolean(ttsStatus.lastErrorMessage) &&
+    (ttsStatus.allCoolingDown || Date.now() - ttsStatus.updatedAt < 5 * 60_000);
+  els.ttsEngineNote.textContent = hasRecentError
+    ? ttsStatus.lastErrorMessage
+    : "Doğal insan tonlaması aktif. Üretilen sesler cihazında kalıcı olarak saklanır; sonraki dinlemelerde API kotası harcamaz.";
+  els.ttsEngineNote.hidden = false;
+}
+
 function refreshBackupModal() {
   appState.daily = normalizeDailyState(appState.daily);
   const { totalAnswered, totalCorrect, bestStreak } = appState.progress;
@@ -3729,16 +3776,7 @@ function refreshBackupModal() {
     btn.classList.toggle("is-active", active);
     btn.setAttribute("aria-pressed", String(active));
   }
-  if (els.ttsEngineNote) {
-    if (activeSpeechEngine === "gemini") {
-      els.ttsEngineNote.textContent = hasConfiguredGeminiKey()
-        ? "Doğal insan tonlaması aktif. Üretilen sesler cihazında kalıcı olarak saklanır; sonraki dinlemelerde API kotası harcamaz."
-        : "Gemini Doğal ses için sağ alttaki Almanca Asistan ayarlarına API anahtarı ekleyin; anahtar yokken tarayıcı sesi çalar.";
-      els.ttsEngineNote.hidden = false;
-    } else {
-      els.ttsEngineNote.hidden = true;
-    }
-  }
+  updateTtsEngineNote();
   refreshTtsCacheMeta();
   els.autoSpeakToggle.checked = Boolean(appState.settings.autoSpeak);
   els.autoSpeakToggle.disabled =
