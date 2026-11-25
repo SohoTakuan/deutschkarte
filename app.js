@@ -457,7 +457,6 @@ const els = {
     document.querySelectorAll("#grammar-group-filters .filter-chip[data-group]")
   ),
   conjModeBtns: Array.from(document.querySelectorAll(".conj-mode-btn")),
-  conjScore: document.getElementById("conj-score"),
   conjCard: document.getElementById("conj-card"),
   conjGroupLabel: document.getElementById("conj-group-label"),
   conjPronoun: document.getElementById("conj-pronoun"),
@@ -502,8 +501,6 @@ const els = {
   lessonSelect: document.getElementById("lesson-select"),
   dailyProgress: document.getElementById("daily-progress"),
   masteredCount: document.getElementById("mastered-count"),
-  sessionScoreItem: document.getElementById("session-score-item"),
-  sessionScore: document.getElementById("session-score"),
   sessionRoundGroup: document.getElementById("session-round-group"),
   sessionRoundBtns: Array.from(
     document.querySelectorAll("#session-round-group .round-toggle-btn")
@@ -1336,10 +1333,6 @@ function updateTopControls() {
   }
   els.dailyProgress.textContent = String(appState.daily.count);
   els.masteredCount.textContent = `${scopedLearned} / ${scopedTotal}`;
-  if (els.sessionScoreItem) {
-    els.sessionScoreItem.hidden = roundSupported && activeRoundSize !== "off";
-  }
-  els.sessionScore.textContent = `${runtime.sessionCorrect} / ${runtime.sessionAnswered}`;
 }
 
 /* Pool & Leitner Weighted Scheduling */
@@ -4654,12 +4647,6 @@ function getConjugationChoiceOptions(verb, slot) {
   return shuffleArray([{ label: expected, isCorrect: true }, ...distractors]);
 }
 
-function updateConjugationStrip() {
-  if (els.conjScore) {
-    els.conjScore.textContent = `${runtime.conjScore} / ${runtime.conjAnsweredCount}`;
-  }
-}
-
 function switchGrammarSubTab(subTab) {
   runtime.grammarSubTab = subTab === "notes" ? "notes" : "drill";
   const isDrill = runtime.grammarSubTab === "drill";
@@ -4748,8 +4735,6 @@ function showNextConjugation() {
   if (els.conjSpeakPrompt) {
     els.conjSpeakPrompt.hidden = !isSpeechSupported();
   }
-
-  updateConjugationStrip();
 
   if (els.conjFeedbackArea) els.conjFeedbackArea.hidden = true;
   if (els.conjInputGuidance) {
@@ -4924,7 +4909,6 @@ function finalizeConjugation(isCorrect, customTip) {
   } else {
     runtime.conjMistakes[pairKey] = (runtime.conjMistakes[pairKey] || 0) + 1;
   }
-  updateConjugationStrip();
 
   if (els.conjGroupLabel) {
     els.conjGroupLabel.textContent = `${verb.lesson} · ${getVerbGroupLabel(verb.group)}`;
