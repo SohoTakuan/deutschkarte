@@ -1745,10 +1745,13 @@ function renderCardBoxPips(wordId) {
   els.cardBoxPips.innerHTML = "";
   const card = appState.cards[wordId];
   const rawBox = card && card.seen ? card.box : 0;
-  const activeCount = card && card.correct > 0 ? rawBox : 0;
+  const debt = sanitizeDebt(card?.debt);
+  const activeCount = card && card.correct > 0 && debt === 0 ? rawBox : 0;
   const label =
     activeCount === 0
-      ? "Yeni kelime"
+      ? card && card.correct > 0 && debt < 0
+        ? "Pekiştirme aşaması (0 / 5)"
+        : "Yeni kelime"
       : activeCount >= 4
         ? `Öğrenildi (${activeCount} / 5)`
         : activeCount === 3
@@ -3055,7 +3058,7 @@ function recordCardReview(
   } else {
     if (prev.box === 1) {
       nextBox = 1;
-      nextDebt = Math.max(-3, prevDebt - 1);
+      nextDebt = prev.correct === 0 ? Math.max(-3, prevDebt - 1) : prevDebt;
     } else {
       nextBox = Math.max(1, prev.box - 2);
       nextDebt = 0;
