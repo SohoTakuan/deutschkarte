@@ -478,6 +478,7 @@ const els = {
   dueBannerText: document.getElementById("due-banner-text"),
   btnStartDue: document.getElementById("btn-start-due"),
   mistakesBadge: document.getElementById("mistakes-badge"),
+  deckRight: document.querySelector(".deck-right"),
   lessonSelect: document.getElementById("lesson-select"),
   dailyProgress: document.getElementById("daily-progress"),
   masteredCount: document.getElementById("mastered-count"),
@@ -1213,9 +1214,10 @@ function updateTopControls() {
     els.btnPracticeToggle.classList.toggle("is-active", isPracticeMode);
   }
 
-  const scopedWords = getWordsForLesson(appState.settings.lesson).filter(
-    (word) => !isWordHidden(word.id)
-  );
+  const lessonScoped = isLessonScopedMode();
+  const scopedWords = (
+    lessonScoped ? getWordsForLesson(appState.settings.lesson) : ALL_WORDS
+  ).filter((word) => !isWordHidden(word.id));
   const scopedLearned = countMasteredWords(scopedWords);
   const scopedTotal = scopedWords.length;
   const activeRoundSize = VALID_ROUND_SIZES.includes(appState.settings.roundSize)
@@ -1224,6 +1226,9 @@ function updateTopControls() {
   const roundSupported = isRoundModeSupported();
 
   lessonSelectCtrl?.setValue(appState.settings.lesson);
+  if (els.deckRight) {
+    els.deckRight.hidden = !lessonScoped;
+  }
   if (els.sessionRoundGroup) {
     els.sessionRoundGroup.hidden = !roundSupported;
   }
@@ -1324,12 +1329,12 @@ function getActiveStudyPool() {
   if (appState.settings.mode === "due") {
     return getDueWords();
   }
+  if (appState.settings.mode === "mistakes") {
+    return getActiveWords().filter((word) => Boolean(appState.mistakes[word.id]));
+  }
   const lessonWords = getWordsForLesson(appState.settings.lesson).filter(
     (word) => !isWordHidden(word.id)
   );
-  if (appState.settings.mode === "mistakes") {
-    return lessonWords.filter((word) => Boolean(appState.mistakes[word.id]));
-  }
   if (appState.settings.mode === "articles") {
     return lessonWords.filter((word) => word.category === "noun");
   }
@@ -1579,6 +1584,10 @@ function isRoundModeSupported(mode = appState.settings.mode) {
   return mode !== "due" && mode !== "mistakes";
 }
 
+function isLessonScopedMode(mode = appState.settings.mode) {
+  return mode !== "due" && mode !== "mistakes";
+}
+
 function getEffectiveRoundTarget() {
   if (!isRoundModeSupported()) {
     return 0;
@@ -1749,9 +1758,8 @@ function showRoundSummary({ dueComplete = false } = {}) {
   }
 
   if (els.btnRoundMistakes) {
-    const scopedMistakeCount = getScopedMistakeCount();
     els.btnRoundMistakes.hidden =
-      scopedMistakeCount === 0 || appState.settings.mode === "mistakes";
+      getActiveMistakeCount() === 0 || appState.settings.mode === "mistakes";
   }
 
   if (els.cardRoundSummary) {
@@ -1844,11 +1852,9 @@ function showNextCard({ preserveWord = false } = {}) {
     } else if (appState.settings.mode === "mistakes") {
       els.emptyTitle.textContent = "Zorlandığınız kelime yok";
       els.emptyDesc.textContent =
-        appState.settings.lesson === "all"
-          ? "Yanlış yaptığınız kelimeler burada toplanır ve art arda iki kez doğru bilene kadar sıkça karşınıza çıkar."
-          : `${appState.settings.lesson} içinde zorlandığınız kelime kalmadı.`;
+        "Yanlış yaptığınız kelimeler burada toplanır ve art arda iki kez doğru bilene kadar sıkça karşınıza çıkar.";
       els.emptySwitchMixed.hidden = false;
-      els.emptyAllLessons.hidden = appState.settings.lesson === "all";
+      els.emptyAllLessons.hidden = true;
     } else if (appState.settings.mode === "articles") {
       const hasAnyNounInLesson = lessonAllWords.some(
         (w) => w.category === "noun"
