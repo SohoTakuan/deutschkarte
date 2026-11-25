@@ -40,6 +40,20 @@ const PRACTICE_MODE_LABELS = {
   articles: "Artikel",
   cloze: "Boşluk"
 };
+const DICT_TYPE_LABELS = {
+  noun: "İsimler",
+  phrase: "Kalıp ve Fiiller",
+  mistakes: "Zorlandıklarım",
+  unlearned: "Kalanlar",
+  hidden: "Gizlenenler"
+};
+const DICT_ARTICLE_LABELS = {
+  der: "der",
+  die: "die",
+  das: "das",
+  "nur Pl.": "nur Pl.",
+  "nur Sg.": "nur Sg."
+};
 const VALID_THEMES = ["light", "dark"];
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const VALID_ROUND_SIZES = ["off", "10", "20"];
@@ -435,11 +449,9 @@ const els = {
   ),
   conjModeBtns: Array.from(document.querySelectorAll(".conj-mode-btn")),
   conjScore: document.getElementById("conj-score"),
-  conjStreak: document.getElementById("conj-streak"),
   conjReset: document.getElementById("conj-reset"),
   conjCard: document.getElementById("conj-card"),
   conjGroupLabel: document.getElementById("conj-group-label"),
-  conjInfinitiveMeaning: document.getElementById("conj-infinitive-meaning"),
   conjPronoun: document.getElementById("conj-pronoun"),
   conjVerb: document.getElementById("conj-verb"),
   conjSpeakPrompt: document.getElementById("conj-speak-prompt"),
@@ -566,8 +578,16 @@ const els = {
 
   dictSearch: document.getElementById("dict-search"),
   dictLessonSelect: document.getElementById("dict-lesson-select"),
+  dictTypeShelf: document.getElementById("dict-type-shelf"),
+  btnDictTypeToggle: document.getElementById("btn-dict-type-toggle"),
+  dictTypeToggleLabel: document.getElementById("dict-type-toggle-label"),
+  dictTypeTray: document.getElementById("dict-type-tray"),
+  dictArticleShelf: document.getElementById("dict-article-shelf"),
+  btnDictArticleToggle: document.getElementById("btn-dict-article-toggle"),
+  dictArticleToggleLabel: document.getElementById("dict-article-toggle-label"),
+  dictArticleTray: document.getElementById("dict-article-tray"),
   dictFilterChips: Array.from(
-    document.querySelectorAll("#dictionary-view .filter-chip")
+    document.querySelectorAll("#dictionary-view .filter-chip[data-filter]")
   ),
   dictHiddenBadge: document.getElementById("dict-hidden-badge"),
   dictCount: document.getElementById("dict-count"),
@@ -1137,6 +1157,50 @@ function setPracticeShelfOpen(isOpen) {
   els.practiceModeShelf.classList.toggle("is-open", open);
   els.practiceModeTray.hidden = !open;
   els.btnPracticeToggle.setAttribute("aria-expanded", String(open));
+}
+
+function setDictShelfOpen(which, isOpen) {
+  const specs = [
+    {
+      key: "type",
+      shelf: els.dictTypeShelf,
+      tray: els.dictTypeTray,
+      toggle: els.btnDictTypeToggle
+    },
+    {
+      key: "article",
+      shelf: els.dictArticleShelf,
+      tray: els.dictArticleTray,
+      toggle: els.btnDictArticleToggle
+    }
+  ];
+  for (const spec of specs) {
+    const open = Boolean(isOpen) && spec.key === which;
+    spec.shelf?.classList.toggle("is-open", open);
+    if (spec.tray) {
+      spec.tray.hidden = !open;
+    }
+    spec.toggle?.setAttribute("aria-expanded", String(open));
+  }
+}
+
+function syncDictFilterUI() {
+  const filter = runtime.dictFilter || "all";
+  for (const chip of els.dictFilterChips) {
+    const isSelected = chip.dataset.filter === filter;
+    chip.classList.toggle("is-active", isSelected);
+    chip.setAttribute("aria-pressed", String(isSelected));
+  }
+  const isTypeActive = Boolean(DICT_TYPE_LABELS[filter]);
+  const isArticleActive = Boolean(DICT_ARTICLE_LABELS[filter]);
+  if (els.dictTypeToggleLabel) {
+    els.dictTypeToggleLabel.textContent = DICT_TYPE_LABELS[filter] || "Türler";
+  }
+  els.btnDictTypeToggle?.classList.toggle("is-active", isTypeActive);
+  if (els.dictArticleToggleLabel) {
+    els.dictArticleToggleLabel.textContent = DICT_ARTICLE_LABELS[filter] || "Artikel";
+  }
+  els.btnDictArticleToggle?.classList.toggle("is-active", isArticleActive);
 }
 
 function getDueWords(now = Date.now()) {
@@ -4090,11 +4154,8 @@ function refreshBackupModal() {
             if (els.dictSearch) {
               els.dictSearch.value = "";
             }
-            for (const chip of els.dictFilterChips) {
-              const isSelected = chip.dataset.filter === "unlearned";
-              chip.classList.toggle("is-active", isSelected);
-              chip.setAttribute("aria-pressed", String(isSelected));
-            }
+            syncDictFilterUI();
+            setDictShelfOpen(null, false);
             switchTab("dictionary");
           });
           foot.appendChild(jumpBtn);
@@ -4563,9 +4624,6 @@ function updateConjugationStrip() {
   if (els.conjScore) {
     els.conjScore.textContent = `${runtime.conjScore} / ${runtime.conjAnsweredCount}`;
   }
-  if (els.conjStreak) {
-    els.conjStreak.textContent = String(runtime.conjStreak);
-  }
 }
 
 function switchGrammarSubTab(subTab) {
@@ -4642,10 +4700,7 @@ function showNextConjugation() {
   }
 
   if (els.conjGroupLabel) {
-    els.conjGroupLabel.textContent = `${verb.lesson}, ${getVerbGroupLabel(verb.group)}`;
-  }
-  if (els.conjInfinitiveMeaning) {
-    els.conjInfinitiveMeaning.textContent = verb.tr;
+    els.conjGroupLabel.textContent = verb.lesson;
   }
   if (els.conjPronoun) {
     els.conjPronoun.textContent = slot.label;
@@ -4654,7 +4709,7 @@ function showNextConjugation() {
     els.conjVerb.textContent = verb.infinitive;
   }
   if (els.conjTrCue) {
-    els.conjTrCue.textContent = `${slot.tr} — ${verb.tr}`;
+    els.conjTrCue.textContent = `${slot.tr} · ${verb.tr}`;
   }
   if (els.conjSpeakPrompt) {
     els.conjSpeakPrompt.hidden = !isSpeechSupported();
@@ -4826,7 +4881,6 @@ function finalizeConjugation(isCorrect, customTip) {
   runtime.conjAnsweredCount += 1;
   if (isCorrect) {
     runtime.conjScore += 1;
-    runtime.conjStreak += 1;
     if (runtime.conjMistakes[pairKey]) {
       runtime.conjMistakes[pairKey] -= 1;
       if (runtime.conjMistakes[pairKey] <= 0) {
@@ -4834,10 +4888,13 @@ function finalizeConjugation(isCorrect, customTip) {
       }
     }
   } else {
-    runtime.conjStreak = 0;
     runtime.conjMistakes[pairKey] = (runtime.conjMistakes[pairKey] || 0) + 1;
   }
   updateConjugationStrip();
+
+  if (els.conjGroupLabel) {
+    els.conjGroupLabel.textContent = `${verb.lesson} · ${getVerbGroupLabel(verb.group)}`;
+  }
 
   if (els.conjCard) {
     els.conjCard.dataset.outcome = isCorrect ? "correct" : "wrong";
@@ -5123,7 +5180,6 @@ function bindEvents() {
   els.conjReset?.addEventListener("click", () => {
     runtime.conjScore = 0;
     runtime.conjAnsweredCount = 0;
-    runtime.conjStreak = 0;
     runtime.conjMistakes = {};
     updateConjugationStrip();
     announce("Çekim sayacı sıfırlandı.");
@@ -5181,6 +5237,19 @@ function bindEvents() {
     ) {
       setPracticeShelfOpen(false);
     }
+    if (
+      e.target instanceof Node &&
+      ((els.dictTypeTray &&
+        !els.dictTypeTray.hidden &&
+        els.dictTypeShelf &&
+        !els.dictTypeShelf.contains(e.target)) ||
+        (els.dictArticleTray &&
+          !els.dictArticleTray.hidden &&
+          els.dictArticleShelf &&
+          !els.dictArticleShelf.contains(e.target)))
+    ) {
+      setDictShelfOpen(null, false);
+    }
   });
 
   for (const btn of els.modeBtns) {
@@ -5231,11 +5300,8 @@ function bindEvents() {
     runtime.dictFilter = "hidden";
     runtime.dictLesson = appState.settings.lesson;
     dictLessonSelectCtrl?.setValue(runtime.dictLesson);
-    for (const chip of els.dictFilterChips) {
-      const isSelected = chip.dataset.filter === "hidden";
-      chip.classList.toggle("is-active", isSelected);
-      chip.setAttribute("aria-pressed", String(isSelected));
-    }
+    syncDictFilterUI();
+    setDictShelfOpen(null, false);
     switchTab("dictionary");
   });
 
@@ -5343,14 +5409,23 @@ function bindEvents() {
     renderDictionary();
   });
 
+  els.btnDictTypeToggle?.addEventListener("click", () => {
+    const isCurrentlyOpen = Boolean(els.dictTypeTray && !els.dictTypeTray.hidden);
+    setDictShelfOpen("type", !isCurrentlyOpen);
+  });
+
+  els.btnDictArticleToggle?.addEventListener("click", () => {
+    const isCurrentlyOpen = Boolean(
+      els.dictArticleTray && !els.dictArticleTray.hidden
+    );
+    setDictShelfOpen("article", !isCurrentlyOpen);
+  });
+
   for (const chip of els.dictFilterChips) {
     chip.addEventListener("click", () => {
       runtime.dictFilter = chip.dataset.filter;
-      for (const item of els.dictFilterChips) {
-        const active = item === chip;
-        item.classList.toggle("is-active", active);
-        item.setAttribute("aria-pressed", String(active));
-      }
+      syncDictFilterUI();
+      setDictShelfOpen(null, false);
       renderDictionary();
     });
   }
@@ -5361,11 +5436,8 @@ function bindEvents() {
     runtime.dictQuery = "";
     els.dictSearch.value = "";
     dictLessonSelectCtrl?.setValue("all");
-    for (const chip of els.dictFilterChips) {
-      const active = chip.dataset.filter === "all";
-      chip.classList.toggle("is-active", active);
-      chip.setAttribute("aria-pressed", String(active));
-    }
+    syncDictFilterUI();
+    setDictShelfOpen(null, false);
     renderDictionary();
   });
 
@@ -5572,6 +5644,21 @@ function bindEvents() {
       setPracticeShelfOpen(false);
       els.btnPracticeToggle?.focus();
       return;
+    }
+
+    if (e.key === "Escape") {
+      if (els.dictTypeTray && !els.dictTypeTray.hidden) {
+        e.preventDefault();
+        setDictShelfOpen(null, false);
+        els.btnDictTypeToggle?.focus();
+        return;
+      }
+      if (els.dictArticleTray && !els.dictArticleTray.hidden) {
+        e.preventDefault();
+        setDictShelfOpen(null, false);
+        els.btnDictArticleToggle?.focus();
+        return;
+      }
     }
 
     if (els.backupDialog.open || aiTutor?.isOpen()) {

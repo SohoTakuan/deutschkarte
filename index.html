@@ -403,7 +403,6 @@
           <div class="session-strip">
             <div class="session-metrics">
               <span class="metric-item">Doğru: <strong id="conj-score">0 / 0</strong></span>
-              <span class="metric-item">Seri: <strong id="conj-streak">0</strong></span>
             </div>
             <button type="button" id="conj-reset" class="text-action">Sıfırla</button>
           </div>
@@ -412,16 +411,13 @@
             <div class="card-accent-bar" aria-hidden="true"></div>
             <div class="card-body">
               <div class="card-meta">
-                <span id="conj-group-label" class="meta-lesson">Ders 2, Düzenli</span>
-                <span id="conj-infinitive-meaning" class="meta-kind">yapmak</span>
+                <span id="conj-group-label" class="meta-lesson">Ders 2</span>
               </div>
 
               <div class="card-prompt">
-                <div class="prompt-head">
-                  <div class="conj-prompt-row">
-                    <span id="conj-pronoun" class="conj-pronoun-chip">du</span>
-                    <h2 id="conj-verb" class="conj-verb-title">arbeiten</h2>
-                  </div>
+                <div class="conj-prompt-row">
+                  <span id="conj-pronoun" class="conj-pronoun-chip">du</span>
+                  <h2 id="conj-verb" class="conj-verb-title">arbeiten</h2>
                   <button type="button" id="conj-speak-prompt" class="speak-btn speak-btn-sm" title="Fiil mastarını dinle" aria-label="Fiil mastarını dinle">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
@@ -429,7 +425,7 @@
                     </svg>
                   </button>
                 </div>
-                <p id="conj-tr-cue" class="prompt-hint">Sen — çalışmak</p>
+                <p id="conj-tr-cue" class="prompt-hint">Sen · çalışmak</p>
               </div>
 
               <div id="conj-choice-area" class="answer-area">
@@ -524,24 +520,52 @@
           </div>
         </div>
 
-        <div class="dict-filters-stack">
-          <div class="dict-filters" role="group" aria-label="Tür ve liste filtreleri">
-            <button type="button" class="filter-chip is-active" data-filter="all" aria-pressed="true">Tümü</button>
-            <button type="button" class="filter-chip" data-filter="noun" aria-pressed="false">İsimler</button>
-            <button type="button" class="filter-chip" data-filter="phrase" aria-pressed="false">Kalıp ve Fiiller</button>
-            <button type="button" class="filter-chip" data-filter="mistakes" aria-pressed="false">Zorlandıklarım</button>
-            <button type="button" class="filter-chip" data-filter="unlearned" aria-pressed="false">Kalanlar</button>
-            <button type="button" class="filter-chip filter-chip-with-badge" data-filter="hidden" aria-pressed="false">
-              <span>Gizlenenler</span>
-              <span id="dict-hidden-badge" class="chip-count-badge" hidden>0</span>
+        <div class="dict-filter-bar" role="group" aria-label="Sözlük filtreleri">
+          <button type="button" class="filter-chip is-active" data-filter="all" aria-pressed="true">Tümü</button>
+          <div id="dict-type-shelf" class="dict-filter-shelf">
+            <button
+              type="button"
+              id="btn-dict-type-toggle"
+              class="filter-chip dict-shelf-toggle"
+              aria-expanded="false"
+              aria-controls="dict-type-tray"
+            >
+              <span id="dict-type-toggle-label">Türler</span>
+              <svg class="dict-shelf-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m9 6 6 6-6 6"/>
+              </svg>
             </button>
+            <div id="dict-type-tray" class="dict-filter-tray" role="group" aria-label="Tür ve liste filtreleri" hidden>
+              <button type="button" class="filter-chip" data-filter="noun" aria-pressed="false">İsimler</button>
+              <button type="button" class="filter-chip" data-filter="phrase" aria-pressed="false">Kalıp ve Fiiller</button>
+              <button type="button" class="filter-chip" data-filter="mistakes" aria-pressed="false">Zorlandıklarım</button>
+              <button type="button" class="filter-chip" data-filter="unlearned" aria-pressed="false">Kalanlar</button>
+              <button type="button" class="filter-chip filter-chip-with-badge" data-filter="hidden" aria-pressed="false">
+                <span>Gizlenenler</span>
+                <span id="dict-hidden-badge" class="chip-count-badge" hidden>0</span>
+              </button>
+            </div>
           </div>
-          <div class="dict-filters" role="group" aria-label="Artikel filtreleri">
-            <button type="button" class="filter-chip" data-filter="der" aria-pressed="false">der</button>
-            <button type="button" class="filter-chip" data-filter="die" aria-pressed="false">die</button>
-            <button type="button" class="filter-chip" data-filter="das" aria-pressed="false">das</button>
-            <button type="button" class="filter-chip" data-filter="nur Pl." aria-pressed="false">nur Pl.</button>
-            <button type="button" class="filter-chip" data-filter="nur Sg." aria-pressed="false">nur Sg.</button>
+          <div id="dict-article-shelf" class="dict-filter-shelf">
+            <button
+              type="button"
+              id="btn-dict-article-toggle"
+              class="filter-chip dict-shelf-toggle"
+              aria-expanded="false"
+              aria-controls="dict-article-tray"
+            >
+              <span id="dict-article-toggle-label">Artikel</span>
+              <svg class="dict-shelf-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m9 6 6 6-6 6"/>
+              </svg>
+            </button>
+            <div id="dict-article-tray" class="dict-filter-tray" role="group" aria-label="Artikel filtreleri" hidden>
+              <button type="button" class="filter-chip" data-filter="der" aria-pressed="false">der</button>
+              <button type="button" class="filter-chip" data-filter="die" aria-pressed="false">die</button>
+              <button type="button" class="filter-chip" data-filter="das" aria-pressed="false">das</button>
+              <button type="button" class="filter-chip" data-filter="nur Pl." aria-pressed="false">nur Pl.</button>
+              <button type="button" class="filter-chip" data-filter="nur Sg." aria-pressed="false">nur Sg.</button>
+            </div>
           </div>
         </div>
 

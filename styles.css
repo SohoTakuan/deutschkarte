@@ -2026,9 +2026,10 @@ button {
   margin-bottom: 12px;
 }
 
-.dict-filters-stack {
+.dict-filter-bar {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-bottom: 14px;
 }
@@ -2037,6 +2038,52 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+.dict-filter-shelf {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.dict-shelf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-color: var(--rule-strong);
+}
+
+.dict-shelf-chevron {
+  color: var(--ink-muted);
+  transition: transform 150ms ease;
+  flex-shrink: 0;
+}
+
+.dict-filter-shelf.is-open .dict-shelf-chevron {
+  transform: rotate(180deg);
+}
+
+.dict-filter-tray {
+  position: absolute;
+  left: calc(100% + 6px);
+  top: -3px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  border-radius: var(--radius-control);
+  background-color: var(--card);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.18);
+  white-space: nowrap;
+  animation: trayReveal 150ms ease-out;
+}
+
+.dict-filter-tray[hidden] {
+  display: none;
 }
 
 .filter-chip {
@@ -3698,11 +3745,19 @@ button {
     flex-shrink: 0;
   }
 
-  .practice-mode-tray {
+  .practice-mode-tray,
+  .dict-filter-tray {
     position: static;
     box-shadow: none;
     background-color: var(--desk-subtle);
     border-color: var(--rule);
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .dict-filter-shelf.is-open {
+    flex-wrap: wrap;
+    max-width: 100%;
   }
 
   .deck-right {
@@ -3808,7 +3863,8 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .study-card.is-advancing,
-  .practice-mode-tray {
+  .practice-mode-tray,
+  .dict-filter-tray {
     animation: none;
   }
 
