@@ -3124,6 +3124,10 @@ button {
   margin-bottom: 12px;
 }
 
+.grammar-filter-bar {
+  margin-bottom: 0;
+}
+
 .conj-prompt-row {
   display: flex;
   flex-wrap: wrap;

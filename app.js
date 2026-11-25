@@ -54,6 +54,11 @@ const DICT_ARTICLE_LABELS = {
   "nur Pl.": "nur Pl.",
   "nur Sg.": "nur Sg."
 };
+const CONJ_GROUP_LABELS = {
+  regular: "Düzenli",
+  td: "-t / -d (-e- kuralı)",
+  irregular: "Düzensiz"
+};
 const VALID_THEMES = ["light", "dark"];
 const VALID_DAILY_GOALS = [10, 20, 30, 50];
 const VALID_ROUND_SIZES = ["off", "10", "20"];
@@ -444,12 +449,15 @@ const els = {
   grammarSubNotes: document.getElementById("grammar-sub-notes"),
   grammarDrillPanel: document.getElementById("grammar-drill-panel"),
   grammarNotesPanel: document.getElementById("grammar-notes-panel"),
+  conjGroupShelf: document.getElementById("conj-group-shelf"),
+  btnConjGroupToggle: document.getElementById("btn-conj-group-toggle"),
+  conjGroupToggleLabel: document.getElementById("conj-group-toggle-label"),
+  conjGroupTray: document.getElementById("conj-group-tray"),
   grammarGroupChips: Array.from(
-    document.querySelectorAll("#grammar-group-filters .filter-chip")
+    document.querySelectorAll("#grammar-group-filters .filter-chip[data-group]")
   ),
   conjModeBtns: Array.from(document.querySelectorAll(".conj-mode-btn")),
   conjScore: document.getElementById("conj-score"),
-  conjReset: document.getElementById("conj-reset"),
   conjCard: document.getElementById("conj-card"),
   conjGroupLabel: document.getElementById("conj-group-label"),
   conjPronoun: document.getElementById("conj-pronoun"),
@@ -1201,6 +1209,32 @@ function syncDictFilterUI() {
     els.dictArticleToggleLabel.textContent = DICT_ARTICLE_LABELS[filter] || "Artikel";
   }
   els.btnDictArticleToggle?.classList.toggle("is-active", isArticleActive);
+}
+
+function setConjGroupShelfOpen(isOpen) {
+  if (!els.conjGroupShelf || !els.conjGroupTray || !els.btnConjGroupToggle) {
+    return;
+  }
+  const open = Boolean(isOpen);
+  els.conjGroupShelf.classList.toggle("is-open", open);
+  els.conjGroupTray.hidden = !open;
+  els.btnConjGroupToggle.setAttribute("aria-expanded", String(open));
+}
+
+function syncConjGroupUI() {
+  const group = runtime.conjGroup || "all";
+  for (const item of els.grammarGroupChips) {
+    const active = item.dataset.group === group;
+    item.classList.toggle("is-active", active);
+    item.setAttribute("aria-pressed", String(active));
+  }
+  if (els.conjGroupToggleLabel) {
+    els.conjGroupToggleLabel.textContent = CONJ_GROUP_LABELS[group] || "Gruplar";
+  }
+  els.btnConjGroupToggle?.classList.toggle(
+    "is-active",
+    Boolean(CONJ_GROUP_LABELS[group])
+  );
 }
 
 function getDueWords(now = Date.now()) {
@@ -5153,14 +5187,16 @@ function bindEvents() {
     switchGrammarSubTab("notes")
   );
 
+  els.btnConjGroupToggle?.addEventListener("click", () => {
+    const isCurrentlyOpen = Boolean(els.conjGroupTray && !els.conjGroupTray.hidden);
+    setConjGroupShelfOpen(!isCurrentlyOpen);
+  });
+
   for (const chip of els.grammarGroupChips) {
     chip.addEventListener("click", () => {
       runtime.conjGroup = chip.dataset.group || "all";
-      for (const item of els.grammarGroupChips) {
-        const active = item === chip;
-        item.classList.toggle("is-active", active);
-        item.setAttribute("aria-pressed", String(active));
-      }
+      syncConjGroupUI();
+      setConjGroupShelfOpen(false);
       showNextConjugation();
     });
   }
@@ -5176,14 +5212,6 @@ function bindEvents() {
       showNextConjugation();
     });
   }
-
-  els.conjReset?.addEventListener("click", () => {
-    runtime.conjScore = 0;
-    runtime.conjAnsweredCount = 0;
-    runtime.conjMistakes = {};
-    updateConjugationStrip();
-    announce("Çekim sayacı sıfırlandı.");
-  });
 
   els.conjCheck?.addEventListener("click", handleConjugationTypingSubmit);
   els.conjSkipChoice?.addEventListener("click", () => {
@@ -5249,6 +5277,15 @@ function bindEvents() {
           !els.dictArticleShelf.contains(e.target)))
     ) {
       setDictShelfOpen(null, false);
+    }
+    if (
+      els.conjGroupTray &&
+      !els.conjGroupTray.hidden &&
+      els.conjGroupShelf &&
+      e.target instanceof Node &&
+      !els.conjGroupShelf.contains(e.target)
+    ) {
+      setConjGroupShelfOpen(false);
     }
   });
 
@@ -5657,6 +5694,12 @@ function bindEvents() {
         e.preventDefault();
         setDictShelfOpen(null, false);
         els.btnDictArticleToggle?.focus();
+        return;
+      }
+      if (els.conjGroupTray && !els.conjGroupTray.hidden) {
+        e.preventDefault();
+        setConjGroupShelfOpen(false);
+        els.btnConjGroupToggle?.focus();
         return;
       }
     }

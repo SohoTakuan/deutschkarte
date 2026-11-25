@@ -387,11 +387,27 @@
 
         <div id="grammar-drill-panel" class="grammar-panel">
           <div class="grammar-toolbar">
-            <div id="grammar-group-filters" class="dict-filters" role="group" aria-label="Fiil grubu filtresi">
+            <div id="grammar-group-filters" class="dict-filter-bar grammar-filter-bar" role="group" aria-label="Fiil grubu filtresi">
               <button type="button" class="filter-chip is-active" data-group="all" aria-pressed="true">Tümü</button>
-              <button type="button" class="filter-chip" data-group="regular" aria-pressed="false">Düzenli</button>
-              <button type="button" class="filter-chip" data-group="td" aria-pressed="false">-t / -d (-e- kuralı)</button>
-              <button type="button" class="filter-chip" data-group="irregular" aria-pressed="false">Düzensiz</button>
+              <div id="conj-group-shelf" class="dict-filter-shelf">
+                <button
+                  type="button"
+                  id="btn-conj-group-toggle"
+                  class="filter-chip dict-shelf-toggle"
+                  aria-expanded="false"
+                  aria-controls="conj-group-tray"
+                >
+                  <span id="conj-group-toggle-label">Gruplar</span>
+                  <svg class="dict-shelf-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="m9 6 6 6-6 6"/>
+                  </svg>
+                </button>
+                <div id="conj-group-tray" class="dict-filter-tray" role="group" aria-label="Fiil grupları" hidden>
+                  <button type="button" class="filter-chip" data-group="regular" aria-pressed="false">Düzenli</button>
+                  <button type="button" class="filter-chip" data-group="td" aria-pressed="false">-t / -d (-e- kuralı)</button>
+                  <button type="button" class="filter-chip" data-group="irregular" aria-pressed="false">Düzensiz</button>
+                </div>
+              </div>
             </div>
 
             <div id="grammar-mode-group" class="segmented-group" role="group" aria-label="Alıştırma türü">
@@ -404,7 +420,6 @@
             <div class="session-metrics">
               <span class="metric-item">Doğru: <strong id="conj-score">0 / 0</strong></span>
             </div>
-            <button type="button" id="conj-reset" class="text-action">Sıfırla</button>
           </div>
 
           <article id="conj-card" class="study-card" data-gender="neutral">
