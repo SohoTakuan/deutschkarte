@@ -124,12 +124,16 @@ function sanitizeCardEntry(entry) {
   }
   const boxNum = Number(entry.box);
   const box = Number.isFinite(boxNum) ? Math.max(1, Math.min(5, Math.floor(boxNum))) : 1;
+  const rawMaxBox = Number(entry.maxBox);
+  const maxBox = Number.isFinite(rawMaxBox)
+    ? Math.max(box, Math.min(5, Math.floor(rawMaxBox)))
+    : box;
   const debt = sanitizeDebt(entry.debt);
   const seen = toNonNegativeInt(entry.seen);
   const correct = Math.min(seen, toNonNegativeInt(entry.correct));
   const lastSeenAt = toNonNegativeInt(entry.lastSeenAt);
   const nextReviewAt = toNonNegativeInt(entry.nextReviewAt);
-  return { box, debt, seen, correct, lastSeenAt, nextReviewAt };
+  return { box, maxBox, debt, seen, correct, lastSeenAt, nextReviewAt };
 }
 
 function sanitizeMistakeEntry(entry) {
@@ -146,16 +150,22 @@ function sanitizeMistakeEntry(entry) {
 function pickNewerCard(a, b) {
   if (!a) return b;
   if (!b) return a;
+  let winner;
   if (b.lastSeenAt !== a.lastSeenAt) {
-    return b.lastSeenAt > a.lastSeenAt ? b : a;
+    winner = b.lastSeenAt > a.lastSeenAt ? b : a;
+  } else if (b.seen !== a.seen) {
+    winner = b.seen > a.seen ? b : a;
+  } else if (b.box !== a.box) {
+    winner = b.box > a.box ? b : a;
+  } else {
+    winner = (b.debt ?? 0) <= (a.debt ?? 0) ? b : a;
   }
-  if (b.seen !== a.seen) {
-    return b.seen > a.seen ? b : a;
-  }
-  if (b.box !== a.box) {
-    return b.box > a.box ? b : a;
-  }
-  return (b.debt ?? 0) <= (a.debt ?? 0) ? b : a;
+  const maxBox = Math.max(
+    a.maxBox || a.box || 1,
+    b.maxBox || b.box || 1,
+    winner.box || 1
+  );
+  return { ...winner, maxBox };
 }
 
 function pickSharedSnapshot(state) {

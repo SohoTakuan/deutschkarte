@@ -252,12 +252,16 @@ function sanitizeCards(rawCards) {
     }
     const boxNum = Number(entry.box);
     const box = Number.isFinite(boxNum) ? Math.max(1, Math.min(5, Math.floor(boxNum))) : 1;
+    const rawMaxBox = Number(entry.maxBox);
+    const maxBox = Number.isFinite(rawMaxBox)
+      ? Math.max(box, Math.min(5, Math.floor(rawMaxBox)))
+      : box;
     const debt = sanitizeDebt(entry.debt);
     const seen = toNonNegativeInt(entry.seen);
     const correct = Math.min(seen, toNonNegativeInt(entry.correct));
     const lastSeenAt = toNonNegativeInt(entry.lastSeenAt);
     const nextReviewAt = toNonNegativeInt(entry.nextReviewAt);
-    clean[id] = { box, debt, seen, correct, lastSeenAt, nextReviewAt };
+    clean[id] = { box, maxBox, debt, seen, correct, lastSeenAt, nextReviewAt };
   }
   return clean;
 }
@@ -2835,10 +2839,15 @@ function handleArticleDrillSelect(index) {
   finalizeTurn(word, isCorrect, {});
 }
 
-function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
+function recordCardReview(
+  wordId,
+  isCorrect,
+  { isProduction = false, inDueMode = false } = {}
+) {
   const now = Date.now();
   const prev = appState.cards[wordId] || {
     box: 1,
+    maxBox: 1,
     debt: 0,
     seen: 0,
     correct: 0,
@@ -2846,7 +2855,14 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
     nextReviewAt: 0
   };
   const prevDebt = sanitizeDebt(prev.debt);
-  const prevIsDue = !prev.seen || isCardDue(prev, now);
+  const rawPrevMax = Number(prev.maxBox);
+  const prevMaxBox = Number.isFinite(rawPrevMax)
+    ? Math.max(prev.box, Math.min(5, Math.floor(rawPrevMax)))
+    : prev.box;
+  const wasDueToday = prev.seen > 0 && isCardDue(prev, now);
+  const prevIsDue = !prev.seen || wasDueToday;
+  const nextCandidateBox = Math.min(5, prev.box + 1);
+  const thresholdUnlocked = prevMaxBox >= nextCandidateBox;
 
   let nextBox = 1;
   let nextDebt = 0;
@@ -2858,17 +2874,20 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
     if (prevDebt < 0) {
       nextBox = 1;
       nextDebt = prevDebt + 1;
-      nextReviewAt = now;
-    } else if (prev.box === 3 && !isProduction) {
+      nextReviewAt =
+        inDueMode || wasDueToday
+          ? now
+          : prev.nextReviewAt || getNextReviewTimestamp(1, now);
+    } else if (prev.box === 3 && !isProduction && !thresholdUnlocked) {
       nextBox = 3;
       heldAtBox3 = true;
       nextReviewAt = prev.nextReviewAt || now;
-    } else if (prev.box >= 3 && !prevIsDue) {
+    } else if (prev.box >= 3 && !prevIsDue && !thresholdUnlocked) {
       nextBox = prev.box;
       heldByCooldown = true;
       nextReviewAt = prev.nextReviewAt;
     } else {
-      nextBox = Math.min(5, prev.box + 1);
+      nextBox = nextCandidateBox;
       const intervalDays = SRS_INTERVAL_DAYS[nextBox] ?? 0;
       nextReviewAt = getNextReviewTimestamp(intervalDays, now);
     }
@@ -2880,11 +2899,13 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
       nextBox = Math.max(1, prev.box - 2);
       nextDebt = 0;
     }
-    nextReviewAt = now;
+    nextReviewAt =
+      inDueMode || wasDueToday ? now : getNextReviewTimestamp(1, now);
   }
 
   appState.cards[wordId] = {
     box: nextBox,
+    maxBox: Math.max(prevMaxBox, nextBox),
     debt: nextDebt,
     seen: prev.seen + 1,
     correct: prev.correct + (isCorrect ? 1 : 0),
@@ -2943,7 +2964,10 @@ function finalizeTurn(word, isCorrect, details) {
   const isProduction =
     runtime.currentQuestionType === "typing" ||
     runtime.currentQuestionType === "cloze";
-  const reviewResult = recordCardReview(word.id, isCorrect, { isProduction });
+  const reviewResult = recordCardReview(word.id, isCorrect, {
+    isProduction,
+    inDueMode: appState.settings.mode === "due"
+  });
   if (reviewResult.graduatedToLearned) {
     runtime.roundMastered += 1;
   }
