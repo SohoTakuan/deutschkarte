@@ -10,14 +10,12 @@ export { getTtsCacheStats };
 
 const AI_STORAGE_KEY = "deutschkarte_ai_tutor_v1";
 const GEMINI_MODELS = [
-  "gemini-3.5-flash-lite",
   "gemini-3.8-flash",
   "gemini-3.6-flash"
 ];
 const GEMINI_MODEL_OPTIONS = [
-  { value: "gemini-3.5-flash-lite", label: "gemini-3.5-flash-lite (Önerilen · Yüksek kota)" },
-  { value: "gemini-3.8-flash", label: "gemini-3.8-flash (Yüksek kalite · Dar kota)" },
-  { value: "gemini-3.6-flash", label: "gemini-3.6-flash (Stabil · Dar kota)" }
+  { value: "gemini-3.8-flash", label: "gemini-3.8-flash (Önerilen · Yüksek kalite)" },
+  { value: "gemini-3.6-flash", label: "gemini-3.6-flash (Yedek · Stabil)" }
 ];
 const DEFAULT_MODEL = GEMINI_MODELS[0];
 const MAX_HISTORY_TURNS = 6;
@@ -77,6 +75,8 @@ const SYSTEM_INSTRUCTION = [
   "Rol yapma, kendini tanıtma veya emoji kullanma; kısa, samimi ve mobil ekranda rahat okunan cevaplar ver.",
   "Sana kullanıcının şu an ekranda gördüğü kart, çekim sorusu, not veya sözlük bağlamı verilir; açıklamalarını doğrudan bu anlık ekrana dayandır.",
   "Eğer bağlamda 'Cevaplandı: Hayır' yazıyorsa ve kullanıcı cevabı doğrudan istemediyse önce kısa bir ipucu ver; 'Cevaplandı: Evet' ise neden öyle olduğunu netçe açıkla.",
+  "Kullanıcı bir Almanca cümle veya kelime yazdığında bunu mutlaka ekrandaki kartın Türkçe anlamı ve doğru cevabıyla karşılaştır; anlamı veya soru kelimesi (ör. Woher vs. Wie) yanlış olan bir ifadeyi asla 'Doğrusu bu' diye onaylama.",
+  "Yazım hatası açıklarken kelimenin gerçek harflerini tek tek kontrol et (ör. 'kommst' kelimesinde iki 'm' vardır, iki 't' değil); yanlış harf sayısı veya uydurma yazım kuralı söyleme.",
   "Almanca kelimelerde büyük/küçük harf, ä/ö/ü/ß ve Duden yazımına uy; emin olmadığın bir bilgiyi uydurma."
 ].join(" ");
 
@@ -329,7 +329,7 @@ async function requestSingleModel({
         retryable: true,
         status: 429,
         error: new Error(
-          "Ücretsiz kullanım istek sınırına ulaşıldı. Ayarlardan gemini-3.5-flash-lite modelini seçebilir veya biraz bekleyip tekrar deneyebilirsiniz."
+          "Ücretsiz kullanım istek sınırına ulaşıldı. Biraz bekleyip tekrar deneyebilir veya ayarlardan diğer modeli seçebilirsiniz."
         )
       };
     }
