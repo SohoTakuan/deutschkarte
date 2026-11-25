@@ -484,7 +484,6 @@ const els = {
   masteredCount: document.getElementById("mastered-count"),
   sessionScoreItem: document.getElementById("session-score-item"),
   sessionScore: document.getElementById("session-score"),
-  sessionStreak: document.getElementById("session-streak"),
   sessionRoundGroup: document.getElementById("session-round-group"),
   sessionRoundBtns: Array.from(
     document.querySelectorAll("#session-round-group .round-toggle-btn")
@@ -1243,7 +1242,6 @@ function updateTopControls() {
     els.sessionScoreItem.hidden = roundSupported && activeRoundSize !== "off";
   }
   els.sessionScore.textContent = `${runtime.sessionCorrect} / ${runtime.sessionAnswered}`;
-  els.sessionStreak.textContent = String(runtime.sessionStreak);
 }
 
 /* Pool & Leitner Weighted Scheduling */
@@ -1736,7 +1734,7 @@ function showRoundSummary({ dueComplete = false } = {}) {
       : `${totalAnswered} kartlık tur tamamlandı`;
   }
   if (els.roundSummaryDetail) {
-    els.roundSummaryDetail.textContent = `${totalCorrect} doğru, ${wrongCount} yanlış — Oturum serisi: ${runtime.sessionStreak}`;
+    els.roundSummaryDetail.textContent = `${totalCorrect} doğru, ${wrongCount} yanlış`;
   }
 
   if (els.roundSummaryMastered) {
