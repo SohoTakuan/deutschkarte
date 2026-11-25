@@ -97,6 +97,26 @@ function getOffsetDateKey(daysAgo = 0) {
   return getLocalDateKey(target);
 }
 
+function getStartOfLocalDay(timestamp = Date.now()) {
+  const d = new Date(timestamp);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function getNextReviewTimestamp(intervalDays, now = Date.now()) {
+  if (!intervalDays || intervalDays <= 0) {
+    return now;
+  }
+  const d = new Date(now);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + intervalDays).getTime();
+}
+
+function isCardDue(card, now = Date.now()) {
+  if (!card || !card.seen) {
+    return false;
+  }
+  return getStartOfLocalDay(card.nextReviewAt) <= getStartOfLocalDay(now);
+}
+
 function getYesterdayDateKey() {
   return getOffsetDateKey(1);
 }
@@ -886,7 +906,7 @@ function getWordSrsStatus(wordId) {
   if (card.box >= 4) {
     return { key: "learned", label: "Öğrenildi" };
   }
-  if (card.nextReviewAt <= Date.now()) {
+  if (isCardDue(card)) {
     return { key: "due", label: "Tekrar" };
   }
   return { key: "learning", label: "Öğreniliyor" };
@@ -1101,7 +1121,7 @@ function setPracticeShelfOpen(isOpen) {
 function getDueWords(now = Date.now()) {
   return getActiveWords().filter((word) => {
     const card = appState.cards[word.id];
-    return Boolean(card && card.seen > 0 && card.nextReviewAt <= now);
+    return isCardDue(card, now);
   });
 }
 
@@ -1311,7 +1331,10 @@ function pickNextWord(pool) {
     const card = appState.cards[word.id];
     const debtMultiplier = 1 + Math.abs(sanitizeDebt(card?.debt));
     if (isDueMode && card) {
-      const overdueDays = Math.max(0, (now - card.nextReviewAt) / DAY_MS);
+      const overdueDays = Math.max(
+        0,
+        Math.round((getStartOfLocalDay(now) - getStartOfLocalDay(card.nextReviewAt)) / DAY_MS)
+      );
       return (6 + Math.min(10, overdueDays * 2)) * debtMultiplier;
     }
     const mistake = appState.mistakes[word.id];
@@ -1321,7 +1344,7 @@ function pickNextWord(pool) {
     if (!card || !card.seen) {
       return 4;
     }
-    if (card.nextReviewAt <= now) {
+    if (isCardDue(card, now)) {
       return 6 * debtMultiplier;
     }
     if (card.box <= 3) {
@@ -2797,7 +2820,7 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
     nextReviewAt: 0
   };
   const prevDebt = sanitizeDebt(prev.debt);
-  const prevIsDue = !prev.seen || prev.nextReviewAt <= now;
+  const prevIsDue = !prev.seen || isCardDue(prev, now);
 
   let nextBox = 1;
   let nextDebt = 0;
@@ -2821,7 +2844,7 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
     } else {
       nextBox = Math.min(5, prev.box + 1);
       const intervalDays = SRS_INTERVAL_DAYS[nextBox] ?? 0;
-      nextReviewAt = now + intervalDays * DAY_MS;
+      nextReviewAt = getNextReviewTimestamp(intervalDays, now);
     }
   } else {
     if (prev.box === 1) {
@@ -2831,8 +2854,7 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
       nextBox = Math.max(1, prev.box - 2);
       nextDebt = 0;
     }
-    const intervalDays = SRS_INTERVAL_DAYS[nextBox] ?? 0;
-    nextReviewAt = now + intervalDays * DAY_MS;
+    nextReviewAt = now;
   }
 
   appState.cards[wordId] = {
@@ -3808,7 +3830,7 @@ function refreshBackupModal() {
     if (!card || !card.seen) {
       unseenCount += 1;
     } else if (card.box < 4) {
-      if (card.nextReviewAt <= now) {
+      if (isCardDue(card, now)) {
         dueCount += 1;
       } else {
         learningCount += 1;
