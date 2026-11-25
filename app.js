@@ -166,6 +166,17 @@ function normalizeDailyState(rawDaily) {
   };
 }
 
+function normalizeDailyDueState(raw) {
+  const today = getLocalDateKey();
+  if (!raw || typeof raw !== "object" || raw.date !== today) {
+    return { date: today, answered: 0, correct: 0, mastered: 0 };
+  }
+  const answered = toNonNegativeInt(raw.answered);
+  const correct = Math.min(answered, toNonNegativeInt(raw.correct));
+  const mastered = Math.min(correct, toNonNegativeInt(raw.mastered));
+  return { date: today, answered, correct, mastered };
+}
+
 function createDefaultState() {
   return {
     settings: {
@@ -184,6 +195,7 @@ function createDefaultState() {
       bestStreak: 0
     },
     daily: normalizeDailyState(null),
+    dailyDue: normalizeDailyDueState(null),
     dailyHistory: {},
     cards: {},
     mistakes: {},
@@ -334,6 +346,7 @@ function loadState() {
       },
       progress: { totalAnswered, totalCorrect, bestStreak },
       daily: normalizedDaily,
+      dailyDue: normalizeDailyDueState(parsed.dailyDue),
       dailyHistory,
       cards: sanitizeCards(parsed.cards),
       mistakes: sanitizeMistakes(parsed.mistakes),
@@ -377,6 +390,7 @@ const runtime = {
   roundMastered: 0,
   dueInitialCount: 0,
   showingRoundSummary: false,
+  showingDueSummary: false,
   currentWord: null,
   currentCloze: null,
   currentQuestionType: "typing",
@@ -470,6 +484,7 @@ const els = {
   sessionScoreItem: document.getElementById("session-score-item"),
   sessionScore: document.getElementById("session-score"),
   sessionStreak: document.getElementById("session-streak"),
+  sessionRoundGroup: document.getElementById("session-round-group"),
   sessionRoundBtns: Array.from(
     document.querySelectorAll("#session-round-group .round-toggle-btn")
   ),
@@ -1206,8 +1221,12 @@ function updateTopControls() {
   const activeRoundSize = VALID_ROUND_SIZES.includes(appState.settings.roundSize)
     ? appState.settings.roundSize
     : "off";
+  const roundSupported = isRoundModeSupported();
 
   lessonSelectCtrl?.setValue(appState.settings.lesson);
+  if (els.sessionRoundGroup) {
+    els.sessionRoundGroup.hidden = !roundSupported;
+  }
   for (const btn of els.sessionRoundBtns) {
     const active = btn.dataset.round === activeRoundSize;
     btn.classList.toggle("is-active", active);
@@ -1216,7 +1235,7 @@ function updateTopControls() {
   els.dailyProgress.textContent = String(appState.daily.count);
   els.masteredCount.textContent = `${scopedLearned} / ${scopedTotal}`;
   if (els.sessionScoreItem) {
-    els.sessionScoreItem.hidden = activeRoundSize !== "off";
+    els.sessionScoreItem.hidden = roundSupported && activeRoundSize !== "off";
   }
   els.sessionScore.textContent = `${runtime.sessionCorrect} / ${runtime.sessionAnswered}`;
   els.sessionStreak.textContent = String(runtime.sessionStreak);
@@ -1556,7 +1575,14 @@ function buildChoiceOptions(word) {
 
 /* Card Rendering & Round Progress */
 
+function isRoundModeSupported(mode = appState.settings.mode) {
+  return mode !== "due" && mode !== "mistakes";
+}
+
 function getEffectiveRoundTarget() {
+  if (!isRoundModeSupported()) {
+    return 0;
+  }
   const setting = appState.settings.roundSize || "off";
   if (setting === "10") return 10;
   if (setting === "20") return 20;
@@ -1566,6 +1592,14 @@ function getEffectiveRoundTarget() {
 function shouldTriggerRoundSummary() {
   const target = getEffectiveRoundTarget();
   return target > 0 && runtime.roundAnswered >= target;
+}
+
+function shouldTriggerDueSummary() {
+  if (appState.settings.mode !== "due") {
+    return false;
+  }
+  const dueStats = normalizeDailyDueState(appState.dailyDue);
+  return dueStats.answered > 0 && getDueWords().length === 0;
 }
 
 function updateRoundProgressBar() {
@@ -1643,6 +1677,7 @@ function resetRoundTracker() {
   runtime.roundCorrect = 0;
   runtime.roundMastered = 0;
   runtime.showingRoundSummary = false;
+  runtime.showingDueSummary = false;
   runtime.roundCorrectWordIds.clear();
   els.studyCard?.classList.remove("is-round-summary");
   if (els.cardRoundSummary) {
@@ -1654,8 +1689,9 @@ function resetRoundTracker() {
   updateRoundProgressBar();
 }
 
-function showRoundSummary() {
+function showRoundSummary({ dueComplete = false } = {}) {
   runtime.showingRoundSummary = true;
+  runtime.showingDueSummary = Boolean(dueComplete);
 
   els.cardActiveBody.hidden = true;
   els.cardEmptyState.hidden = true;
@@ -1666,14 +1702,18 @@ function showRoundSummary() {
   els.studyCard.classList.add("is-advancing");
   updateRoundProgressBar();
 
+  const dueStats = dueComplete ? normalizeDailyDueState(appState.dailyDue) : null;
+  const totalAnswered = dueComplete ? dueStats.answered : runtime.roundAnswered;
+  const totalCorrect = dueComplete ? dueStats.correct : runtime.roundCorrect;
+  const totalMastered = dueComplete ? dueStats.mastered : runtime.roundMastered;
   const accuracy =
-    runtime.roundAnswered > 0
-      ? Math.round((runtime.roundCorrect / runtime.roundAnswered) * 100)
-      : 0;
-  const wrongCount = Math.max(0, runtime.roundAnswered - runtime.roundCorrect);
+    totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
+  const wrongCount = Math.max(0, totalAnswered - totalCorrect);
 
   if (els.roundSummaryKicker) {
-    els.roundSummaryKicker.textContent = "Tur özeti";
+    els.roundSummaryKicker.textContent = dueComplete
+      ? "Günün Kartları özeti"
+      : "Tur özeti";
   }
   if (els.roundSummaryGoalPill) {
     els.roundSummaryGoalPill.textContent = `Bugün ${appState.daily.count} kart`;
@@ -1682,15 +1722,19 @@ function showRoundSummary() {
     els.roundSummaryHeroValue.textContent = `%${accuracy}`;
   }
   if (els.roundSummaryTitle) {
-    els.roundSummaryTitle.textContent = `${runtime.roundAnswered} kartlık tur tamamlandı`;
+    els.roundSummaryTitle.textContent = dueComplete
+      ? `${totalAnswered} kartlık günlük tekrar tamamlandı`
+      : `${totalAnswered} kartlık tur tamamlandı`;
   }
   if (els.roundSummaryDetail) {
-    els.roundSummaryDetail.textContent = `${runtime.roundCorrect} doğru, ${wrongCount} yanlış — Oturum serisi: ${runtime.sessionStreak}`;
+    els.roundSummaryDetail.textContent = `${totalCorrect} doğru, ${wrongCount} yanlış — Oturum serisi: ${runtime.sessionStreak}`;
   }
 
   if (els.roundSummaryMastered) {
-    if (runtime.roundMastered > 0) {
-      els.roundSummaryMastered.textContent = `Bu turda ${runtime.roundMastered} kelime "Öğrenildi" seviyesine geçti.`;
+    if (totalMastered > 0) {
+      els.roundSummaryMastered.textContent = dueComplete
+        ? `Bugünkü tekrarda ${totalMastered} kelime "Öğrenildi" seviyesine geçti.`
+        : `Bu turda ${totalMastered} kelime "Öğrenildi" seviyesine geçti.`;
       els.roundSummaryMastered.hidden = false;
     } else {
       els.roundSummaryMastered.hidden = true;
@@ -1699,7 +1743,9 @@ function showRoundSummary() {
   }
 
   if (els.btnRoundContinue) {
-    els.btnRoundContinue.textContent = "Yeni tura başla";
+    els.btnRoundContinue.textContent = dueComplete
+      ? "Karma moda geç"
+      : "Yeni tura başla";
   }
 
   if (els.btnRoundMistakes) {
@@ -1712,7 +1758,7 @@ function showRoundSummary() {
     els.cardRoundSummary.hidden = false;
   }
 
-  announce("Tur tamamlandı.");
+  announce(dueComplete ? "Günün Kartları tamamlandı." : "Tur tamamlandı.");
   aiTutor?.refreshContext();
 
   if (!els.backupDialog.open && runtime.activeTab === "study") {
@@ -1725,12 +1771,24 @@ function showRoundSummary() {
 }
 
 function continueFromRoundSummary() {
+  if (runtime.showingDueSummary) {
+    appState.settings.mode = "mixed";
+    saveState({ sync: false, preserveTimestamp: true });
+    resetRoundTracker();
+    maybeAutoCloseAi();
+    showNextCard();
+    return;
+  }
   resetRoundTracker();
   maybeAutoCloseAi();
   showNextCard();
 }
 
 function advanceAfterAnswer() {
+  if (shouldTriggerDueSummary()) {
+    showRoundSummary({ dueComplete: true });
+    return;
+  }
   if (shouldTriggerRoundSummary()) {
     showRoundSummary();
     return;
@@ -1745,6 +1803,7 @@ function showNextCard({ preserveWord = false } = {}) {
     resetRoundTracker();
   } else {
     runtime.showingRoundSummary = false;
+    runtime.showingDueSummary = false;
     els.studyCard?.classList.remove("is-round-summary");
     if (els.cardRoundSummary) {
       els.cardRoundSummary.hidden = true;
@@ -1757,6 +1816,13 @@ function showNextCard({ preserveWord = false } = {}) {
   updateTopControls();
 
   if (pool.length === 0) {
+    if (
+      appState.settings.mode === "due" &&
+      normalizeDailyDueState(appState.dailyDue).answered > 0
+    ) {
+      showRoundSummary({ dueComplete: true });
+      return;
+    }
     const lessonAllWords = getWordsForLesson(appState.settings.lesson);
     const hiddenInLesson = lessonAllWords.filter((w) => isWordHidden(w.id)).length;
 
@@ -2942,22 +3008,30 @@ function recordCardReview(
 }
 
 function finalizeTurn(word, isCorrect, details) {
+  const inTimedRound = getEffectiveRoundTarget() > 0;
+  const inDueMode = appState.settings.mode === "due";
   runtime.answered = true;
   runtime.sessionAnswered += 1;
-  runtime.roundAnswered += 1;
+  if (inTimedRound) {
+    runtime.roundAnswered += 1;
+  }
   appState.progress.totalAnswered += 1;
 
   if (isCorrect) {
-    runtime.roundCorrectWordIds.add(word.id);
+    if (inTimedRound) {
+      runtime.roundCorrectWordIds.add(word.id);
+      runtime.roundCorrect += 1;
+    }
     runtime.sessionCorrect += 1;
-    runtime.roundCorrect += 1;
     runtime.sessionStreak += 1;
     appState.progress.totalCorrect += 1;
     if (runtime.sessionStreak > appState.progress.bestStreak) {
       appState.progress.bestStreak = runtime.sessionStreak;
     }
   } else {
-    runtime.roundCorrectWordIds.delete(word.id);
+    if (inTimedRound) {
+      runtime.roundCorrectWordIds.delete(word.id);
+    }
     runtime.sessionStreak = 0;
   }
 
@@ -2966,10 +3040,20 @@ function finalizeTurn(word, isCorrect, details) {
     runtime.currentQuestionType === "cloze";
   const reviewResult = recordCardReview(word.id, isCorrect, {
     isProduction,
-    inDueMode: appState.settings.mode === "due"
+    inDueMode
   });
-  if (reviewResult.graduatedToLearned) {
+  if (inTimedRound && reviewResult.graduatedToLearned) {
     runtime.roundMastered += 1;
+  }
+  if (inDueMode) {
+    appState.dailyDue = normalizeDailyDueState(appState.dailyDue);
+    appState.dailyDue.answered += 1;
+    if (isCorrect) {
+      appState.dailyDue.correct += 1;
+    }
+    if (reviewResult.graduatedToLearned) {
+      appState.dailyDue.mastered += 1;
+    }
   }
 
   const finalDetails = { ...details };
@@ -3061,9 +3145,11 @@ function finalizeTurn(word, isCorrect, details) {
   }
 
   if (els.btnNext) {
-    els.btnNext.textContent = shouldTriggerRoundSummary()
-      ? "Tur özetini gör"
-      : "Sonraki kart";
+    els.btnNext.textContent = shouldTriggerDueSummary()
+      ? "Günlük özeti gör"
+      : shouldTriggerRoundSummary()
+        ? "Tur özetini gör"
+        : "Sonraki kart";
   }
 
   renderFeedback(word, isCorrect, finalDetails, mistakeStatusText);
@@ -5735,6 +5821,16 @@ function buildAiScreenContext() {
 
   const word = runtime.currentWord;
   if (runtime.showingRoundSummary) {
+    if (runtime.showingDueSummary) {
+      const dueStats = normalizeDailyDueState(appState.dailyDue);
+      return {
+        tab: "study",
+        subTab: "study",
+        answered: true,
+        label: "Çalış · Günün Kartları Özeti",
+        summary: `Sekme: Çalış (${dueStats.answered} kartlık günlük tekrar tamamlandı · Doğru: ${dueStats.correct}/${dueStats.answered})`
+      };
+    }
     return {
       tab: "study",
       subTab: "study",
