@@ -33,7 +33,7 @@
 - `ai-tutor.js`: Floating **Almanca Asistan** BYOK Gemini Flash drawer (`deutschkarte_ai_tutor_v1` in `localStorage` or `sessionStorage`, `x-goog-api-key`, fallback chain `gemini-3.5-flash-lite` -> `gemini-3.8-flash` -> `gemini-3.6-flash` with per-model 429/503/404 cooldowns, 6-turn history window, 15s timeout, 1500-char prompt cap, safe DOM markdown-lite, `Ekran bağlamını kopyala`), Structured JSON endpoints (`evaluateUserSentence` & session-cached `generateArticleMnemonic`), and session-cached Gemini Natural TTS (`synthesizeGermanSpeech` fallback chain `gemini-3.8-flash-lite-tts` -> `gemini-3.8-flash-tts` -> `gemini-2.5-flash-preview-tts` with cooldown & `getTtsStatusInfo`, 120-item cache).
 - `sync.js`: Offline-first GitHub Gist sync (`deutschkarte_gist_sync_v1`, `deutschkarte-sync.json`, Gist ID/token/origin/schema validation, `speechEngine` + `debt` + `dailyHistory` + `mistakeClearedAt`/`hiddenWords`/`hiddenRestoredAt` tombstones, `resetAt` dominance).
 - `manifest.json`: PWA web app manifest (`icons/icon-192.png`, `icons/icon-512.png`).
-- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v40"`.
+- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v41"`.
 - `scripts/check-lessons.mjs`: Automated Node ESM validator for lesson schema, Duden article rules, hint leakage, and Cloze-mode unambiguity (`er`/`sie`/`es`, formal `Sie`, register/context cues).
 - `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png` (maskable safe-zone compliant).
 - `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`).
@@ -133,8 +133,8 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
-- **`v36`:** Added 1 free typo retry in Typing and Cloze modes (`isWithinOneEdit`, 1 Damerau-Levenshtein edit on words `>=4` chars without revealing the answer or dropping SRS box, guarded by correct noun article and non-opposite singular/plural form), and bumped `sw.js` to `deutschkarte-v36`.
 - **`v37`:** Upgraded Gemini TTS to a `gemini-3.8-flash-lite-tts` -> `gemini-3.8-flash-tts` -> `gemini-2.5-flash-preview-tts` fallback chain with per-model cooldowns and visible fallback status (`getTtsStatusInfo` + `updateTtsEngineNote`), reordered AI Tutor default/fallback to `gemini-3.5-flash-lite` first with per-model cooldowns and removed `preferredModelIndex` reset on coach/TTS calls, and bumped `sw.js` to `deutschkarte-v37`.
 - **`v38`:** Disambiguated Cloze-mode example sentences/cues across Lessons 1–2 (`l1_43`, `l1_59`, `l2_10`, `l2_47`, `l2_67`, `l2_73`), added `scripts/check-lessons.mjs` automated validator + Cloze unambiguity rule in `PROJECT_CONTEXT.md`, and bumped `sw.js` to `deutschkarte-v38`.
 - **`v39`:** Switched SRS due-date scheduling and checks (`isCardDue`, `getNextReviewTimestamp`) from rolling 24h intervals to local calendar days (`00:00` rollover), kept missed Box 4/5 cards immediately due on the same day, and bumped `sw.js` to `deutschkarte-v39`.
 - **`v40`:** Upgraded `pickNextWord` with a dynamic recent-card cooldown window (up to 8 cards), timed-round non-repeat for correctly answered cards (`roundCorrectWordIds`), and balanced draw weights (`debtBoost` up to `2.05x`, mistake cap `10`), and bumped `sw.js` to `deutschkarte-v40`.
+- **`v41`:** Disabled and hid the `∞ / 10 / 20` round toggle and round summary inside `Günün Kartları` (`due`) and `Zorlandıklarım` (`mistakes`) modes (`isRoundModeSupported`), and bumped `sw.js` to `deutschkarte-v41`.

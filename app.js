@@ -466,6 +466,7 @@ const els = {
   sessionScoreItem: document.getElementById("session-score-item"),
   sessionScore: document.getElementById("session-score"),
   sessionStreak: document.getElementById("session-streak"),
+  sessionRoundGroup: document.getElementById("session-round-group"),
   sessionRoundBtns: Array.from(
     document.querySelectorAll("#session-round-group .round-toggle-btn")
   ),
@@ -1202,8 +1203,12 @@ function updateTopControls() {
   const activeRoundSize = VALID_ROUND_SIZES.includes(appState.settings.roundSize)
     ? appState.settings.roundSize
     : "off";
+  const roundSupported = isRoundModeSupported();
 
   lessonSelectCtrl?.setValue(appState.settings.lesson);
+  if (els.sessionRoundGroup) {
+    els.sessionRoundGroup.hidden = !roundSupported;
+  }
   for (const btn of els.sessionRoundBtns) {
     const active = btn.dataset.round === activeRoundSize;
     btn.classList.toggle("is-active", active);
@@ -1212,7 +1217,7 @@ function updateTopControls() {
   els.dailyProgress.textContent = String(appState.daily.count);
   els.masteredCount.textContent = `${scopedLearned} / ${scopedTotal}`;
   if (els.sessionScoreItem) {
-    els.sessionScoreItem.hidden = activeRoundSize !== "off";
+    els.sessionScoreItem.hidden = roundSupported && activeRoundSize !== "off";
   }
   els.sessionScore.textContent = `${runtime.sessionCorrect} / ${runtime.sessionAnswered}`;
   els.sessionStreak.textContent = String(runtime.sessionStreak);
@@ -1552,7 +1557,14 @@ function buildChoiceOptions(word) {
 
 /* Card Rendering & Round Progress */
 
+function isRoundModeSupported(mode = appState.settings.mode) {
+  return mode !== "due" && mode !== "mistakes";
+}
+
 function getEffectiveRoundTarget() {
+  if (!isRoundModeSupported()) {
+    return 0;
+  }
   const setting = appState.settings.roundSize || "off";
   if (setting === "10") return 10;
   if (setting === "20") return 20;
@@ -2921,22 +2933,29 @@ function recordCardReview(wordId, isCorrect, { isProduction = false } = {}) {
 }
 
 function finalizeTurn(word, isCorrect, details) {
+  const inTimedRound = getEffectiveRoundTarget() > 0;
   runtime.answered = true;
   runtime.sessionAnswered += 1;
-  runtime.roundAnswered += 1;
+  if (inTimedRound) {
+    runtime.roundAnswered += 1;
+  }
   appState.progress.totalAnswered += 1;
 
   if (isCorrect) {
-    runtime.roundCorrectWordIds.add(word.id);
+    if (inTimedRound) {
+      runtime.roundCorrectWordIds.add(word.id);
+      runtime.roundCorrect += 1;
+    }
     runtime.sessionCorrect += 1;
-    runtime.roundCorrect += 1;
     runtime.sessionStreak += 1;
     appState.progress.totalCorrect += 1;
     if (runtime.sessionStreak > appState.progress.bestStreak) {
       appState.progress.bestStreak = runtime.sessionStreak;
     }
   } else {
-    runtime.roundCorrectWordIds.delete(word.id);
+    if (inTimedRound) {
+      runtime.roundCorrectWordIds.delete(word.id);
+    }
     runtime.sessionStreak = 0;
   }
 
@@ -2944,7 +2963,7 @@ function finalizeTurn(word, isCorrect, details) {
     runtime.currentQuestionType === "typing" ||
     runtime.currentQuestionType === "cloze";
   const reviewResult = recordCardReview(word.id, isCorrect, { isProduction });
-  if (reviewResult.graduatedToLearned) {
+  if (inTimedRound && reviewResult.graduatedToLearned) {
     runtime.roundMastered += 1;
   }
 
