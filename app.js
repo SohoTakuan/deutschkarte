@@ -382,6 +382,8 @@ const runtime = {
   typoRetryUsed: false,
   selectedArticle: null,
   lastWordId: null,
+  recentWordIds: [],
+  roundCorrectWordIds: new Set(),
   dictFilter: "all",
   dictLesson: "all",
   dictQuery: "",
@@ -1323,34 +1325,51 @@ function pickNextWord(pool) {
   }
 
   const now = Date.now();
-  const candidates = pool.filter((word) => word.id !== runtime.lastWordId);
-  const weightedList = candidates.length > 0 ? candidates : pool;
+  const inTimedRound = getEffectiveRoundTarget() > 0;
+  let roundPool = pool;
+  if (inTimedRound && runtime.roundCorrectWordIds.size > 0) {
+    const unseenInRound = pool.filter((word) => !runtime.roundCorrectWordIds.has(word.id));
+    if (unseenInRound.length > 0) {
+      roundPool = unseenInRound;
+    }
+  }
+
+  const cooldownSize = Math.min(8, Math.max(1, Math.floor((roundPool.length - 1) * 0.6)));
+  const recentSet = new Set(runtime.recentWordIds.slice(-cooldownSize));
+  const cooledPool = roundPool.filter((word) => !recentSet.has(word.id));
+  const fallbackPool = roundPool.filter((word) => word.id !== runtime.lastWordId);
+  const weightedList =
+    cooledPool.length > 0
+      ? cooledPool
+      : fallbackPool.length > 0
+        ? fallbackPool
+        : roundPool;
   const isDueMode = appState.settings.mode === "due";
 
   const weights = weightedList.map((word) => {
     const card = appState.cards[word.id];
-    const debtMultiplier = 1 + Math.abs(sanitizeDebt(card?.debt));
+    const debtBoost = 1 + Math.abs(sanitizeDebt(card?.debt)) * 0.35;
     if (isDueMode && card) {
       const overdueDays = Math.max(
         0,
         Math.round((getStartOfLocalDay(now) - getStartOfLocalDay(card.nextReviewAt)) / DAY_MS)
       );
-      return (6 + Math.min(10, overdueDays * 2)) * debtMultiplier;
+      return (4 + Math.min(4, overdueDays)) * debtBoost;
     }
     const mistake = appState.mistakes[word.id];
     if (mistake) {
-      return (8 + Math.min(4, mistake.misses)) * debtMultiplier;
+      return Math.min(10, (5 + Math.min(2, mistake.misses * 0.5)) * debtBoost);
     }
     if (!card || !card.seen) {
-      return 4;
+      return 5.5;
     }
     if (isCardDue(card, now)) {
-      return 6 * debtMultiplier;
+      return Math.min(9, 4.5 * debtBoost);
     }
     if (card.box <= 3) {
-      return 1.5 * debtMultiplier;
+      return 2.2 * debtBoost;
     }
-    return 0.4;
+    return 0.8;
   });
 
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
@@ -1620,6 +1639,7 @@ function resetRoundTracker() {
   runtime.roundCorrect = 0;
   runtime.roundMastered = 0;
   runtime.showingRoundSummary = false;
+  runtime.roundCorrectWordIds.clear();
   els.studyCard?.classList.remove("is-round-summary");
   if (els.cardRoundSummary) {
     els.cardRoundSummary.hidden = true;
@@ -1817,6 +1837,12 @@ function showNextCard({ preserveWord = false } = {}) {
   runtime.currentWord = word;
   runtime.currentCloze = clozeData;
   runtime.lastWordId = word.id;
+  if (runtime.recentWordIds[runtime.recentWordIds.length - 1] !== word.id) {
+    runtime.recentWordIds.push(word.id);
+    if (runtime.recentWordIds.length > 12) {
+      runtime.recentWordIds.shift();
+    }
+  }
   runtime.answered = false;
   runtime.typoRetryUsed = false;
   runtime.selectedArticle = null;
@@ -2901,6 +2927,7 @@ function finalizeTurn(word, isCorrect, details) {
   appState.progress.totalAnswered += 1;
 
   if (isCorrect) {
+    runtime.roundCorrectWordIds.add(word.id);
     runtime.sessionCorrect += 1;
     runtime.roundCorrect += 1;
     runtime.sessionStreak += 1;
@@ -2909,6 +2936,7 @@ function finalizeTurn(word, isCorrect, details) {
       appState.progress.bestStreak = runtime.sessionStreak;
     }
   } else {
+    runtime.roundCorrectWordIds.delete(word.id);
     runtime.sessionStreak = 0;
   }
 
@@ -5280,6 +5308,7 @@ function bindEvents() {
       runtime.roundAnswered = 0;
       runtime.roundCorrect = 0;
       runtime.roundMastered = 0;
+      runtime.roundCorrectWordIds.clear();
     }
     saveState({ sync: true });
     updateTopControls();
@@ -5387,6 +5416,7 @@ function bindEvents() {
     runtime.sessionAnswered = 0;
     runtime.sessionCorrect = 0;
     runtime.sessionStreak = 0;
+    runtime.recentWordIds = [];
     resetRoundTracker();
     hideUndoToast();
     saveState({ sync: true, preserveTimestamp: true });
