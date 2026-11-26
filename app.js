@@ -29,6 +29,7 @@ import {
   synthesizeGermanSpeech
 } from "./ai-tutor.js";
 import { createCustomSelect } from "./custom-select.js";
+import { initCompanion } from "./companion.js";
 
 const STORAGE_KEY = "deutschkarte_state_v1";
 const THEME_STORAGE_KEY = "deutschkarte_theme";
@@ -3206,6 +3207,9 @@ function finalizeTurn(word, isCorrect, details) {
   updateTopControls();
   updateRoundProgressBar();
   renderCardBoxPips(word.id);
+  window.dispatchEvent(new CustomEvent("deutschkarte:answer", {
+    detail: { isCorrect, mode: appState.settings.mode, word }
+  }));
 
   if (
     runtime.currentQuestionType === "typing" ||
@@ -6064,6 +6068,7 @@ function init() {
       getScreenContext: buildAiScreenContext,
       announce
     });
+    initCompanion();
     const initialDueCount = getDueWords().length;
     if (initialDueCount > 0 && appState.settings.mode !== "mistakes") {
       appState.settings.mode = "due";

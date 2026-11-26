@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deutschkarte-v51";
+const CACHE_VERSION = "deutschkarte-v52";
 
 const PRECACHE_URLS = [
   "./",
@@ -10,6 +10,7 @@ const PRECACHE_URLS = [
   "./tts-cache.js",
   "./app.js",
   "./ai-tutor.js",
+  "./companion.js",
   "./sync.js",
   "./manifest.json",
   "./data/index.js",
@@ -19,7 +20,11 @@ const PRECACHE_URLS = [
   "./data/grammar.js",
   "./icons/icon.svg",
   "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icons/icon-512.png",
+  "./assets/companion/idle.png",
+  "./assets/companion/happy.png",
+  "./assets/companion/tease.png",
+  "./assets/companion/blush.png"
 ];
 
 self.addEventListener("install", (event) => {
