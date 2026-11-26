@@ -134,8 +134,8 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
+- **`v47`:** Removed the ephemeral `Doğru` session counter from both `Çalış` and `Çekim Pratiği` strips, bumping `sw.js` to `deutschkarte-v47`.
+- **`v48`:** Restricted Box-1 negative `debt` (`-1..-3`) to never-answered words (`prev.correct === 0`) so already-known words never go negative or deepen debt on mistakes, and aligned `renderCardBoxPips` to show 0 lit pips while `debt < 0`, bumping `sw.js` to `deutschkarte-v48`.
 - **`v49`:** Removed `gemini-3.5-flash-lite` from `ai-tutor.js` (defaulting to `gemini-3.8-flash` -> `gemini-3.6-flash`) and tightened `SYSTEM_INSTRUCTION` to enforce context-answer comparison and letter verification, bumping `sw.js` to `deutschkarte-v49`.
 - **`v50`:** Added compact 5-pip Leitner box indicators (`populateBoxPips`, `.dict-box-pips`) to studied, non-hidden words in `Kelime Sözlüğü` so users can see exact box progress (0–5) alongside the SRS status tag, bumping `sw.js` to `deutschkarte-v50`.
 - **`v51`:** Added A1 Lesson 3 (`data/lesson_03.js`, 81 Duden-verified items covering numbers, phone numbers, addresses, and official office vocabulary; 236 A1 items total), registered it in `data/index.js`, and bumped `sw.js` to `deutschkarte-v51`.
-- **`v52`:** Added a PC-desktop-only (`>= 1180px`, fine pointer) interactive anime study companion (**Lena**) via `companion.js` and `assets/companion/{idle,happy,tease,blush}.png` with answer/streak reactions, multi-click blush easter egg, 3D tilt, idle nudges, and minimize toggle, bumping `sw.js` to `deutschkarte-v52`.
-- **`v53`:** Removed the desktop anime companion (**Lena**), its markup/styles, and `assets/companion/`, restoring the clean study layout and bumping `sw.js` to `deutschkarte-v53`.
