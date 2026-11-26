@@ -1738,19 +1738,19 @@ function getScopedMistakeCount(lesson = appState.settings.lesson) {
   ).length;
 }
 
-function renderCardBoxPips(wordId) {
-  if (!els.cardBoxPips) {
+function populateBoxPips(container, wordId) {
+  if (!container) {
     return;
   }
-  els.cardBoxPips.innerHTML = "";
+  container.innerHTML = "";
   const card = appState.cards[wordId];
   const rawBox = card && card.seen ? card.box : 0;
   const debt = sanitizeDebt(card?.debt);
   const activeCount = card && card.correct > 0 && debt === 0 ? rawBox : 0;
   const label =
     activeCount === 0
-      ? card && card.correct > 0 && debt < 0
-        ? "Pekiştirme aşaması (0 / 5)"
+      ? card && card.seen
+        ? "Pekiştirme aşaması: 0 / 5"
         : "Yeni kelime"
       : activeCount >= 4
         ? `Öğrenildi (${activeCount} / 5)`
@@ -1758,8 +1758,8 @@ function renderCardBoxPips(wordId) {
           ? "Pekiştirme aşaması: 3 / 5 (Yazmalı veya Boşluk ile Öğrenildi olur)"
           : `Pekiştirme aşaması: ${activeCount} / 5`;
 
-  els.cardBoxPips.setAttribute("aria-label", label);
-  els.cardBoxPips.title = label;
+  container.setAttribute("aria-label", label);
+  container.title = label;
 
   for (let i = 1; i <= 5; i += 1) {
     const pip = document.createElement("span");
@@ -1769,8 +1769,12 @@ function renderCardBoxPips(wordId) {
     }
     pip.className = cls;
     pip.setAttribute("aria-hidden", "true");
-    els.cardBoxPips.appendChild(pip);
+    container.appendChild(pip);
   }
+}
+
+function renderCardBoxPips(wordId) {
+  populateBoxPips(els.cardBoxPips, wordId);
 }
 
 function resetRoundTracker() {
@@ -3777,6 +3781,12 @@ function renderDictionary() {
     lessonTag.textContent = `${word.level} ${word.lesson}`;
 
     metaRow.appendChild(srsTag);
+    if (!isHidden && appState.cards[word.id]?.seen) {
+      const pipsEl = document.createElement("span");
+      pipsEl.className = "box-pips dict-box-pips";
+      populateBoxPips(pipsEl, word.id);
+      metaRow.appendChild(pipsEl);
+    }
     metaRow.appendChild(lessonTag);
 
     const sideActions = document.createElement("div");

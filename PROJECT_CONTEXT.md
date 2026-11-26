@@ -33,7 +33,7 @@
 - `ai-tutor.js`: Floating **Almanca Asistan** BYOK Gemini Flash drawer (`deutschkarte_ai_tutor_v1` in `localStorage` or `sessionStorage`, `x-goog-api-key`, fallback chain `gemini-3.8-flash` -> `gemini-3.6-flash` with per-model 429/503/404 cooldowns, strict card-context & spelling verification in `SYSTEM_INSTRUCTION`, 6-turn history window, 15s timeout, 1500-char prompt cap, safe DOM markdown-lite, `Ekran bağlamını kopyala`), Structured JSON endpoints (`evaluateUserSentence` & session-cached `generateArticleMnemonic`), and session-cached Gemini Natural TTS (`synthesizeGermanSpeech` fallback chain `gemini-3.8-flash-lite-tts` -> `gemini-3.8-flash-tts` -> `gemini-2.5-flash-preview-tts` with cooldown & `getTtsStatusInfo`, 120-item cache).
 - `sync.js`: Offline-first GitHub Gist sync (`deutschkarte_gist_sync_v1`, `deutschkarte-sync.json`, Gist ID/token/origin/schema validation, `speechEngine` + `maxBox` + `debt` + `dailyHistory` + `mistakeClearedAt`/`hiddenWords`/`hiddenRestoredAt` tombstones, `resetAt` dominance).
 - `manifest.json`: PWA web app manifest (`icons/icon-192.png`, `icons/icon-512.png`).
-- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v49"`.
+- `sw.js`: Network-first same-origin (`response.type === "basic"`) + cache fallback, Google Fonts stale-while-revalidate. Currently `CACHE_VERSION = "deutschkarte-v50"`.
 - `scripts/check-lessons.mjs`: Automated Node ESM validator for lesson schema, Duden article rules, hint leakage, and Cloze-mode unambiguity (`er`/`sie`/`es`, formal `Sie`, register/context cues).
 - `icons/`: `icon.svg`, `icon-192.png`, `icon-512.png` (maskable safe-zone compliant).
 - `baslat.bat`: Windows local Python HTTP server launcher (`http://localhost:8000`).
@@ -133,8 +133,8 @@ export default {
 
 *Keep only the latest 4–5 releases here; full history lives in `git log`.*
 
-- **`v45`:** Collapsed `Kelime Sözlüğü` filter rows into a single row with expandable `Türler >` and `Artikel >` shelves (`setDictShelfOpen`, `syncDictFilterUI`), and cleaned up `Çekim Pratiği` (hid pre-answer group rule spoiler until answered, removed duplicate header meaning & `Seri`, moved speaker button next to the verb), bumping `sw.js` to `deutschkarte-v45`.
 - **`v46`:** Removed the ephemeral `Sıfırla` button from `Çekim Pratiği` and collapsed its verb group filters into a `Tümü` + `Gruplar >` expandable shelf (`setConjGroupShelfOpen`, `syncConjGroupUI`), bumping `sw.js` to `deutschkarte-v46`.
 - **`v47`:** Removed the ephemeral `Doğru` session counter from both `Çalış` and `Çekim Pratiği` strips, bumping `sw.js` to `deutschkarte-v47`.
 - **`v48`:** Restricted Box-1 negative `debt` (`-1..-3`) to never-answered words (`prev.correct === 0`) so already-known words never go negative or deepen debt on mistakes, and aligned `renderCardBoxPips` to show 0 lit pips while `debt < 0`, bumping `sw.js` to `deutschkarte-v48`.
 - **`v49`:** Removed `gemini-3.5-flash-lite` from `ai-tutor.js` (defaulting to `gemini-3.8-flash` -> `gemini-3.6-flash`) and tightened `SYSTEM_INSTRUCTION` to enforce context-answer comparison and letter verification, bumping `sw.js` to `deutschkarte-v49`.
+- **`v50`:** Added compact 5-pip Leitner box indicators (`populateBoxPips`, `.dict-box-pips`) to studied, non-hidden words in `Kelime Sözlüğü` so users can see exact box progress (0–5) alongside the SRS status tag, bumping `sw.js` to `deutschkarte-v50`.
