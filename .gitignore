@@ -19,5 +19,4 @@ deutschkarte-yedek-*.json
 *.webp
 *.png
 !icons/*.png
-!assets/companion/*.png
 ham_notlar/
