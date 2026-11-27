@@ -1717,11 +1717,16 @@ function updateRoundProgressBar() {
       Math.round((completed / runtime.dueInitialCount) * 100)
     );
     els.roundProgressTrack.hidden = false;
+    els.roundProgressFill.classList.remove("is-mistakes-fill");
     els.roundProgressFill.classList.add("is-due-fill");
     els.roundProgressFill.style.width = `${pct}%`;
     return;
   }
   els.roundProgressFill.classList.remove("is-due-fill");
+  els.roundProgressFill.classList.toggle(
+    "is-mistakes-fill",
+    appState.settings.mode === "mistakes"
+  );
   const target = getEffectiveRoundTarget();
   if (target === 0 || (!runtime.currentWord && !runtime.showingRoundSummary)) {
     els.roundProgressTrack.hidden = true;
@@ -1819,7 +1824,9 @@ function showRoundSummary({ dueComplete = false } = {}) {
   if (els.roundSummaryKicker) {
     els.roundSummaryKicker.textContent = dueComplete
       ? "Günün Kartları özeti"
-      : "Tur özeti";
+      : appState.settings.mode === "mistakes"
+        ? "Zorlandıklarım özeti"
+        : "Tur özeti";
   }
   if (els.roundSummaryGoalPill) {
     els.roundSummaryGoalPill.textContent = `Bugün ${appState.daily.count} kart`;

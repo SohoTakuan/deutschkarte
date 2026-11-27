@@ -32,18 +32,18 @@
   --wash-das: rgba(19, 117, 71, 0.06);
   --wash-pl: rgba(176, 101, 11, 0.06);
 
-  --summary-surface: #132033;
-  --summary-surface-edge: #1F3556;
-  --summary-ink: #F7F6F2;
-  --summary-muted: #B6C5DA;
-  --summary-rule: rgba(247, 246, 242, 0.16);
-  --summary-btn-bg: #FFFFFF;
-  --summary-btn-hover: #E8EEF7;
-  --summary-btn-ink: #132033;
-  --summary-secondary-hover: rgba(255, 255, 255, 0.1);
-  --summary-mastered-bg: rgba(62, 199, 136, 0.16);
-  --summary-mastered-border: rgba(62, 199, 136, 0.36);
-  --summary-mastered-text: #B4F0D2;
+  --summary-surface: var(--card);
+  --summary-surface-edge: var(--rule-strong);
+  --summary-ink: var(--ink);
+  --summary-muted: var(--ink-muted);
+  --summary-rule: var(--rule);
+  --summary-btn-bg: var(--btn-primary-bg);
+  --summary-btn-hover: var(--btn-primary-hover);
+  --summary-btn-ink: var(--btn-primary-ink);
+  --summary-secondary-hover: var(--desk-subtle);
+  --summary-mastered-bg: var(--desk);
+  --summary-mastered-border: var(--rule);
+  --summary-mastered-text: var(--ink);
 
   --article-der-fill: #1A4BB8;
   --article-die-fill: #BC1E3C;
@@ -116,18 +116,18 @@
   --wash-das: rgba(62, 199, 136, 0.1);
   --wash-pl: rgba(234, 168, 68, 0.1);
 
-  --summary-surface: #202630;
-  --summary-surface-edge: rgba(240, 242, 245, 0.22);
-  --summary-ink: #F0F2F5;
-  --summary-muted: #B6C0CC;
-  --summary-rule: rgba(240, 242, 245, 0.16);
-  --summary-btn-bg: #FFFFFF;
-  --summary-btn-hover: #E6ECF4;
-  --summary-btn-ink: #111418;
-  --summary-secondary-hover: rgba(255, 255, 255, 0.12);
-  --summary-mastered-bg: rgba(62, 199, 136, 0.18);
-  --summary-mastered-border: rgba(62, 199, 136, 0.42);
-  --summary-mastered-text: #B4F0D2;
+  --summary-surface: var(--card);
+  --summary-surface-edge: var(--rule-strong);
+  --summary-ink: var(--ink);
+  --summary-muted: var(--ink-muted);
+  --summary-rule: var(--rule);
+  --summary-btn-bg: var(--btn-primary-bg);
+  --summary-btn-hover: var(--btn-primary-hover);
+  --summary-btn-ink: var(--btn-primary-ink);
+  --summary-secondary-hover: var(--desk-subtle);
+  --summary-mastered-bg: var(--desk-subtle);
+  --summary-mastered-border: var(--rule);
+  --summary-mastered-text: var(--ink);
 
   --article-der-fill: #2B62D9;
   --article-die-fill: #C92A48;
@@ -871,9 +871,22 @@ button {
   background-image: none;
   border-color: var(--summary-surface-edge);
   color: var(--summary-ink);
-  box-shadow:
-    0 4px 12px rgba(10, 18, 32, 0.14),
-    0 20px 44px -18px rgba(10, 18, 32, 0.38);
+}
+
+.study-card.is-round-summary.is-due-mode {
+  background-image: linear-gradient(180deg, rgba(109, 59, 158, 0.06) 0%, transparent 120px);
+}
+
+[data-theme="dark"] .study-card.is-round-summary.is-due-mode {
+  background-image: linear-gradient(180deg, rgba(183, 148, 246, 0.08) 0%, transparent 120px);
+}
+
+.study-card.is-round-summary.is-mistakes-mode {
+  background-image: linear-gradient(180deg, rgba(176, 101, 11, 0.055) 0%, transparent 120px);
+}
+
+[data-theme="dark"] .study-card.is-round-summary.is-mistakes-mode {
+  background-image: linear-gradient(180deg, rgba(234, 168, 68, 0.08) 0%, transparent 120px);
 }
 
 .study-card.is-round-summary .round-progress-track {
@@ -898,7 +911,7 @@ button {
 .card-accent-bar {
   height: 4px;
   width: 100%;
-  background-color: var(--rule-strong);
+  background-color: var(--btn-primary-bg);
   transition: background-color 160ms ease;
 }
 
@@ -937,6 +950,14 @@ button {
   background-color: var(--btn-primary-bg);
 }
 
+.study-card.is-round-summary.is-due-mode .card-accent-bar {
+  background-color: var(--accent-due);
+}
+
+.study-card.is-round-summary.is-mistakes-mode .card-accent-bar {
+  background-color: var(--accent-pl);
+}
+
 .round-progress-track {
   width: 100%;
   height: 5px;
@@ -954,6 +975,10 @@ button {
 
 .round-progress-fill.is-due-fill {
   background-color: var(--accent-due);
+}
+
+.round-progress-fill.is-mistakes-fill {
+  background-color: var(--accent-pl);
 }
 
 .card-body {
@@ -1869,19 +1894,41 @@ button {
 }
 
 .round-summary-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 0.875rem;
   font-weight: 700;
   color: var(--summary-muted);
+}
+
+.study-card.is-due-mode .round-summary-kicker {
+  color: var(--accent-due);
+}
+
+.study-card.is-mistakes-mode .round-summary-kicker {
+  color: var(--accent-pl);
+}
+
+.study-card.is-due-mode .round-summary-kicker::before,
+.study-card.is-mistakes-mode .round-summary-kicker::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
 }
 
 .round-summary-goal-pill {
   padding: 3px 10px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--summary-rule);
+  background-color: var(--desk-subtle);
   font-size: 0.8125rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--summary-ink);
+  color: var(--summary-muted);
 }
 
 .round-summary-hero {
@@ -1930,6 +1977,7 @@ button {
   border-radius: var(--radius-control);
   background-color: var(--summary-mastered-bg);
   border: 1px solid var(--summary-mastered-border);
+  border-left: 3px solid var(--accent-das);
   color: var(--summary-mastered-text);
   font-size: 0.9375rem;
   font-weight: 600;
