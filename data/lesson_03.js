@@ -913,6 +913,7 @@ export const lesson03 = {
       lesson: "Ders 3",
       tr: "Telefon numaran ne?",
       de: "Wie ist deine Telefonnummer?",
+      alt: ["Welche Telefonnummer hast du?"],
       hint: "Samimi hitap",
       example: {
         de: "Nico, ich rufe dich später an. Wie ist deine Telefonnummer?",
@@ -925,6 +926,7 @@ export const lesson03 = {
       lesson: "Ders 3",
       tr: "Telefon numaranız ne?",
       de: "Wie ist Ihre Telefonnummer?",
+      alt: ["Welche Telefonnummer haben Sie?"],
       hint: "Resmi hitap",
       note: "Resmi konuşmalarda dein/deine yerine Ihr/Ihre kullanılır.",
       example: {
@@ -976,6 +978,7 @@ export const lesson03 = {
       lesson: "Ders 3",
       tr: "Numaran ne?",
       de: "Welche Nummer hast du?",
+      alt: ["Wie ist deine Nummer?"],
       hint: "Samimi hitap",
       example: {
         de: "Tim, ich brauche deine Handynummer. Welche Nummer hast du?",
@@ -988,6 +991,7 @@ export const lesson03 = {
       lesson: "Ders 3",
       tr: "Numaranız ne?",
       de: "Welche Nummer haben Sie?",
+      alt: ["Wie ist Ihre Nummer?"],
       hint: "Resmi hitap",
       example: {
         de: "Guten Tag, Frau Weber! Welche Nummer haben Sie?",
