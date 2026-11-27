@@ -2743,9 +2743,10 @@ function handleTypingSubmit() {
   }
 
   if (word.category === "noun") {
+    const rawSingularInput = collapseSpaces(els.inputSingular.value);
     const hasAnyInput =
       Boolean(runtime.selectedArticle) ||
-      Boolean(collapseSpaces(els.inputSingular.value)) ||
+      Boolean(rawSingularInput) ||
       Boolean(collapseSpaces(els.inputPlural.value));
 
     if (!hasAnyInput) {
@@ -2755,19 +2756,34 @@ function handleTypingSubmit() {
       return;
     }
 
+    const expectedSingularHasArticle = toArray(word.singular).some((item) =>
+      /^(der|die|das)\s+/i.test(item)
+    );
+    const inlineArticleMatch =
+      !runtime.selectedArticle && !word.onlyPlural && !expectedSingularHasArticle
+        ? rawSingularInput.match(/^(der|die|das)\s+(.+)$/i)
+        : null;
+    const inferredArticle = inlineArticleMatch
+      ? inlineArticleMatch[1].toLowerCase()
+      : null;
+    const effectiveArticle = runtime.selectedArticle || inferredArticle;
+    const singularEvalInput = inlineArticleMatch
+      ? collapseSpaces(inlineArticleMatch[2])
+      : els.inputSingular.value;
+
     let articleOk = false;
     let expectedArticleDisplay = word.article;
 
     if (word.onlySingular) {
       articleOk =
-        runtime.selectedArticle === word.article ||
-        runtime.selectedArticle === "nur Sg.";
+        effectiveArticle === word.article ||
+        effectiveArticle === "nur Sg.";
       expectedArticleDisplay = `${word.article} (veya nur Sg.)`;
     } else if (word.onlyPlural) {
-      articleOk = runtime.selectedArticle === "nur Pl.";
+      articleOk = effectiveArticle === "nur Pl.";
       expectedArticleDisplay = "nur Pl.";
     } else {
-      articleOk = runtime.selectedArticle === word.article;
+      articleOk = effectiveArticle === word.article;
     }
 
     const singularNorms = new Set(toArray(word.singular).map(normalizeTypoCompare));
@@ -2782,7 +2798,7 @@ function handleTypingSubmit() {
     let singularResult;
     let extraOnlyPluralTip = false;
     if (word.onlyPlural) {
-      const singularRaw = collapseSpaces(els.inputSingular.value);
+      const singularRaw = rawSingularInput;
       if (!singularRaw) {
         singularResult = {
           na: true,
@@ -2803,7 +2819,7 @@ function handleTypingSubmit() {
       singularResult = {
         na: false,
         ...evaluateGermanWord(
-          els.inputSingular.value,
+          singularEvalInput,
           word.singular,
           word.article,
           forbiddenForSingular
@@ -2895,11 +2911,12 @@ function handleTypingSubmit() {
       tips.push(
         "İpucu: Yazı alanının içine artikel eklemeyin; artikeli yalnızca üstteki düğmelerden seçin."
       );
-    } else if (singularResult.strippedArticleTip || pluralResult.strippedArticleTip) {
+    } else if (
+      runtime.selectedArticle &&
+      (singularResult.strippedArticleTip || pluralResult.strippedArticleTip)
+    ) {
       tips.push(
-        runtime.selectedArticle
-          ? "İpucu: Artikeli üstteki düğmelerden seçtiğiniz için yazı alanına yalnızca kelimenin kendisini yazmanız yeterlidir."
-          : "İpucu: Artikeli yazı alanına değil, üstteki artikel düğmelerinden seçmelisiniz."
+        "İpucu: Artikeli üstteki düğmelerden seçtiğiniz için yazı alanına yalnızca kelimenin kendisini yazmanız yeterlidir."
       );
     }
 
@@ -2909,7 +2926,7 @@ function handleTypingSubmit() {
     if (singularResult.umlautTip || pluralResult.umlautTip) {
       tips.push("İpucu: Umlaut ve aksan işaretlerine dikkat edin (ä, ö, ü, é).");
     }
-    if (word.onlyPlural && runtime.selectedArticle === "die") {
+    if (word.onlyPlural && effectiveArticle === "die") {
       tips.push(
         "İpucu: Çoğul artikeli \"die\" olsa da sadece çoğul kullanılan isimlerde \"nur Pl.\" seçeneğini işaretleyin."
       );
@@ -2922,7 +2939,7 @@ function handleTypingSubmit() {
           ok: articleOk,
           na: false,
           expected: expectedArticleDisplay,
-          user: runtime.selectedArticle || "(Seçilmedi)"
+          user: effectiveArticle || "(Seçilmedi)"
         },
         {
           label: "Tekil",
