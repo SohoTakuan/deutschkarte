@@ -531,7 +531,6 @@ const els = {
   cardDueTagText: document.getElementById("card-due-tag-text"),
   cardBoxPips: document.getElementById("card-box-pips"),
   cardKindLabel: document.getElementById("card-kind-label"),
-  btnHideWord: document.getElementById("btn-hide-word"),
   promptTr: document.getElementById("prompt-tr"),
   promptHint: document.getElementById("prompt-hint"),
   btnSpeakPrompt: document.getElementById("btn-speak-prompt"),
@@ -1275,6 +1274,8 @@ function updateTopControls() {
 
   const inDueMode = appState.settings.mode === "due";
   els.studyCard?.classList.toggle("is-due-mode", inDueMode);
+  const inMistakesMode = appState.settings.mode === "mistakes";
+  els.studyCard?.classList.toggle("is-mistakes-mode", inMistakesMode);
   if (els.cardDueTag && els.cardDueTagText) {
     els.cardDueTag.hidden = !inDueMode;
     if (inDueMode) {
@@ -5337,12 +5338,6 @@ function bindEvents() {
     syncDictFilterUI();
     setDictShelfOpen(null, false);
     switchTab("dictionary");
-  });
-
-  els.btnHideWord?.addEventListener("click", () => {
-    if (runtime.currentWord) {
-      hideWord(runtime.currentWord.id, { fromCard: true });
-    }
   });
 
   els.btnUndoHide?.addEventListener("click", () => {

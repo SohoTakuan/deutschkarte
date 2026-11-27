@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deutschkarte-v55";
+const CACHE_VERSION = "deutschkarte-v56";
 
 const PRECACHE_URLS = [
   "./",

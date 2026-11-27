@@ -305,9 +305,9 @@ button {
 }
 
 .nav-tab.is-active {
-  background-color: var(--card);
-  color: var(--ink);
-  box-shadow: 0 1px 0 var(--rule);
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  box-shadow: 0 1px 2px rgba(19, 32, 51, 0.14);
 }
 
 .header-actions {
@@ -417,9 +417,9 @@ button {
 }
 
 .segmented-btn.is-active {
-  background-color: var(--card);
-  color: var(--ink);
-  box-shadow: 0 1px 0 var(--rule);
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  box-shadow: 0 1px 2px rgba(19, 32, 51, 0.14);
 }
 
 .mode-btn {
@@ -444,10 +444,10 @@ button {
 }
 
 .mode-btn.is-active {
-  background-color: var(--card);
-  border-color: var(--rule-strong);
-  color: var(--ink);
-  box-shadow: 0 1px 2px rgba(21, 34, 56, 0.06);
+  background-color: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
 }
 
 .count-badge {
@@ -480,13 +480,18 @@ button {
 }
 
 .practice-toggle-btn {
-  border-color: var(--rule-strong);
+  border-color: var(--rule);
 }
 
 .practice-toggle-chevron {
   color: var(--ink-muted);
   transition: transform 150ms ease;
   flex-shrink: 0;
+}
+
+.practice-toggle-btn.is-active .practice-toggle-chevron {
+  color: var(--btn-primary-ink);
+  opacity: 0.85;
 }
 
 .practice-mode-shelf.is-open .practice-toggle-chevron {
@@ -522,10 +527,10 @@ button {
 }
 
 .mode-btn-due {
-  font-weight: 700;
-  background-color: var(--accent-due-soft);
-  border-color: var(--accent-due-border);
-  color: var(--accent-due);
+  font-weight: 600;
+  background-color: transparent;
+  border-color: var(--rule);
+  color: var(--ink-muted);
 }
 
 .due-dot {
@@ -533,7 +538,7 @@ button {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: currentColor;
+  background-color: var(--accent-due);
   flex-shrink: 0;
 }
 
@@ -541,17 +546,22 @@ button {
   display: inline-block;
 }
 
+.mode-btn-due.is-active .due-dot {
+  background-color: currentColor;
+}
+
 .mode-btn-due:hover:not(.is-active) {
-  background-color: var(--accent-due-soft);
-  border-color: var(--accent-due);
-  color: var(--accent-due-hover);
+  background-color: var(--desk-subtle);
+  border-color: var(--rule-strong);
+  color: var(--ink);
 }
 
 .mode-btn-due.is-active {
+  font-weight: 700;
   background-color: var(--accent-due);
   border-color: var(--accent-due);
   color: var(--accent-due-ink);
-  box-shadow: 0 2px 8px rgba(109, 59, 158, 0.22);
+  box-shadow: 0 2px 8px rgba(109, 59, 158, 0.24);
 }
 
 .due-done-mark {
@@ -818,9 +828,9 @@ button {
 }
 
 .round-toggle-btn.is-active {
-  background-color: var(--card);
-  color: var(--ink);
-  box-shadow: 0 1px 0 var(--rule);
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  box-shadow: 0 1px 2px rgba(19, 32, 51, 0.14);
 }
 
 /* Hero Study Card — Tactile Leitner Index Card */
@@ -894,6 +904,10 @@ button {
 
 .study-card.is-due-mode[data-gender="neutral"] .card-accent-bar {
   background-color: var(--accent-due);
+}
+
+.study-card.is-mistakes-mode[data-gender="neutral"] .card-accent-bar {
+  background-color: var(--accent-pl);
 }
 
 .study-card[data-gender="der"] .card-accent-bar {
@@ -1028,26 +1042,7 @@ button {
   color: var(--ink-muted);
 }
 
-.card-hide-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 30px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background-color: transparent;
-  color: var(--ink-muted);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
-}
-
-.card-hide-btn:hover {
-  border-color: var(--btn-danger-outline-border);
-  background-color: var(--bad-bg);
-  color: var(--bad-text);
-}
+/* Prompt */
 
 .card-prompt {
   margin-bottom: 26px;
@@ -2052,13 +2047,18 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  border-color: var(--rule-strong);
+  border-color: var(--rule);
 }
 
 .dict-shelf-chevron {
   color: var(--ink-muted);
   transition: transform 150ms ease;
   flex-shrink: 0;
+}
+
+.filter-chip.is-active .dict-shelf-chevron {
+  color: var(--btn-primary-ink);
+  opacity: 0.85;
 }
 
 .dict-filter-shelf.is-open .dict-shelf-chevron {
@@ -2103,10 +2103,10 @@ button {
 }
 
 .filter-chip.is-active {
-  background-color: var(--card);
-  border-color: var(--rule-strong);
-  color: var(--ink);
-  box-shadow: 0 1px 2px rgba(21, 34, 56, 0.05);
+  background-color: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.16);
 }
 
 .filter-chip-with-badge {
@@ -2130,8 +2130,13 @@ button {
 }
 
 .filter-chip.is-active .chip-count-badge {
-  background-color: var(--card);
-  color: var(--ink);
+  background-color: rgba(255, 255, 255, 0.2);
+  color: var(--btn-primary-ink);
+}
+
+[data-theme="dark"] .filter-chip.is-active .chip-count-badge {
+  background-color: rgba(17, 20, 24, 0.18);
+  color: var(--btn-primary-ink);
 }
 
 .dict-list {
@@ -3117,7 +3122,8 @@ button {
 .grammar-sub-btn.is-active {
   background-color: transparent;
   color: var(--ink);
-  box-shadow: inset 0 -2px 0 var(--ink);
+  font-weight: 700;
+  box-shadow: inset 0 -2.5px 0 var(--ink);
 }
 
 .grammar-panel {
@@ -3832,11 +3838,6 @@ button {
     gap: 16px;
   }
 
-  .card-hide-btn {
-    min-height: 36px;
-    padding: 5px 10px;
-  }
-
   .dict-item {
     flex-direction: column;
     align-items: stretch;
@@ -3884,7 +3885,6 @@ button {
 
   .study-card,
   .card-accent-bar,
-  .card-hide-btn,
   .article-btn,
   .text-input,
   .btn-primary,
