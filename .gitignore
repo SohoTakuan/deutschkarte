@@ -2,7 +2,8 @@ Thumbs.db
 .DS_Store
 desktop.ini
 *.log
-ALMANYA_HEDEF_PLANI.md
+*.md
+!README.md
 .env
 .env.*
 *token*
