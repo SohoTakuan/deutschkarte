@@ -1519,13 +1519,13 @@ function decideQuestionType(word) {
     return "choice";
   }
   const box = card.box || 1;
-  if (box === 1) {
+  if (box === 1 || box === 3) {
     return "typing";
   }
-  if (box === 2) {
+  if (box === 2 || box === 4) {
     return buildClozeForWord(word) ? "cloze" : "typing";
   }
-  if (buildClozeForWord(word) && Math.random() < 0.35) {
+  if (buildClozeForWord(word) && Math.random() < 0.5) {
     return "cloze";
   }
   return "typing";
