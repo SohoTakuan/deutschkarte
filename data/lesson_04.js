@@ -172,7 +172,7 @@ export const lesson04 = {
       note: "Hem samimi hem resmi karşılamalarda sıcak bir 'Hoş geldin(iz)!' ifadesi olarak kullanılır.",
       example: {
         de: "Herzlich willkommen! Komm bitte rein.",
-        tr: "Hoş geldin! Lütfen içeri gel."
+        tr: "İçtenlikle hoş geldin! Lütfen içeri gel."
       }
     },
     {
