@@ -1,9 +1,10 @@
 import { lesson01 } from "./lesson_01.js";
 import { lesson02 } from "./lesson_02.js";
 import { lesson03 } from "./lesson_03.js";
+import { lesson04 } from "./lesson_04.js";
 
 export const LEVEL_ORDER = ["A1", "A2", "B1", "B2", "C1"];
-export const LESSONS = [lesson01, lesson02, lesson03];
+export const LESSONS = [lesson01, lesson02, lesson03, lesson04];
 
 const seenIds = new Set();
 
