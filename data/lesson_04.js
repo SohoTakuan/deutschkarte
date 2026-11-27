@@ -153,8 +153,9 @@ export const lesson04 = {
       id: "l4_12",
       category: "phrase",
       lesson: "Ders 4",
-      tr: "Hoş geldin(iz) / Hoş karşılanan",
+      tr: "Hoş karşılanan / Hoş geldin(iz)",
       de: "willkommen",
+      hint: "Tek kelimelik sıfat",
       note: "Almancada sıfattır; genellikle 'willkommen sein' (hoş karşılanmak) veya 'Herzlich willkommen!' kalıbında kullanılır.",
       example: {
         de: "Du bist bei uns immer willkommen.",
@@ -167,7 +168,7 @@ export const lesson04 = {
       lesson: "Ders 4",
       tr: "Hoş geldin! / Hoş geldiniz!",
       de: "Herzlich willkommen!",
-      alt: ["Herzlich willkommen"],
+      hint: "İki kelimelik sıcak karşılama kalıbı",
       note: "Hem samimi hem resmi karşılamalarda sıcak bir 'Hoş geldin(iz)!' ifadesi olarak kullanılır.",
       example: {
         de: "Herzlich willkommen! Komm bitte rein.",
