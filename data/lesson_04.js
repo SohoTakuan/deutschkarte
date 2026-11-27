@@ -159,7 +159,7 @@ export const lesson04 = {
       note: "Almancada sıfattır; genellikle 'willkommen sein' (hoş karşılanmak) veya 'Herzlich willkommen!' kalıbında kullanılır.",
       example: {
         de: "Du bist bei uns immer willkommen.",
-        tr: "Bizde her zaman hoş karşılanırsın."
+        tr: "Bizde her zaman hoş karşılanırsın (tek kelime)."
       }
     },
     {
