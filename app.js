@@ -1514,13 +1514,21 @@ function decideQuestionType(word) {
   if (appState.settings.mode === "typing") {
     return "typing";
   }
-  if ((appState.cards[word?.id]?.box || 1) >= 3) {
-    if (buildClozeForWord(word) && Math.random() < 0.35) {
-      return "cloze";
-    }
+  const card = appState.cards[word?.id];
+  if (!card || !card.seen || card.correct === 0) {
+    return "choice";
+  }
+  const box = card.box || 1;
+  if (box === 1) {
     return "typing";
   }
-  return Math.random() < 0.45 ? "choice" : "typing";
+  if (box === 2) {
+    return buildClozeForWord(word) ? "cloze" : "typing";
+  }
+  if (buildClozeForWord(word) && Math.random() < 0.35) {
+    return "cloze";
+  }
+  return "typing";
 }
 
 /* Multiple Choice Builder */
