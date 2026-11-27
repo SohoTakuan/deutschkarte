@@ -214,7 +214,7 @@ export const lesson03 = {
       note: "Kısa biçimi: die Passnummer.",
       example: {
         de: "Bitte schreiben Sie Ihre Reisepassnummer hier auf.",
-        tr: "Lütfen pasaport numaranızı buraya yazın."
+        tr: "Lütfen pasaport numaranızı (uzun biçim) buraya yazın."
       }
     },
     {
@@ -735,10 +735,11 @@ export const lesson03 = {
       tr: "İyiyim. (kısa biçim)",
       de: "Mir geht's gut.",
       alt: ["Mir geht es gut."],
+      hint: "Kısa biçim",
       note: "Es geht mir gut cümlesinin günlük ve kısa biçimidir.",
       example: {
-        de: "Danke der Nachfrage, mir geht's gut.",
-        tr: "Sorduğun için teşekkürler, iyiyim."
+        de: "Hallo Anna! Danke, mir geht's gut.",
+        tr: "Merhaba Anna! Teşekkürler, iyiyim (kısa biçim)."
       }
     },
     {
@@ -966,7 +967,7 @@ export const lesson03 = {
       note: "Resmi konuşmalarda dein/deine yerine Ihr/Ihre kullanılır.",
       example: {
         de: "Guten Morgen, bitte sagen Sie mir: Wie ist Ihr Name?",
-        tr: "Günaydın, lütfen bana söyleyin: Adınız nedir?"
+        tr: "Günaydın, lütfen bana söyleyin: Adınız nedir? (resmi, iyelik ile)"
       }
     },
     {

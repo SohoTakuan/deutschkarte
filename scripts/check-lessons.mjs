@@ -156,6 +156,16 @@ function validateClozeUnambiguity(word, cloze) {
     }
   }
 
+  const formMatch = (word.tr || "").match(/\((kısa biçim|uzun biçim)\)/i);
+  if (formMatch) {
+    const requiredCue = formMatch[1].toLowerCase();
+    if (!trCue.toLowerCase().includes(requiredCue)) {
+      issues.push(
+        `Cloze belirsizliği (${requiredCue}): "${word.singular || word.de}" için örnek cümle çevirisinde ("${trCue}") "${requiredCue}" ipucu yok.`
+      );
+    }
+  }
+
   return issues;
 }
 
