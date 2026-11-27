@@ -1519,10 +1519,18 @@ function decideQuestionType(word) {
     return "choice";
   }
   const box = card.box || 1;
-  if (box === 1 || box === 3) {
+  if (box === 1) {
     return "typing";
   }
-  if (box === 2 || box === 4) {
+  if (box === 2) {
+    return buildClozeForWord(word) ? "cloze" : "typing";
+  }
+  const canPromoteNow =
+    isCardDue(card) || (card.maxBox || 0) >= Math.min(5, box + 1);
+  if (box === 3 && canPromoteNow) {
+    return "typing";
+  }
+  if (box === 4 && canPromoteNow) {
     return buildClozeForWord(word) ? "cloze" : "typing";
   }
   if (buildClozeForWord(word) && Math.random() < 0.5) {
