@@ -436,5 +436,63 @@ export const GRAMMAR_NOTES = [
       de: "Woher kommst du und wo wohnst du jetzt?",
       tr: "Nereden geliyorsun ve şimdi nerede oturuyorsun?"
     }
+  },
+  {
+    id: "note_wer_was",
+    lesson: "Ders 4",
+    level: "A1",
+    badge: "Ders 4 · Soru",
+    title: "Soru Sözcükleri: wer (Kişi) ve was (Nesne / Olay)",
+    summary:
+      "İnsanlar hakkında soru soruluyorsa wer (kim), insanlar dışındaki nesneler, kavramlar veya eylemler hakkında soru soruluyorsa was (ne) soru sözcüğü kullanılır.",
+    table: {
+      headers: ["Soru Sözcüğü", "Kullanım Alanı", "Örnek Soru", "Örnek Cevap"],
+      rows: [
+        ["wer (kim)", "İnsanlar / kişiler için", "Wer ist denn das?", "Das ist Lukas."],
+        ["was (ne)", "Nesneler, kavramlar ve eylemler için", "Was machst du hier?", "Ich trinke einen Tee."]
+      ]
+    },
+    tip: "Kısa kural: Cevapta bir kişi varsa wer, bir eşya, kavram veya eylem varsa was kullanılır.",
+    example: {
+      de: "Wer ist denn das? Und was ist das auf dem Tisch?",
+      tr: "Bu da kim? Ve masanın üzerindeki bu şey ne?"
+    }
+  },
+  {
+    id: "note_grammar_terms",
+    lesson: "Ders 4",
+    level: "A1",
+    badge: "Ders 4 · Terimler",
+    title: "Temel Dil Bilgisi Terimleri: Nomen, Artikel ve Genus",
+    summary:
+      "Almanca isimlerin yapısını ve artikellerini anlamak için üç temel dil bilgisi terimi kullanılır: das Nomen (isim), der Artikel (artikel) ve das Genus (dil bilgisel cinsiyet).",
+    table: {
+      headers: ["Terim", "Diğer Adı / Türler", "Açıklama", "Örnek"],
+      rows: [
+        [
+          "das Nomen",
+          "das Substantiv / das Hauptwort",
+          "Canlıları, eşyaları veya olguları isim olarak tanımlar; Almancada isimler daima büyük harfle başlar.",
+          "das Flugzeug, die Lampe"
+        ],
+        [
+          "der Artikel",
+          "der · die · das",
+          "İsimden önce gelen ve isme eşlik eden sözcüklerdir; ismin dil bilgisel cinsiyetini gösterir.",
+          "der Mann, die Party, das Land"
+        ],
+        [
+          "das Genus",
+          "maskulin · feminin · neutral",
+          "Her ismin belirli bir dil bilgisel cinsiyeti vardır: eril (maskulin -> der), dişil (feminin -> die), nötr (neutral -> das).",
+          "der Kaffee (m) · die Lampe (f) · das Getränk (n)"
+        ]
+      ]
+    },
+    tip: "Dikkat: Almancada dil bilgisel cinsiyet (Genus) biyolojik cinsiyetten bağımsız olabilir; bu yüzden her ismi artikeliyle birlikte ezberlemek gerekir.",
+    example: {
+      de: "Die Lampe ist feminin, das Flugzeug ist neutral.",
+      tr: "Lamba dişil (die), uçak nötr (das) cinsiyettedir."
+    }
   }
 ];
