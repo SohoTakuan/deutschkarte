@@ -88,7 +88,6 @@ let aiTutor = null;
 let lessonSelectCtrl = null;
 let dictLessonSelectCtrl = null;
 let activeDictPopoverTrigger = null;
-let dictPopoverCloseTimer = null;
 
 function toNonNegativeInt(val) {
   const num = Number(val);
@@ -1823,6 +1822,7 @@ function resetRoundTracker() {
 }
 
 function showRoundSummary({ dueComplete = false } = {}) {
+  closeDictExamplePopover();
   runtime.showingRoundSummary = true;
   runtime.showingDueSummary = Boolean(dueComplete);
 
@@ -3290,9 +3290,14 @@ function finalizeTurn(word, isCorrect, details) {
           : runtime.currentCloze.target;
       blankEl.classList.add("is-resolved", isCorrect ? "is-correct" : "is-wrong");
       blankEl.tabIndex = 0;
+      blankEl.setAttribute("role", "button");
+      blankEl.setAttribute("aria-expanded", "false");
+      blankEl.setAttribute("aria-controls", "dict-example-popover");
+      blankEl.setAttribute(
+        "aria-label",
+        `${blankEl.textContent} — Türkçe anlamını göster`
+      );
       blankEl.dataset.wordId = word.id;
-      blankEl.removeAttribute("role");
-      blankEl.removeAttribute("aria-label");
     }
   }
 
@@ -3609,10 +3614,34 @@ function renderFeedback(word, isCorrect, details, mistakeStatusText) {
   const speechReady = isSpeechSupported();
   if (word.example && word.example.de) {
     els.feedbackExampleDe.textContent = word.example.de;
+    const hasChunks =
+      Array.isArray(EXAMPLE_CHUNKS[word.id]) &&
+      EXAMPLE_CHUNKS[word.id].length > 0;
+    if (hasChunks) {
+      els.feedbackExampleDe.classList.add("is-chunk-trigger");
+      els.feedbackExampleDe.tabIndex = 0;
+      els.feedbackExampleDe.setAttribute("role", "button");
+      els.feedbackExampleDe.setAttribute("aria-expanded", "false");
+      els.feedbackExampleDe.setAttribute("aria-controls", "dict-example-popover");
+      els.feedbackExampleDe.dataset.wordId = word.id;
+    } else {
+      els.feedbackExampleDe.classList.remove("is-chunk-trigger");
+      els.feedbackExampleDe.removeAttribute("tabindex");
+      els.feedbackExampleDe.removeAttribute("role");
+      els.feedbackExampleDe.removeAttribute("aria-expanded");
+      els.feedbackExampleDe.removeAttribute("aria-controls");
+      delete els.feedbackExampleDe.dataset.wordId;
+    }
     els.feedbackExampleTr.textContent = word.example.tr || "";
     els.btnSpeakExample.hidden = !speechReady;
     els.feedbackExample.hidden = false;
   } else {
+    els.feedbackExampleDe.classList.remove("is-chunk-trigger");
+    els.feedbackExampleDe.removeAttribute("tabindex");
+    els.feedbackExampleDe.removeAttribute("role");
+    els.feedbackExampleDe.removeAttribute("aria-expanded");
+    els.feedbackExampleDe.removeAttribute("aria-controls");
+    delete els.feedbackExampleDe.dataset.wordId;
     els.feedbackExample.hidden = true;
   }
 
@@ -3726,35 +3755,33 @@ function createSpeakerSvg() {
   return svg;
 }
 
-function clearDictPopoverCloseTimer() {
-  if (dictPopoverCloseTimer !== null) {
-    clearTimeout(dictPopoverCloseTimer);
-    dictPopoverCloseTimer = null;
-  }
-}
-
 function positionDictExamplePopover(triggerEl) {
   const pop = els.dictExamplePopover;
   if (!pop || !triggerEl) return;
 
-  const triggerRect = triggerEl.getBoundingClientRect();
+  pop.style.top = "0px";
+  pop.style.left = "0px";
+
+  const rects = triggerEl.getClientRects();
+  const firstRect = rects.length > 0 ? rects[0] : triggerEl.getBoundingClientRect();
+  const lastRect = rects.length > 0 ? rects[rects.length - 1] : firstRect;
   const popRect = pop.getBoundingClientRect();
   const margin = 12;
   const gap = 8;
 
-  let top = triggerRect.bottom + gap;
+  let top = lastRect.bottom + gap;
   if (
     top + popRect.height > window.innerHeight - margin &&
-    triggerRect.top - popRect.height - gap >= margin
+    firstRect.top - popRect.height - gap >= margin
   ) {
-    top = triggerRect.top - popRect.height - gap;
+    top = firstRect.top - popRect.height - gap;
   }
   top = Math.max(
     margin,
     Math.min(top, window.innerHeight - popRect.height - margin)
   );
 
-  let left = triggerRect.left;
+  let left = firstRect.left;
   left = Math.max(
     margin,
     Math.min(left, window.innerWidth - popRect.width - margin)
@@ -3765,41 +3792,61 @@ function positionDictExamplePopover(triggerEl) {
 }
 
 function closeDictExamplePopover() {
-  clearDictPopoverCloseTimer();
   if (activeDictPopoverTrigger) {
     activeDictPopoverTrigger.classList.remove("is-popover-open");
-    activeDictPopoverTrigger.removeAttribute("aria-describedby");
+    activeDictPopoverTrigger.setAttribute("aria-expanded", "false");
     activeDictPopoverTrigger = null;
   }
   if (els.dictExamplePopover) {
     els.dictExamplePopover.hidden = true;
+    els.dictExamplePopover.style.top = "";
+    els.dictExamplePopover.style.left = "";
     els.dictExamplePopover.replaceChildren();
   }
-}
-
-function scheduleCloseDictExamplePopover() {
-  clearDictPopoverCloseTimer();
-  dictPopoverCloseTimer = setTimeout(() => {
-    closeDictExamplePopover();
-  }, 140);
 }
 
 function preparePopoverTrigger(triggerEl) {
   const pop = els.dictExamplePopover;
   if (!pop || !triggerEl) return null;
 
-  clearDictPopoverCloseTimer();
-
   if (activeDictPopoverTrigger && activeDictPopoverTrigger !== triggerEl) {
     activeDictPopoverTrigger.classList.remove("is-popover-open");
-    activeDictPopoverTrigger.removeAttribute("aria-describedby");
+    activeDictPopoverTrigger.setAttribute("aria-expanded", "false");
   }
 
   activeDictPopoverTrigger = triggerEl;
   triggerEl.classList.add("is-popover-open");
-  triggerEl.setAttribute("aria-describedby", "dict-example-popover");
+  triggerEl.setAttribute("aria-expanded", "true");
   pop.replaceChildren();
   return pop;
+}
+
+function appendChunkTiles(pop, wordId) {
+  const chunks = EXAMPLE_CHUNKS[wordId];
+  if (!Array.isArray(chunks) || chunks.length === 0) return false;
+
+  const chunksWrap = document.createElement("div");
+  chunksWrap.className = "dict-popover-chunks";
+
+  for (const [deChunk, trChunk] of chunks) {
+    const tile = document.createElement("div");
+    tile.className = "dict-chunk";
+
+    const deSpan = document.createElement("span");
+    deSpan.className = "dict-chunk-de";
+    deSpan.textContent = deChunk;
+
+    const trSpan = document.createElement("span");
+    trSpan.className = "dict-chunk-tr";
+    trSpan.textContent = trChunk;
+
+    tile.appendChild(deSpan);
+    tile.appendChild(trSpan);
+    chunksWrap.appendChild(tile);
+  }
+
+  pop.appendChild(chunksWrap);
+  return true;
 }
 
 function openDictExamplePopover(triggerEl, word) {
@@ -3812,33 +3859,11 @@ function openDictExamplePopover(triggerEl, word) {
   trEl.textContent = word.example.tr;
   pop.appendChild(trEl);
 
-  const chunks = EXAMPLE_CHUNKS[word.id];
-  if (Array.isArray(chunks) && chunks.length > 0) {
-    const chunksWrap = document.createElement("div");
-    chunksWrap.className = "dict-popover-chunks";
-
-    for (const [deChunk, trChunk] of chunks) {
-      const tile = document.createElement("div");
-      tile.className = "dict-chunk";
-
-      const deSpan = document.createElement("span");
-      deSpan.className = "dict-chunk-de";
-      deSpan.textContent = deChunk;
-
-      const trSpan = document.createElement("span");
-      trSpan.className = "dict-chunk-tr";
-      trSpan.textContent = trChunk;
-
-      tile.appendChild(deSpan);
-      tile.appendChild(trSpan);
-      chunksWrap.appendChild(tile);
-    }
-
-    pop.appendChild(chunksWrap);
-  }
+  appendChunkTiles(pop, word.id);
 
   pop.hidden = false;
   positionDictExamplePopover(triggerEl);
+  announce(word.example.tr);
 }
 
 function openClozeMeaningPopover(triggerEl, word) {
@@ -3860,6 +3885,20 @@ function openClozeMeaningPopover(triggerEl, word) {
 
   pop.hidden = false;
   positionDictExamplePopover(triggerEl);
+  announce(word.hint ? `${word.tr} (${word.hint})` : word.tr);
+}
+
+function openFeedbackChunksPopover(triggerEl, word) {
+  const chunks = EXAMPLE_CHUNKS[word?.id];
+  if (!Array.isArray(chunks) || chunks.length === 0) return;
+  const pop = preparePopoverTrigger(triggerEl);
+  if (!pop) return;
+
+  appendChunkTiles(pop, word.id);
+
+  pop.hidden = false;
+  positionDictExamplePopover(triggerEl);
+  announce(chunks.map(([de, tr]) => `${de}: ${tr}`).join(", "));
 }
 
 function renderDictionary() {
@@ -3940,6 +3979,9 @@ function renderDictionary() {
         const trigger = document.createElement("span");
         trigger.className = "dict-example-trigger";
         trigger.tabIndex = 0;
+        trigger.setAttribute("role", "button");
+        trigger.setAttribute("aria-expanded", "false");
+        trigger.setAttribute("aria-controls", "dict-example-popover");
         trigger.dataset.wordId = word.id;
         trigger.textContent = word.example.de;
         exEl.appendChild(trigger);
@@ -5542,7 +5584,9 @@ function bindEvents() {
       !els.dictExamplePopover.hidden &&
       e.target instanceof Element &&
       !els.dictExamplePopover.contains(e.target) &&
-      !e.target.closest(".dict-example-trigger, .cloze-blank.is-resolved")
+      !e.target.closest(
+        ".dict-example-trigger, .cloze-blank.is-resolved, #feedback-example-de.is-chunk-trigger"
+      )
     ) {
       closeDictExamplePopover();
     }
@@ -5731,47 +5775,12 @@ function bindEvents() {
     renderDictionary();
   });
 
-  function bindPopoverTriggers(containerEl, selector, openFn) {
+  function bindClickPopoverTriggers(containerEl, selector, openFn) {
     if (!containerEl) return;
 
-    const openForTarget = (target) => {
+    const toggleForTarget = (target) => {
       if (!(target instanceof Element)) return;
       const trigger = target.closest(selector);
-      if (!trigger) return;
-      const word = WORD_BY_ID.get(trigger.dataset.wordId);
-      if (word) {
-        openFn(trigger, word);
-      }
-    };
-
-    containerEl.addEventListener("mouseover", (e) => openForTarget(e.target));
-    containerEl.addEventListener("mouseout", (e) => {
-      if (!(e.target instanceof Element)) return;
-      const trigger = e.target.closest(selector);
-      if (!trigger) return;
-      const next = e.relatedTarget;
-      if (
-        next instanceof Node &&
-        (trigger.contains(next) || els.dictExamplePopover?.contains(next))
-      ) {
-        return;
-      }
-      scheduleCloseDictExamplePopover();
-    });
-    containerEl.addEventListener("focusin", (e) => openForTarget(e.target));
-    containerEl.addEventListener("focusout", (e) => {
-      if (!(e.target instanceof Element)) return;
-      const trigger = e.target.closest(selector);
-      if (!trigger) return;
-      const next = e.relatedTarget;
-      if (next instanceof Node && els.dictExamplePopover?.contains(next)) {
-        return;
-      }
-      scheduleCloseDictExamplePopover();
-    });
-    containerEl.addEventListener("click", (e) => {
-      if (!(e.target instanceof Element)) return;
-      const trigger = e.target.closest(selector);
       if (!trigger) return;
       if (
         activeDictPopoverTrigger === trigger &&
@@ -5780,29 +5789,41 @@ function bindEvents() {
       ) {
         closeDictExamplePopover();
       } else {
-        openForTarget(trigger);
+        const word = WORD_BY_ID.get(trigger.dataset.wordId);
+        if (word) {
+          openFn(trigger, word);
+        }
       }
+    };
+
+    containerEl.addEventListener("click", (e) => toggleForTarget(e.target));
+    containerEl.addEventListener("keydown", (e) => {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (!(e.target instanceof Element)) return;
+      const trigger = e.target.closest(selector);
+      if (!trigger) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleForTarget(trigger);
     });
   }
 
-  bindPopoverTriggers(
+  bindClickPopoverTriggers(
     els.dictList,
     ".dict-example-trigger",
     openDictExamplePopover
   );
-  bindPopoverTriggers(
+  bindClickPopoverTriggers(
     els.promptTr,
     ".cloze-blank.is-resolved",
     openClozeMeaningPopover
   );
-
-  els.dictExamplePopover?.addEventListener("mouseenter", () => {
-    clearDictPopoverCloseTimer();
-  });
-
-  els.dictExamplePopover?.addEventListener("mouseleave", () => {
-    scheduleCloseDictExamplePopover();
-  });
+  bindClickPopoverTriggers(
+    els.feedbackExample,
+    "#feedback-example-de.is-chunk-trigger",
+    openFeedbackChunksPopover
+  );
 
   window.addEventListener(
     "scroll",
@@ -5824,6 +5845,8 @@ function bindEvents() {
     }
   });
 
+  document.getElementById("ai-fab")?.addEventListener("click", closeDictExamplePopover);
+
   els.toggleTheme?.addEventListener("click", () => {
     const nextTheme =
       document.documentElement.dataset.theme === "dark" ? "light" : "dark";
@@ -5836,6 +5859,7 @@ function bindEvents() {
   });
 
   els.openBackup?.addEventListener("click", () => {
+    closeDictExamplePopover();
     if (els.backupStatus) els.backupStatus.hidden = true;
     if (els.syncStatus) els.syncStatus.hidden = true;
     switchBackupModalTab("progress");
@@ -6018,6 +6042,10 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (e) => {
+    if (els.backupDialog.open || aiTutor?.isOpen()) {
+      return;
+    }
+
     if (
       e.key === "Escape" &&
       els.practiceModeTray &&
@@ -6032,7 +6060,12 @@ function bindEvents() {
     if (e.key === "Escape") {
       if (els.dictExamplePopover && !els.dictExamplePopover.hidden) {
         e.preventDefault();
+        e.stopPropagation();
+        const trigger = activeDictPopoverTrigger;
         closeDictExamplePopover();
+        if (trigger?.isConnected && !trigger.hidden) {
+          trigger.focus();
+        }
         return;
       }
       if (els.dictTypeTray && !els.dictTypeTray.hidden) {
@@ -6053,10 +6086,6 @@ function bindEvents() {
         els.btnConjGroupToggle?.focus();
         return;
       }
-    }
-
-    if (els.backupDialog.open || aiTutor?.isOpen()) {
-      return;
     }
 
     if (runtime.activeTab === "grammar") {

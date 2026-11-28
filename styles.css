@@ -1665,19 +1665,40 @@ button {
 }
 
 .example-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: block;
   min-width: 0;
 }
 
 .example-de {
+  display: block;
   font-weight: 700;
   font-size: 0.9375rem;
   color: var(--ink);
 }
 
+.example-de.is-chunk-trigger {
+  display: inline;
+  cursor: pointer;
+  border-bottom: 1px dashed var(--rule-strong);
+  padding-bottom: 1px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.example-de.is-chunk-trigger:hover,
+.example-de.is-chunk-trigger:focus-visible,
+.example-de.is-chunk-trigger.is-popover-open {
+  border-bottom-color: var(--ink);
+}
+
+.example-de.is-chunk-trigger:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 .example-tr {
+  display: block;
+  margin-top: 2px;
   font-size: 0.875rem;
   color: var(--ink-muted);
 }
@@ -2294,6 +2315,9 @@ button {
   position: fixed;
   z-index: 60;
   max-width: min(440px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background-color: var(--card);
   border: 1px solid var(--rule-strong);
   border-radius: var(--radius-card);
@@ -2326,6 +2350,12 @@ button {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--rule);
+}
+
+.dict-popover-chunks:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .dict-chunk {
@@ -4013,6 +4043,12 @@ button {
     align-items: flex-start;
   }
 
+  .dict-example-trigger,
+  .example-de.is-chunk-trigger {
+    padding-block: 3px;
+    line-height: 1.55;
+  }
+
   .coach-form {
     flex-direction: column;
   }
@@ -4046,6 +4082,7 @@ button {
   .custom-select-chevron,
   .practice-toggle-chevron,
   .dict-example-trigger,
+  .example-de.is-chunk-trigger,
   .pref-check input[type="checkbox"],
   .pref-check input[type="checkbox"]::after {
     transition: none;
