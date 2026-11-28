@@ -1679,15 +1679,7 @@ button {
 .example-de.is-chunk-trigger {
   display: inline;
   cursor: pointer;
-  border-bottom: 1px dashed var(--rule-strong);
-  padding-bottom: 1px;
-  transition: color 120ms ease, border-color 120ms ease;
-}
-
-.example-de.is-chunk-trigger:hover,
-.example-de.is-chunk-trigger:focus-visible,
-.example-de.is-chunk-trigger.is-popover-open {
-  border-bottom-color: var(--ink);
+  transition: color 120ms ease;
 }
 
 .example-de.is-chunk-trigger:focus-visible {
@@ -2293,16 +2285,13 @@ button {
 .dict-example-trigger {
   display: inline;
   cursor: pointer;
-  border-bottom: 1px dashed var(--rule-strong);
-  padding-bottom: 1px;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition: color 120ms ease;
 }
 
 .dict-example-trigger:hover,
 .dict-example-trigger:focus-visible,
 .dict-example-trigger.is-popover-open {
   color: var(--ink);
-  border-bottom-color: var(--ink);
 }
 
 .dict-example-trigger:focus-visible {
