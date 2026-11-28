@@ -1,4 +1,5 @@
 import { LESSONS, ALL_WORDS } from "../data/index.js";
+import { EXAMPLE_CHUNKS } from "../data/example-chunks.js";
 
 const VALID_ARTICLES = new Set(["der", "die", "das"]);
 
@@ -226,6 +227,39 @@ function validateLessons() {
           errors.push(`[${item.id}] ${issue}`);
         }
       }
+
+      if (item.example?.de) {
+        const chunks = EXAMPLE_CHUNKS[item.id];
+        if (!Array.isArray(chunks) || chunks.length === 0) {
+          errors.push(
+            `[${item.id}] example.de için EXAMPLE_CHUNKS kaydı eksik veya boş.`
+          );
+        } else {
+          for (const pair of chunks) {
+            if (
+              !Array.isArray(pair) ||
+              pair.length !== 2 ||
+              typeof pair[0] !== "string" ||
+              typeof pair[1] !== "string" ||
+              !pair[0].trim() ||
+              !pair[1].trim()
+            ) {
+              errors.push(
+                `[${item.id}] Geçersiz EXAMPLE_CHUNKS çifti: [de, tr] metin çifti olmalı.`
+              );
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  for (const chunkId of Object.keys(EXAMPLE_CHUNKS)) {
+    if (!seenIds.has(chunkId)) {
+      errors.push(
+        `[${chunkId}] EXAMPLE_CHUNKS içinde karşılığı olmayan (yetim) öğe kimliği.`
+      );
     }
   }
 
@@ -237,7 +271,9 @@ function validateLessons() {
     process.exit(1);
   }
 
-  console.log(`OK: ${LESSONS.length} ders, ${ALL_WORDS.length} kelime doğrulandı — 0 hata.`);
+  console.log(
+    `OK: ${LESSONS.length} ders, ${ALL_WORDS.length} kelime ve ${Object.keys(EXAMPLE_CHUNKS).length} örnek cümle kalıbı doğrulandı — 0 hata.`
+  );
 }
 
 validateLessons();

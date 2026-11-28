@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deutschkarte-v68";
+const CACHE_VERSION = "deutschkarte-v69";
 
 const PRECACHE_URLS = [
   "./",
@@ -18,6 +18,7 @@ const PRECACHE_URLS = [
   "./data/lesson_03.js",
   "./data/lesson_04.js",
   "./data/grammar.js",
+  "./data/example-chunks.js",
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png"

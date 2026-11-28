@@ -10,6 +10,7 @@ import {
   GRAMMAR_NOTES,
   PRONOUN_SLOTS
 } from "./data/grammar.js";
+import { EXAMPLE_CHUNKS } from "./data/example-chunks.js";
 import {
   clearSyncConfig,
   loadSyncConfig,
@@ -86,6 +87,8 @@ const MAX_IMPORT_BYTES = 1024 * 1024;
 let aiTutor = null;
 let lessonSelectCtrl = null;
 let dictLessonSelectCtrl = null;
+let activeDictPopoverTrigger = null;
+let dictPopoverCloseTimer = null;
 
 function toNonNegativeInt(val) {
   const num = Number(val);
@@ -601,6 +604,7 @@ const els = {
   dictEmpty: document.getElementById("dict-empty"),
   dictEmptyText: document.getElementById("dict-empty-text"),
   dictClearFilters: document.getElementById("dict-clear-filters"),
+  dictExamplePopover: document.getElementById("dict-example-popover"),
 
   openBackup: document.getElementById("open-backup"),
   toggleTheme: document.getElementById("toggle-theme"),
@@ -3719,7 +3723,117 @@ function createSpeakerSvg() {
   return svg;
 }
 
+function clearDictPopoverCloseTimer() {
+  if (dictPopoverCloseTimer !== null) {
+    clearTimeout(dictPopoverCloseTimer);
+    dictPopoverCloseTimer = null;
+  }
+}
+
+function positionDictExamplePopover(triggerEl) {
+  const pop = els.dictExamplePopover;
+  if (!pop || !triggerEl) return;
+
+  const triggerRect = triggerEl.getBoundingClientRect();
+  const popRect = pop.getBoundingClientRect();
+  const margin = 12;
+  const gap = 8;
+
+  let top = triggerRect.bottom + gap;
+  if (
+    top + popRect.height > window.innerHeight - margin &&
+    triggerRect.top - popRect.height - gap >= margin
+  ) {
+    top = triggerRect.top - popRect.height - gap;
+  }
+  top = Math.max(
+    margin,
+    Math.min(top, window.innerHeight - popRect.height - margin)
+  );
+
+  let left = triggerRect.left;
+  left = Math.max(
+    margin,
+    Math.min(left, window.innerWidth - popRect.width - margin)
+  );
+
+  pop.style.top = `${Math.round(top)}px`;
+  pop.style.left = `${Math.round(left)}px`;
+}
+
+function closeDictExamplePopover() {
+  clearDictPopoverCloseTimer();
+  if (activeDictPopoverTrigger) {
+    activeDictPopoverTrigger.classList.remove("is-popover-open");
+    activeDictPopoverTrigger.removeAttribute("aria-describedby");
+    activeDictPopoverTrigger = null;
+  }
+  if (els.dictExamplePopover) {
+    els.dictExamplePopover.hidden = true;
+    els.dictExamplePopover.replaceChildren();
+  }
+}
+
+function scheduleCloseDictExamplePopover() {
+  clearDictPopoverCloseTimer();
+  dictPopoverCloseTimer = setTimeout(() => {
+    closeDictExamplePopover();
+  }, 140);
+}
+
+function openDictExamplePopover(triggerEl, word) {
+  const pop = els.dictExamplePopover;
+  if (!pop || !triggerEl || !word?.example?.tr) return;
+
+  clearDictPopoverCloseTimer();
+
+  if (activeDictPopoverTrigger && activeDictPopoverTrigger !== triggerEl) {
+    activeDictPopoverTrigger.classList.remove("is-popover-open");
+    activeDictPopoverTrigger.removeAttribute("aria-describedby");
+  }
+
+  activeDictPopoverTrigger = triggerEl;
+  triggerEl.classList.add("is-popover-open");
+  triggerEl.setAttribute("aria-describedby", "dict-example-popover");
+
+  pop.replaceChildren();
+
+  const trEl = document.createElement("div");
+  trEl.className = "dict-popover-tr";
+  trEl.textContent = word.example.tr;
+  pop.appendChild(trEl);
+
+  const chunks = EXAMPLE_CHUNKS[word.id];
+  if (Array.isArray(chunks) && chunks.length > 0) {
+    const chunksWrap = document.createElement("div");
+    chunksWrap.className = "dict-popover-chunks";
+
+    for (const [deChunk, trChunk] of chunks) {
+      const tile = document.createElement("div");
+      tile.className = "dict-chunk";
+
+      const deSpan = document.createElement("span");
+      deSpan.className = "dict-chunk-de";
+      deSpan.textContent = deChunk;
+
+      const trSpan = document.createElement("span");
+      trSpan.className = "dict-chunk-tr";
+      trSpan.textContent = trChunk;
+
+      tile.appendChild(deSpan);
+      tile.appendChild(trSpan);
+      chunksWrap.appendChild(tile);
+    }
+
+    pop.appendChild(chunksWrap);
+  }
+
+  pop.hidden = false;
+  positionDictExamplePopover(triggerEl);
+}
+
 function renderDictionary() {
+  closeDictExamplePopover();
   if (els.dictHiddenBadge) {
     const hiddenCount = getHiddenCount();
     els.dictHiddenBadge.textContent = String(hiddenCount);
@@ -3792,7 +3906,16 @@ function renderDictionary() {
     if (word.example?.de) {
       const exEl = document.createElement("div");
       exEl.className = "dict-example";
-      exEl.textContent = word.example.de;
+      if (word.example?.tr) {
+        const trigger = document.createElement("span");
+        trigger.className = "dict-example-trigger";
+        trigger.tabIndex = 0;
+        trigger.dataset.wordId = word.id;
+        trigger.textContent = word.example.de;
+        exEl.appendChild(trigger);
+      } else {
+        exEl.textContent = word.example.de;
+      }
       main.appendChild(exEl);
     }
 
@@ -5256,6 +5379,10 @@ function switchTab(tabName) {
   if (els.grammarView) els.grammarView.hidden = !isGrammar;
   els.dictionaryView.hidden = !isDict;
 
+  if (!isDict) {
+    closeDictExamplePopover();
+  }
+
   if (isDict) {
     renderDictionary();
   } else if (isGrammar) {
@@ -5381,6 +5508,15 @@ function bindEvents() {
       !els.conjGroupShelf.contains(e.target)
     ) {
       setConjGroupShelfOpen(false);
+    }
+    if (
+      els.dictExamplePopover &&
+      !els.dictExamplePopover.hidden &&
+      e.target instanceof Element &&
+      !els.dictExamplePopover.contains(e.target) &&
+      !e.target.closest(".dict-example-trigger")
+    ) {
+      closeDictExamplePopover();
     }
   });
 
@@ -5565,6 +5701,97 @@ function bindEvents() {
     syncDictFilterUI();
     setDictShelfOpen(null, false);
     renderDictionary();
+  });
+
+  els.dictList?.addEventListener("mouseover", (e) => {
+    if (!(e.target instanceof Element)) return;
+    const trigger = e.target.closest(".dict-example-trigger");
+    if (!trigger) return;
+    const word = WORD_BY_ID.get(trigger.dataset.wordId);
+    if (word) {
+      openDictExamplePopover(trigger, word);
+    }
+  });
+
+  els.dictList?.addEventListener("mouseout", (e) => {
+    if (!(e.target instanceof Element)) return;
+    const trigger = e.target.closest(".dict-example-trigger");
+    if (!trigger) return;
+    const next = e.relatedTarget;
+    if (
+      next instanceof Node &&
+      (trigger.contains(next) || els.dictExamplePopover?.contains(next))
+    ) {
+      return;
+    }
+    scheduleCloseDictExamplePopover();
+  });
+
+  els.dictList?.addEventListener("focusin", (e) => {
+    if (!(e.target instanceof Element)) return;
+    const trigger = e.target.closest(".dict-example-trigger");
+    if (!trigger) return;
+    const word = WORD_BY_ID.get(trigger.dataset.wordId);
+    if (word) {
+      openDictExamplePopover(trigger, word);
+    }
+  });
+
+  els.dictList?.addEventListener("focusout", (e) => {
+    if (!(e.target instanceof Element)) return;
+    const trigger = e.target.closest(".dict-example-trigger");
+    if (!trigger) return;
+    const next = e.relatedTarget;
+    if (next instanceof Node && els.dictExamplePopover?.contains(next)) {
+      return;
+    }
+    scheduleCloseDictExamplePopover();
+  });
+
+  els.dictList?.addEventListener("click", (e) => {
+    if (!(e.target instanceof Element)) return;
+    const trigger = e.target.closest(".dict-example-trigger");
+    if (!trigger) return;
+    if (
+      activeDictPopoverTrigger === trigger &&
+      els.dictExamplePopover &&
+      !els.dictExamplePopover.hidden
+    ) {
+      closeDictExamplePopover();
+    } else {
+      const word = WORD_BY_ID.get(trigger.dataset.wordId);
+      if (word) {
+        openDictExamplePopover(trigger, word);
+      }
+    }
+  });
+
+  els.dictExamplePopover?.addEventListener("mouseenter", () => {
+    clearDictPopoverCloseTimer();
+  });
+
+  els.dictExamplePopover?.addEventListener("mouseleave", () => {
+    scheduleCloseDictExamplePopover();
+  });
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (els.dictExamplePopover && !els.dictExamplePopover.hidden) {
+        closeDictExamplePopover();
+      }
+    },
+    { passive: true }
+  );
+
+  window.addEventListener("resize", () => {
+    if (
+      activeDictPopoverTrigger &&
+      els.dictExamplePopover &&
+      !els.dictExamplePopover.hidden
+    ) {
+      positionDictExamplePopover(activeDictPopoverTrigger);
+    }
   });
 
   els.toggleTheme?.addEventListener("click", () => {
@@ -5773,6 +6000,11 @@ function bindEvents() {
     }
 
     if (e.key === "Escape") {
+      if (els.dictExamplePopover && !els.dictExamplePopover.hidden) {
+        e.preventDefault();
+        closeDictExamplePopover();
+        return;
+      }
       if (els.dictTypeTray && !els.dictTypeTray.hidden) {
         e.preventDefault();
         setDictShelfOpen(null, false);
