@@ -441,7 +441,7 @@ export const GRAMMAR_NOTES = [
     id: "note_wer_was",
     lesson: "Ders 4",
     level: "A1",
-    badge: "Ders 4 · Soru",
+    badge: "Soru",
     title: "Soru Sözcükleri: wer (Kişi) ve was (Nesne / Olay)",
     summary:
       "İnsanlar hakkında soru soruluyorsa wer (kim), insanlar dışındaki nesneler, kavramlar veya eylemler hakkında soru soruluyorsa was (ne) soru sözcüğü kullanılır.",
@@ -462,7 +462,7 @@ export const GRAMMAR_NOTES = [
     id: "note_grammar_terms",
     lesson: "Ders 4",
     level: "A1",
-    badge: "Ders 4 · Terimler",
+    badge: "Terimler",
     title: "Temel Dil Bilgisi Terimleri: Nomen, Artikel ve Genus",
     summary:
       "Almanca isimlerin yapısını ve artikellerini anlamak için üç temel dil bilgisi terimi kullanılır: das Nomen (isim), der Artikel (artikel) ve das Genus (dil bilgisel cinsiyet).",

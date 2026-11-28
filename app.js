@@ -425,6 +425,7 @@ const runtime = {
   dictLesson: "all",
   dictQuery: "",
   grammarSubTab: "drill",
+  grammarNoteLesson: "all",
   grammarInitialized: false,
   grammarNotesRendered: false,
   conjGroup: "all",
@@ -484,6 +485,7 @@ const els = {
   conjSpeakExample: document.getElementById("conj-speak-example"),
   conjNext: document.getElementById("conj-next"),
   conjSpeak: document.getElementById("conj-speak"),
+  grammarNotesFilters: document.getElementById("grammar-notes-filters"),
   grammarNotesList: document.getElementById("grammar-notes-list"),
   modeBtns: Array.from(document.querySelectorAll(".mode-btn[data-mode]")),
   practiceModeShelf: document.getElementById("practice-mode-shelf"),
@@ -5064,15 +5066,68 @@ function finalizeConjugation(isCorrect, customTip) {
   }
 }
 
+function getFilteredGrammarNotes() {
+  if (!runtime.grammarNoteLesson || runtime.grammarNoteLesson === "all") {
+    return GRAMMAR_NOTES;
+  }
+  return GRAMMAR_NOTES.filter(
+    (note) => note.lesson === runtime.grammarNoteLesson
+  );
+}
+
+function renderGrammarNoteFilters() {
+  if (!els.grammarNotesFilters) {
+    return;
+  }
+  const lessons = [];
+  for (const note of GRAMMAR_NOTES) {
+    if (note.lesson && !lessons.includes(note.lesson)) {
+      lessons.push(note.lesson);
+    }
+  }
+  if (
+    runtime.grammarNoteLesson !== "all" &&
+    !lessons.includes(runtime.grammarNoteLesson)
+  ) {
+    runtime.grammarNoteLesson = "all";
+  }
+
+  els.grammarNotesFilters.innerHTML = "";
+  const options = [
+    { value: "all", label: "Tümü" },
+    ...lessons.map((lesson) => ({ value: lesson, label: lesson }))
+  ];
+
+  for (const opt of options) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    const isActive = runtime.grammarNoteLesson === opt.value;
+    btn.className = isActive ? "filter-chip is-active" : "filter-chip";
+    btn.setAttribute("aria-pressed", String(isActive));
+    btn.textContent = opt.label;
+    btn.addEventListener("click", () => {
+      if (runtime.grammarNoteLesson === opt.value) {
+        return;
+      }
+      runtime.grammarNoteLesson = opt.value;
+      renderGrammarNotes();
+      aiTutor?.refreshContext();
+    });
+    els.grammarNotesFilters.appendChild(btn);
+  }
+}
+
 function renderGrammarNotes() {
   if (!els.grammarNotesList) {
     return;
   }
+  renderGrammarNoteFilters();
   els.grammarNotesList.innerHTML = "";
   const speechReady = isSpeechSupported();
   const fragment = document.createDocumentFragment();
+  const visibleNotes = getFilteredGrammarNotes();
 
-  for (const note of GRAMMAR_NOTES) {
+  for (const note of visibleNotes) {
     const card = document.createElement("article");
     card.className = "grammar-note-card";
 
@@ -5085,7 +5140,9 @@ function renderGrammarNotes() {
 
     const badge = document.createElement("span");
     badge.className = "grammar-note-badge";
-    badge.textContent = `${note.level} · ${note.badge}`;
+    badge.textContent = note.lesson
+      ? `${note.level} · ${note.lesson} · ${note.badge}`
+      : `${note.level} · ${note.badge}`;
 
     head.appendChild(title);
     head.appendChild(badge);
@@ -5902,16 +5959,21 @@ function registerServiceWorker() {
 function buildAiScreenContext() {
   if (runtime.activeTab === "grammar") {
     if (runtime.grammarSubTab === "notes") {
-      const noteSummaries = GRAMMAR_NOTES.map(
-        (n, idx) =>
-          `${idx + 1}. ${n.title} (${n.badge}): ${n.summary}${n.tip ? ` İpucu: ${n.tip}` : ""}`
-      ).join("\n");
+      const visibleNotes = getFilteredGrammarNotes();
+      const scopeLabel =
+        runtime.grammarNoteLesson === "all" ? "Tümü" : runtime.grammarNoteLesson;
+      const noteSummaries = visibleNotes
+        .map(
+          (n, idx) =>
+            `${idx + 1}. ${n.title} (${n.lesson ? `${n.lesson} · ` : ""}${n.badge}): ${n.summary}${n.tip ? ` İpucu: ${n.tip}` : ""}`
+        )
+        .join("\n");
       return {
         tab: "grammar",
         subTab: "notes",
         answered: true,
-        label: "Ders Notları ve Tablolar",
-        summary: `Sekme: Çekim ve Notlar -> Ders Notları ve Tablolar\nEkrandaki not başlıkları:\n${noteSummaries}`
+        label: `Ders Notları ve Tablolar (${scopeLabel})`,
+        summary: `Sekme: Çekim ve Notlar -> Ders Notları ve Tablolar (${scopeLabel})\nEkrandaki not başlıkları:\n${noteSummaries}`
       };
     }
 

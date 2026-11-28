@@ -3276,6 +3276,10 @@ button {
   color: var(--ink-muted);
 }
 
+.grammar-notes-filters {
+  margin: 10px 0 0;
+}
+
 .grammar-notes-list {
   display: flex;
   flex-direction: column;
