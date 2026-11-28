@@ -415,29 +415,6 @@ export const GRAMMAR_NOTES = [
     }
   },
   {
-    id: "note_pronouns_questions",
-    lesson: "Ders 2",
-    level: "A1",
-    badge: "Zamir & Soru",
-    title: "Şahıs Zamirleri (Personalpronomen) ve W-Soruları",
-    summary:
-      "Almancada üç farklı 'o' (er/sie/es) ve samimi (du/ihr) ile resmi (Sie) ayrımı vardır. Tanışma cümlelerinde W-soru kelimeleri her zaman cümle başında yer alır.",
-    table: {
-      headers: ["İfade", "Kategori", "Anlam ve Kullanım"],
-      rows: [
-        ["er / sie / es", "3. Tekil Zamir", "er (eril: der Mann) · sie (dişil: die Frau) · es (nötr: das Auto)"],
-        ["Sie", "Resmi Hitap", "Cümle ortasında daima büyük yazılır; fiili -en alır (Wo wohnen Sie?)"],
-        ["wer / was / wie", "Soru Kelimesi", "wer = kim · was = ne · wie = nasıl (Wie heißen Sie?)"],
-        ["wo / woher", "Yer vs. Köken", "wo = nerede (Wo wohnst du?) · woher = nereden (Woher kommst du?)"]
-      ]
-    },
-    tip: "Sık karışan nokta: wo 'nerede', woher 'nereden' demektir (Ich wohne in Sevilla / Ich komme aus Spanien).",
-    example: {
-      de: "Woher kommst du und wo wohnst du jetzt?",
-      tr: "Nereden geliyorsun ve şimdi nerede oturuyorsun?"
-    }
-  },
-  {
     id: "note_wer_was",
     lesson: "Ders 4",
     level: "A1",
